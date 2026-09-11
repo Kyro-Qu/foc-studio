@@ -65,6 +65,13 @@
 
 顺序注意：**必须先 `calib full`**，否则闭环报 `fault=6 NOT_CALIBRATED`。
 
+### 旋转中链路（tools/test-spin-telem.ps1）
+
+| 项 | 结果 |
+|----|------|
+| VF 200rpm 时 JustFloat | PASS（181 tail / 12308 B） |
+| 旋转中遥测下发 `status` | PASS |
+
 ## 注意
 
 1. **先 `log 0` 再发 CLI**，否则遥测二进制会混进命令解析（实测 `version` 被污染成 `unknown`）。  
