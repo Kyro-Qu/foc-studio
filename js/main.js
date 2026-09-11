@@ -14,6 +14,7 @@ import { TriggerEngine, TriggerMode } from "./ui/trigger.js";
 import { measureChannel } from "./ui/measure.js";
 import { ScopeLegend } from "./ui/legend.js";
 import { TuningPanel } from "./ui/tuning.js";
+import { t, getLang, setLang, applyI18n } from "./i18n.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -120,6 +121,18 @@ function setConnStatus(text, cls) {
   const el = $("conn-status");
   el.textContent = text;
   el.className = `status-pill ${cls}`;
+}
+
+const STATUS_KEYS = {
+  off: "status.off",
+  busy: "status.connecting",
+  ok: "status.connected",
+  err: "status.error",
+  sim: "status.sim",
+};
+
+function setStatusKey(key, cls) {
+  setConnStatus(t(key), cls);
 }
 
 function applyModeUI() {
@@ -401,14 +414,14 @@ async function switchMode(next) {
     scope.setSampleRate(rate);
     sim = new SimulationSource({ rateHz: rate, onFrame: onSample });
     sim.start(rate);
-    setConnStatus(rate >= 5000 ? "SIM STRESS" : "SIMULATION", "sim");
-    terminal.appendText(`[sys] simulation @ ${rate} Hz\n`, "sys");
+    setStatusKey(rate >= 5000 ? "status.stress" : "status.sim", "sim");
+    terminal.appendText(t("sys.sim", { rate }), "sys");
   } else if (state.mode === "replay") {
-    setConnStatus("REPLAY", "sim");
-    terminal.appendText("[sys] replay mode — 在 Record 页加载 CSV 后点 Replay\n", "sys");
+    setStatusKey("status.replay", "sim");
+    terminal.appendText(t("sys.replay"), "sys");
   } else {
-    setConnStatus("DISCONNECTED", "off");
-    terminal.appendText("[sys] serial mode\n", "sys");
+    setStatusKey("status.off", "off");
+    terminal.appendText(t("sys.serial"), "sys");
   }
   applyModeUI();
 }
@@ -459,14 +472,15 @@ $("btn-estop").addEventListener("click", async () => {
 serial.onState = (s) => {
   if (state.mode !== "serial") return;
   const map = {
-    [SerialState.DISCONNECTED]: ["DISCONNECTED", "off"],
-    [SerialState.CONNECTING]: ["CONNECTING…", "busy"],
-    [SerialState.CONNECTED]: ["CONNECTED", "ok"],
-    [SerialState.READING]: ["CONNECTED", "ok"],
-    [SerialState.ERROR]: ["ERROR", "err"],
+    [SerialState.DISCONNECTED]: ["status.off", "off"],
+    [SerialState.CONNECTING]: ["status.connecting", "busy"],
+    [SerialState.CONNECTED]: ["status.connected", "ok"],
+    [SerialState.READING]: ["status.connected", "ok"],
+    [SerialState.DISCONNECTING]: ["status.disconnecting", "busy"],
+    [SerialState.ERROR]: ["status.error", "err"],
   };
-  const [text, cls] = map[s] || [s, "off"];
-  setConnStatus(text, cls);
+  const [key, cls] = map[s] || ["status.off", "off"];
+  setStatusKey(key, cls);
   applyModeUI();
 };
 
@@ -490,7 +504,7 @@ scope.onWheelWindow = (sec) => {
 $("btn-pause").addEventListener("click", () => {
   const p = !scope.paused;
   scope.setPaused(p);
-  $("btn-pause").textContent = p ? "Resume" : "Pause";
+  $("btn-pause").textContent = p ? t("resume") : t("pause");
   $("btn-pause").classList.toggle("active", p);
 });
 
@@ -646,7 +660,7 @@ $("btn-term-clear").addEventListener("click", () => {
 /* record / replay */
 $("btn-record").addEventListener("click", () => {
   const on = recorder.toggle();
-  $("btn-record").textContent = on ? "Stop Record" : "Start Record";
+  $("btn-record").textContent = on ? t("rec.stop") : t("rec.start");
   $("btn-record").classList.toggle("active", on);
   const st = $("record-status");
   st.textContent = on ? "RECORDING" : `SAVED ${recorder.count}`;
@@ -792,6 +806,20 @@ function showBootError(err) {
 }
 
 try {
+  applyI18n();
+  const langSel = $("lang-select");
+  if (langSel) {
+    langSel.value = getLang();
+    langSel.addEventListener("change", () => {
+      setLang(langSel.value);
+      applyI18n();
+      $("btn-pause").textContent = scope.paused ? t("resume") : t("pause");
+      const rateNow = Number($("sim-rate")?.value) || 1000;
+      if (state.mode === "sim") setStatusKey(rateNow >= 5000 ? "status.stress" : "status.sim", "sim");
+      terminal.appendText(`[sys] lang → ${getLang()}\n`, "sys");
+    });
+  }
+
   scope.setSampleRate(state.sampleRate);
   scope.setWindowSec(state.windowSec);
   renderChannelList();
@@ -802,12 +830,12 @@ try {
   dashboard.start();
   legend.start();
   applyModeUI();
-  setConnStatus("DISCONNECTED", "off");
+  setConnStatus(t("status.off"), "off");
 
   if (!SerialTransport.supported()) {
-    terminal.appendText("[sys] 无 Web Serial。请 Chrome/Edge，或用 Simulation/Replay。\n", "err");
+    terminal.appendText(t("sys.noserial"), "err");
   } else {
-    terminal.appendText("[sys] FOC Studio v0.3 — Scope/图例 · Tuning · Console · Record\n", "sys");
+    terminal.appendText(t("sys.boot"), "sys");
   }
 
   $("mode-sim").checked = true;

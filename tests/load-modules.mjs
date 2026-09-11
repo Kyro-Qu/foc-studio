@@ -21,6 +21,7 @@ const mods = [
   "../js/ui/fault.js",
   "../js/ui/legend.js",
   "../js/ui/tuning.js",
+  "../js/i18n.js",
 ];
 
 let failed = 0;

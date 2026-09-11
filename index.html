@@ -12,13 +12,13 @@
         <div class="brand">FOC <span>Studio</span> <small>v0.3.1</small></div>
 
         <div class="mode-group" title="数据源">
-          <label title="JustFloat / UART"><input type="radio" name="data-mode" id="mode-serial" value="serial" /> UART</label>
-          <label title="仿真"><input type="radio" name="data-mode" id="mode-sim" value="sim" /> Sim</label>
-          <label title="CSV 回放"><input type="radio" name="data-mode" id="mode-replay" value="replay" /> Replay</label>
+          <label title="JustFloat / UART"><input type="radio" name="data-mode" id="mode-serial" value="serial" /> <span data-i18n="mode.uart">串口</span></label>
+          <label title="Simulation"><input type="radio" name="data-mode" id="mode-sim" value="sim" /> <span data-i18n="mode.sim">仿真</span></label>
+          <label title="Replay"><input type="radio" name="data-mode" id="mode-replay" value="replay" /> <span data-i18n="mode.replay">回放</span></label>
         </div>
 
         <div class="field">
-          <label for="baud">Baud</label>
+          <label for="baud" data-i18n="baud">波特率</label>
           <select id="baud">
             <option value="115200">115200</option>
             <option value="921600">921600</option>
@@ -27,52 +27,60 @@
           </select>
         </div>
 
-        <div class="field" title="仅 Simulation：5 kHz 压力测 UI/Store">
-          <label for="sim-rate">Sim</label>
+        <div class="field" title="仅仿真：5 kHz 压力测 UI/Store">
+          <label for="sim-rate" data-i18n="sim">仿真</label>
           <select id="sim-rate">
-            <option value="1000" selected>1 kHz</option>
-            <option value="5000">5 kHz Stress</option>
+            <option value="1000" selected data-i18n="sim.1k">1 kHz</option>
+            <option value="5000" data-i18n="sim.5k">5 kHz 压力</option>
           </select>
         </div>
 
-        <button id="btn-connect">Connect</button>
-        <button id="btn-disconnect" disabled>Disconnect</button>
-        <button id="btn-estop" class="danger" title="立即 disable">E-STOP</button>
+        <button id="btn-connect" data-i18n="connect">连接</button>
+        <button id="btn-disconnect" disabled data-i18n="disconnect">断开</button>
+        <button id="btn-estop" class="danger" title="立即 disable" data-i18n="estop">急停</button>
 
-        <div id="conn-status" class="status-pill off">DISCONNECTED</div>
+        <div class="field">
+          <label for="lang-select" data-i18n="lang">语言</label>
+          <select id="lang-select" title="Language">
+            <option value="zh" selected>中文</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+
+        <div id="conn-status" class="status-pill off" data-i18n="status.off">未连接</div>
       </header>
 
       <div class="body">
         <nav>
-          <button class="nav-btn" data-panel="dashboard">Dashboard</button>
-          <button class="nav-btn active" data-panel="scope">Scope</button>
-          <button class="nav-btn" data-panel="console">Console</button>
-          <button class="nav-btn" data-panel="tuning">Tuning</button>
-          <button class="nav-btn" data-panel="terminal">Terminal</button>
-          <button class="nav-btn" data-panel="record">Record</button>
+          <button class="nav-btn" data-panel="dashboard" data-i18n="nav.dashboard">仪表盘</button>
+          <button class="nav-btn active" data-panel="scope" data-i18n="nav.scope">示波器</button>
+          <button class="nav-btn" data-panel="console" data-i18n="nav.console">控制台</button>
+          <button class="nav-btn" data-panel="tuning" data-i18n="nav.tuning">调参</button>
+          <button class="nav-btn" data-panel="terminal" data-i18n="nav.terminal">终端</button>
+          <button class="nav-btn" data-panel="record" data-i18n="nav.record">录制</button>
         </nav>
 
         <main>
           <section class="panel" id="panel-dashboard">
-            <div class="panel-title">实时状态（与 Scope 同一帧源）</div>
+            <div class="panel-title" data-i18n="panel.dashboard.title">实时状态（与示波器同一帧源）</div>
             <div id="dashboard"></div>
           </section>
 
           <section class="panel active" id="panel-scope">
-            <div class="panel-title">实时示波器 — JustFloat 16ch · 点击设 t1/t2 · Shift/Alt 微调 · 滚轮缩放</div>
+            <div class="panel-title" data-i18n="panel.scope.title">实时示波器 — JustFloat 16 通道 · 点击设 t1/t2 · Shift/Alt 微调 · 滚轮缩放</div>
             <div class="scope-layout">
               <aside class="scope-side">
-                <div class="panel-title" style="font-size: 11px">通道预设</div>
+                <div class="panel-title" style="font-size: 11px" data-i18n="preset.title">通道预设</div>
                 <div class="preset-row">
-                  <button class="small" data-preset="current">电流环</button>
-                  <button class="small" data-preset="velocity">速度环</button>
-                  <button class="small" data-preset="voltage">电压/母线</button>
-                  <button class="small" data-preset="all">全开</button>
-                  <button class="small" data-preset="none">全关</button>
+                  <button class="small" data-preset="current" data-i18n="preset.current">电流环</button>
+                  <button class="small" data-preset="velocity" data-i18n="preset.velocity">速度环</button>
+                  <button class="small" data-preset="voltage" data-i18n="preset.voltage">电压/母线</button>
+                  <button class="small" data-preset="all" data-i18n="preset.all">全开</button>
+                  <button class="small" data-preset="none" data-i18n="preset.none">全关</button>
                 </div>
-                <div class="panel-title" style="font-size: 11px">通道</div>
+                <div class="panel-title" style="font-size: 11px" data-i18n="ch.title">通道</div>
                 <div id="channel-list"></div>
-                <div class="panel-title" style="font-size: 11px; margin-top: 8px">数学</div>
+                <div class="panel-title" style="font-size: 11px; margin-top: 8px" data-i18n="math.title">数学</div>
                 <div class="math-add">
                   <select id="math-op">
                     <option value="sub">a − b</option>
@@ -85,13 +93,13 @@
                   <button id="btn-math-add" class="small">Add</button>
                 </div>
                 <div id="math-list"></div>
-                <div class="panel-title" style="font-size: 11px; margin-top: 8px">图例</div>
+                <div class="panel-title" style="font-size: 11px; margin-top: 8px" data-i18n="legend.title">图例</div>
                 <div id="scope-legend" class="scope-legend"></div>
               </aside>
               <div class="scope-main">
                 <div class="scope-toolbar">
                   <label class="field">
-                    窗口
+                    <span data-i18n="window">窗口</span>
                     <select id="window-select">
                       <option value="0.5">0.5s</option>
                       <option value="1">1 s</option>
@@ -100,30 +108,30 @@
                       <option value="30">30 s</option>
                     </select>
                   </label>
-                  <button id="btn-pause">Pause</button>
-                  <button id="btn-clear">Clear</button>
-                  <button id="btn-clear-cursors">Clear cursors</button>
-                  <button id="btn-png">PNG</button>
-                  <button id="btn-csv">CSV</button>
+                  <button id="btn-pause" data-i18n="pause">暂停</button>
+                  <button id="btn-clear" data-i18n="clear">清屏</button>
+                  <button id="btn-clear-cursors" data-i18n="clear.cursors">清除游标</button>
+                  <button id="btn-png" data-i18n="png">PNG</button>
+                  <button id="btn-csv" data-i18n="csv">CSV</button>
                   <label class="field">
-                    <input type="checkbox" id="chk-autoscale" checked /> Auto
+                    <input type="checkbox" id="chk-autoscale" checked /> <span data-i18n="auto">自动</span>
                   </label>
                   <label class="field">
-                    Y
+                    <span data-i18n="y">Y</span>
                     <input type="number" id="y-min" value="-2" step="0.1" disabled style="width: 64px" />
                     …
                     <input type="number" id="y-max" value="2" step="0.1" disabled style="width: 64px" />
                   </label>
                 </div>
                 <div class="scope-toolbar">
-                  <label class="field">Trig
+                  <label class="field"><span data-i18n="trig">触发</span>
                     <select id="trig-mode">
                       <option value="off">Off</option>
                       <option value="auto">Auto</option>
                       <option value="normal">Normal</option>
                     </select>
                   </label>
-                  <label class="field">Src
+                  <label class="field"><span data-i18n="src">源</span>
                     <select id="trig-src"></select>
                   </label>
                   <label class="field">
@@ -132,39 +140,39 @@
                       <option value="falling">Fall</option>
                     </select>
                   </label>
-                  <label class="field">Level
+                  <label class="field"><span data-i18n="level">电平</span>
                     <input type="number" id="trig-level" value="0" step="0.1" style="width: 72px" />
                   </label>
-                  <button id="btn-trig-arm">Arm</button>
-                  <button id="btn-trig-release">Release</button>
+                  <button id="btn-trig-arm" data-i18n="arm">武装</button>
+                  <button id="btn-trig-release" data-i18n="release">解除</button>
                 </div>
                 <div class="scope-canvas-wrap">
                   <canvas id="scope-canvas"></canvas>
-                  <div id="scope-empty" class="scope-empty" hidden>等待遥测数据… 选择 Sim 或连接 UART</div>
+                  <div id="scope-empty" class="scope-empty" hidden data-i18n="empty.scope">等待遥测数据… 选择仿真或连接串口</div>
                 </div>
-                <div id="cursor-readout" class="readout">鼠标移到波形可读值 · 点击设 t1/t2</div>
+                <div id="cursor-readout" class="readout" data-i18n="cursor.hint">鼠标移到波形可读值 · 点击设 t1/t2</div>
                 <div id="measure-bar" class="measure-bar"></div>
               </div>
             </div>
           </section>
 
           <section class="panel" id="panel-console">
-            <div class="panel-title">控制台 — 映射到现有 CLI（不改固件）</div>
+            <div class="panel-title" data-i18n="panel.console.title">控制台 — 映射到现有 CLI（不改固件）</div>
             <div id="console-root"></div>
           </section>
 
           <section class="panel" id="panel-tuning">
-            <div class="panel-title">调参 — 滑条/数字 → CLI（RAM，保存用 conf write）</div>
+            <div class="panel-title" data-i18n="panel.tuning.title">调参 — 滑条/数字 → CLI（本地编辑值，非 MCU 回读）</div>
             <div id="tuning-root"></div>
           </section>
 
           <section class="panel" id="panel-terminal">
-            <div class="panel-title">ASCII CLI（与遥测同一串口，自动解复用）</div>
+            <div class="panel-title" data-i18n="panel.terminal.title">ASCII CLI（与遥测同一串口，自动解复用）</div>
             <div class="term-wrap">
               <div class="term-opts">
-                <label><input type="checkbox" id="chk-autoscroll" checked /> Auto Scroll</label>
-                <label><input type="checkbox" id="chk-raw" /> Raw RX</label>
-                <button id="btn-term-clear">Clear</button>
+                <label><input type="checkbox" id="chk-autoscroll" checked /> <span data-i18n="term.autoscroll">自动滚动</span></label>
+                <label><input type="checkbox" id="chk-raw" /> <span data-i18n="term.raw">原始 RX</span></label>
+                <button id="btn-term-clear" data-i18n="clear">清屏</button>
               </div>
               <div id="term-log"></div>
               <div class="term-input-row">
@@ -176,20 +184,20 @@
           </section>
 
           <section class="panel" id="panel-record">
-            <div class="panel-title">录制 / 回放 / 标记</div>
+            <div class="panel-title" data-i18n="panel.record.title">录制 / 回放 / 标记</div>
             <div class="record-wrap">
               <div class="scope-toolbar">
-                <button id="btn-record">Start Record</button>
-                <button id="btn-mark">Mark</button>
-                <input id="mark-text" type="text" placeholder="标记说明" style="flex: 1" />
+                <button id="btn-record" data-i18n="rec.start">开始录制</button>
+                <button id="btn-mark" data-i18n="rec.mark">标记</button>
+                <input id="mark-text" type="text" data-i18n-ph="rec.mark.ph" placeholder="标记说明" style="flex: 1" />
                 <span id="record-status" class="status-pill off">IDLE</span>
               </div>
               <div class="scope-toolbar">
-                <button id="btn-save-csv">Export CSV</button>
-                <button id="btn-save-json">Export JSON</button>
-                <button id="btn-load-csv">Load CSV…</button>
-                <button id="btn-replay">Replay</button>
-                <button id="btn-replay-stop">Stop Replay</button>
+                <button id="btn-save-csv" data-i18n="rec.export.csv">导出 CSV</button>
+                <button id="btn-save-json" data-i18n="rec.export.json">导出 JSON</button>
+                <button id="btn-load-csv" data-i18n="rec.load">加载 CSV…</button>
+                <button id="btn-replay" data-i18n="rec.replay">回放</button>
+                <button id="btn-replay-stop" data-i18n="rec.replay.stop">停止回放</button>
                 <input type="file" id="file-csv" accept=".csv,text/csv" hidden />
               </div>
               <pre id="record-log" class="record-log"></pre>
@@ -204,7 +212,7 @@
         <span>OK<strong id="stat-frames">0</strong></span>
         <span>Desync<strong id="stat-desync">0</strong></span>
         <span>Mode<strong id="stat-mode">—</strong></span>
-        <span class="kbd-hint" style="margin-left: auto; opacity: 0.65">Space 暂停 · R 清屏 · E 急停 · 1–5 面板</span>
+        <span class="kbd-hint" style="margin-left: auto; opacity: 0.65" data-i18n="kbd.hint">空格 暂停 · R 清屏 · E 急停 · 1–5 面板</span>
       </footer>
     </div>
 
