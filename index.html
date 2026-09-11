@@ -9,7 +9,7 @@
   <body>
     <div id="app">
       <header>
-        <div class="brand">FOC <span>Studio</span> <small>v0.2.3</small></div>
+        <div class="brand">FOC <span>Studio</span> <small>v0.3</small></div>
 
         <div class="mode-group" title="数据源">
           <label title="JustFloat / UART"><input type="radio" name="data-mode" id="mode-serial" value="serial" /> UART</label>
@@ -39,6 +39,7 @@
           <button class="nav-btn" data-panel="dashboard">Dashboard</button>
           <button class="nav-btn active" data-panel="scope">Scope</button>
           <button class="nav-btn" data-panel="console">Console</button>
+          <button class="nav-btn" data-panel="tuning">Tuning</button>
           <button class="nav-btn" data-panel="terminal">Terminal</button>
           <button class="nav-btn" data-panel="record">Record</button>
         </nav>
@@ -76,6 +77,8 @@
                   <button id="btn-math-add" class="small">Add</button>
                 </div>
                 <div id="math-list"></div>
+                <div class="panel-title" style="font-size: 11px; margin-top: 8px">图例</div>
+                <div id="scope-legend" class="scope-legend"></div>
               </aside>
               <div class="scope-main">
                 <div class="scope-toolbar">
@@ -140,6 +143,11 @@
           <section class="panel" id="panel-console">
             <div class="panel-title">控制台 — 映射到现有 CLI（不改固件）</div>
             <div id="console-root"></div>
+          </section>
+
+          <section class="panel" id="panel-tuning">
+            <div class="panel-title">调参 — 滑条/数字 → CLI（RAM，保存用 conf write）</div>
+            <div id="tuning-root"></div>
           </section>
 
           <section class="panel" id="panel-terminal">

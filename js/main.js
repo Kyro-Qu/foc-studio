@@ -12,6 +12,8 @@ import { ControlConsole, PRESET_COMMANDS, MODES } from "./ui/console.js";
 import { MathChannels, MATH_OPS } from "./ui/math.js";
 import { TriggerEngine, TriggerMode } from "./ui/trigger.js";
 import { measureChannel } from "./ui/measure.js";
+import { ScopeLegend } from "./ui/legend.js";
+import { TuningPanel } from "./ui/tuning.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -75,6 +77,7 @@ adapter.attach(decoder);
 
 const scope = new Scope($("scope-canvas"), store, state.channels);
 const dashboard = new Dashboard($("dashboard"), store, state.channels);
+const legend = new ScopeLegend($("scope-legend"), store, state.channels, { math });
 
 function sendCli(line) {
   return consoleCtl.run(line);
@@ -105,6 +108,8 @@ const terminal = new Terminal($("term-log"), $("term-input"), $("term-send"), {
     await consoleCtl.run(line);
   },
 });
+
+const tuning = new TuningPanel($("tuning-root"), (cmd) => consoleCtl.run(cmd));
 
 scope.setMath(math);
 scope.setTrigger(trigger);
@@ -305,6 +310,7 @@ function renderChannelList() {
     saveChannels(state.channels);
     scope.setChannels(state.channels);
     dashboard.setChannels(state.channels);
+    legend.setChannels(state.channels);
     fillChannelSelects();
   };
   box.querySelectorAll('input[type="checkbox"]').forEach((el) => {
@@ -585,6 +591,7 @@ function applyChannelPreset(key) {
   saveChannels(state.channels);
   scope.setChannels(state.channels);
   dashboard.setChannels(state.channels);
+  legend.setChannels(state.channels);
   renderChannelList();
   fillChannelSelects();
   scope.invalidate();
@@ -771,13 +778,14 @@ try {
   renderConsole();
   scope.start();
   dashboard.start();
+  legend.start();
   applyModeUI();
   setConnStatus("DISCONNECTED", "off");
 
   if (!SerialTransport.supported()) {
     terminal.appendText("[sys] 无 Web Serial。请 Chrome/Edge，或用 Simulation/Replay。\n", "err");
   } else {
-    terminal.appendText("[sys] FOC Studio v0.2.3 — Scope 触发/游标/数学 · Console · Record\n", "sys");
+    terminal.appendText("[sys] FOC Studio v0.3 — Scope/图例 · Tuning · Console · Record\n", "sys");
   }
 
   $("mode-sim").checked = true;

@@ -18,6 +18,9 @@ const mods = [
   "../js/ui/math.js",
   "../js/ui/trigger.js",
   "../js/ui/measure.js",
+  "../js/ui/fault.js",
+  "../js/ui/legend.js",
+  "../js/ui/tuning.js",
 ];
 
 let failed = 0;
