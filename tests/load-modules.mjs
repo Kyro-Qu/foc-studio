@@ -13,6 +13,7 @@ const mods = [
   "../js/data/recorder.js",
   "../js/ui/scope.js",
   "../js/ui/dashboard.js",
+  "../js/ui/gauge.js",
   "../js/ui/terminal.js",
   "../js/ui/console.js",
   "../js/ui/math.js",

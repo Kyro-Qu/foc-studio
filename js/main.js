@@ -77,7 +77,9 @@ const adapter = new TelemetryAdapter({
 adapter.attach(decoder);
 
 const scope = new Scope($("scope-canvas"), store, state.channels);
-const dashboard = new Dashboard($("dashboard"), store, state.channels);
+const dashboard = new Dashboard($("dashboard"), store, state.channels, {
+  send: (cmd) => consoleCtl.run(cmd),
+});
 const legend = new ScopeLegend($("scope-legend"), store, state.channels, { math });
 
 function sendCli(line) {

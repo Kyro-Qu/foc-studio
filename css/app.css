@@ -773,6 +773,81 @@ button.small {
   color: var(--text-dim);
 }
 
+.dash-mid {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.4fr) minmax(220px, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.dash-gauges {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.dash-gauge {
+  min-height: 140px;
+  min-width: 0;
+}
+
+.dash-gauge canvas {
+  display: block;
+  width: 100%;
+  height: 140px;
+}
+
+.dash-ctrl {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dash-ctrl-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.dash-ctrl-row label {
+  width: 48px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.dash-ctrl-row input[type="range"] {
+  flex: 1;
+  min-width: 100px;
+}
+
+.dash-ctrl-actions button {
+  flex: 1;
+}
+
+.dash-ctrl-note {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+@media (max-width: 900px) {
+  .dash-mid {
+    grid-template-columns: 1fr;
+  }
+  .dash-gauges {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 720px) {
   .dash-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
