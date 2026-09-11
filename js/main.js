@@ -369,7 +369,7 @@ function updateMeasures() {
     if (!m) m = measureChannel(store, ch.id, n);
     if (!m || !Number.isFinite(m.min)) continue;
     parts.push(
-      `<span><span class="m-name" style="color:${ch.color}">${ch.name}</span> min ${m.min.toFixed(3)} max ${m.max.toFixed(3)} avg ${m.mean.toFixed(3)} rms ${m.rms.toFixed(3)} p2p ${m.p2p.toFixed(3)}</span>`
+      `<span><span class="m-name" style="color:${ch.color}">${ch.name}</span> min ${m.min.toFixed(3)} max ${m.max.toFixed(3)} avg ${m.mean.toFixed(3)} rms ${m.rms.toFixed(3)} p2p ${m.p2p.toFixed(3)} last ${Number.isFinite(m.last) ? m.last.toFixed(3) : "—"}</span>`
     );
   }
   bar.innerHTML = parts.join("") || "—";
@@ -693,6 +693,7 @@ $("btn-replay-stop").addEventListener("click", () => {
 
 /* keyboard */
 window.addEventListener("keydown", (e) => {
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   const tag = (e.target && e.target.tagName) || "";
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target?.isContentEditable) return;
   if (e.code === "Space") {
