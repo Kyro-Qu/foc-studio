@@ -742,6 +742,8 @@ setInterval(() => {
   state.lastStats = now;
   if ($("chk-raw").checked) $("term-raw").textContent = terminal.renderRaw().slice(-2000);
   if ($("panel-scope").classList.contains("active")) updateMeasures();
+  const empty = $("scope-empty");
+  if (empty) empty.hidden = store.length > 2;
 }, 400);
 
 /* boot */
