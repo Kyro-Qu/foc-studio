@@ -110,6 +110,16 @@ const terminal = new Terminal($("term-log"), $("term-input"), $("term-send"), {
   onSend: async (line) => {
     await consoleCtl.run(line);
   },
+  onHistoryChange: (hist) => {
+    const dl = $("term-history");
+    if (!dl) return;
+    dl.innerHTML = hist
+      .slice()
+      .reverse()
+      .slice(0, 30)
+      .map((h) => `<option value="${h.replace(/"/g, "&quot;")}"></option>`)
+      .join("");
+  },
 });
 
 const tuning = new TuningPanel($("tuning-root"), (cmd) => consoleCtl.run(cmd));
@@ -141,6 +151,14 @@ function applyModeUI() {
   $("btn-connect").disabled = state.mode !== "serial";
   $("btn-disconnect").disabled = state.mode !== "serial" || serial.state === SerialState.DISCONNECTED;
   $("baud").disabled = state.mode !== "serial";
+  const canRe =
+    state.mode === "serial" &&
+    serial.state !== SerialState.CONNECTED &&
+    serial.state !== SerialState.READING &&
+    serial.state !== SerialState.CONNECTING &&
+    serial.state !== SerialState.DISCONNECTING;
+  const rec = $("btn-reconnect");
+  if (rec) rec.hidden = !canRe;
   document.querySelectorAll('input[name="data-mode"]').forEach((r) => {
     r.checked = r.value === state.mode;
   });
@@ -431,14 +449,28 @@ document.querySelectorAll('input[name="data-mode"]').forEach((r) => {
 $("btn-connect").addEventListener("click", async () => {
   const baud = Number($("baud").value) || 6500000;
   try {
-    setConnStatus("CONNECTING…", "busy");
+    setConnStatus(t("status.connecting"), "busy");
     await serial.connect(baud);
     resetPipeline();
     terminal.appendText(`[sys] connected @ ${baud}\n`, "sys");
     applyModeUI();
   } catch (e) {
-    setConnStatus("ERROR", "err");
+    setConnStatus(t("status.error"), "err");
     terminal.appendText(`[sys] connect failed: ${e.message || e}\n`, "err");
+    applyModeUI();
+  }
+});
+
+$("btn-reconnect")?.addEventListener("click", async () => {
+  try {
+    setConnStatus(t("status.connecting"), "busy");
+    await serial.reconnect(Number($("baud").value) || 0);
+    resetPipeline();
+    terminal.appendText(`[sys] reconnected @ ${serial.lastBaud}\n`, "sys");
+    applyModeUI();
+  } catch (e) {
+    setConnStatus(t("status.error"), "err");
+    terminal.appendText(`[sys] reconnect failed: ${e.message || e}\n`, "err");
     applyModeUI();
   }
 });

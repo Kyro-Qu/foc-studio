@@ -1,15 +1,12 @@
 /**
- * CLI Terminal：接收 JustFloatDecoder 分离出的文本，支持历史与 Raw。
+ * CLI Terminal：JustFloat 文本分离 + 历史 + Raw。
+ * 缓冲上限借鉴 simplefoc-webcontroller（防 runaway 文本）。
  */
 
+const MAX_RAW_BYTES = 8192;
+const MAX_TEXT_CHARS = 200000;
+
 export class Terminal {
-  /**
-   * @param {HTMLElement} logEl
-   * @param {HTMLInputElement} inputEl
-   * @param {HTMLButtonElement} sendBtn
-   * @param {object} opts
-   * @param {(line: string) => Promise<void>|void} opts.onSend
-   */
   constructor(logEl, inputEl, sendBtn, opts) {
     this.logEl = logEl;
     this.inputEl = inputEl;
@@ -20,7 +17,9 @@ export class Terminal {
     this.rawBytes = [];
     this.history = [];
     this.histIdx = -1;
-    this.maxLines = 2000;
+    this.maxLines = 1500;
+    this._textBudget = MAX_TEXT_CHARS;
+    this.onHistoryChange = opts.onHistoryChange || null;
 
     this.sendBtn.addEventListener("click", () => this._submit());
     this.inputEl.addEventListener("keydown", (e) => {
@@ -57,8 +56,11 @@ export class Terminal {
   async _submit() {
     const line = this.inputEl.value.trim();
     if (!line) return;
-    this.history.push(line);
-    if (this.history.length > 50) this.history.shift();
+    if (this.history[this.history.length - 1] !== line) {
+      this.history.push(line);
+      if (this.history.length > 50) this.history.shift();
+      if (this.onHistoryChange) this.onHistoryChange(this.history);
+    }
     this.histIdx = -1;
     this.inputEl.value = "";
     try {
@@ -68,48 +70,49 @@ export class Terminal {
     }
   }
 
-  /**
-   * @param {string} text
-   * @param {'rx'|'tx'|'err'|'sys'} [kind]
-   */
   appendText(text, kind = "rx") {
     if (this.rawMode) {
       const bytes = new TextEncoder().encode(text);
       for (let i = 0; i < bytes.length; i++) this.rawBytes.push(bytes[i]);
-      if (this.rawBytes.length > 4096) this.rawBytes = this.rawBytes.slice(-4096);
+      if (this.rawBytes.length > MAX_RAW_BYTES) this.rawBytes.splice(0, this.rawBytes.length - MAX_RAW_BYTES);
     }
+    // 限制超长单片（CLI 大行 / 垃圾）
+    let out = text;
+    if (out.length > 4096) out = out.slice(-4096);
+
     const span = document.createElement("span");
     span.className = `term-${kind}`;
-    span.textContent = text;
+    span.textContent = out;
     this.logEl.appendChild(span);
 
-    // 节点过多时批量裁剪
     const extra = this.logEl.childNodes.length - this.maxLines;
     if (extra > 0) {
       for (let i = 0; i < extra; i++) this.logEl.removeChild(this.logEl.firstChild);
     }
-    if (this.autoScroll) {
-      this.logEl.scrollTop = this.logEl.scrollHeight;
+
+    this._textBudget -= out.length;
+    while (this._textBudget < 0 && this.logEl.firstChild) {
+      const first = this.logEl.firstChild;
+      this._textBudget += (first.textContent || "").length;
+      this.logEl.removeChild(first);
     }
+
+    if (this.autoScroll) this.logEl.scrollTop = this.logEl.scrollHeight;
   }
 
-  /** 直接灌入原始字节（Raw RX 面板） */
   feedRaw(bytes) {
     if (!this.rawMode) return;
-    for (let i = 0; i < bytes.length; i++) {
-      this.rawBytes.push(bytes[i]);
-    }
-    if (this.rawBytes.length > 8192) this.rawBytes = this.rawBytes.slice(-8192);
+    for (let i = 0; i < bytes.length; i++) this.rawBytes.push(bytes[i]);
+    if (this.rawBytes.length > MAX_RAW_BYTES) this.rawBytes.splice(0, this.rawBytes.length - MAX_RAW_BYTES);
   }
 
   renderRaw() {
-    return this.rawBytes
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join(" ");
+    return this.rawBytes.map((b) => b.toString(16).padStart(2, "0")).join(" ");
   }
 
   clear() {
     this.logEl.innerHTML = "";
     this.rawBytes = [];
+    this._textBudget = MAX_TEXT_CHARS;
   }
 }

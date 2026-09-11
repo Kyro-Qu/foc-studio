@@ -9,7 +9,7 @@
   <body>
     <div id="app">
       <header>
-        <div class="brand">FOC <span>Studio</span> <small>v0.3.1</small></div>
+        <div class="brand">FOC <span>Studio</span> <small>v0.3.4</small></div>
 
         <div class="mode-group" title="数据源">
           <label title="JustFloat / UART"><input type="radio" name="data-mode" id="mode-serial" value="serial" /> <span data-i18n="mode.uart">串口</span></label>
@@ -37,6 +37,7 @@
         </div>
 
         <button id="btn-connect" data-i18n="connect">连接</button>
+        <button id="btn-reconnect" data-i18n="reconnect" title="复用上次端口" hidden>重连</button>
         <button id="btn-disconnect" disabled data-i18n="disconnect">断开</button>
         <button id="btn-estop" class="danger" title="立即 disable" data-i18n="estop">急停</button>
 
@@ -177,7 +178,8 @@
               </div>
               <div id="term-log"></div>
               <div class="term-input-row">
-                <input id="term-input" type="text" placeholder="help / status / target 500 / log 1 …" spellcheck="false" />
+                <input id="term-input" type="text" list="term-history" placeholder="help / status / target 500 / log 1 …" spellcheck="false" />
+                <datalist id="term-history"></datalist>
                 <button id="term-send">Send</button>
               </div>
               <div id="term-raw" hidden></div>

@@ -36,6 +36,10 @@ export class SerialTransport {
     this._writing = false;
     /** @type {object|null} 当前 in-flight write job */
     this._inFlight = null;
+    /** 最近一次成功 connect 的波特率，供重连 */
+    this.lastBaud = 0;
+    /** 最近一次 requestPort 的结果（同设备重连可复用，浏览器允许时） */
+    this._lastPort = null;
   }
 
   static supported() {
@@ -73,7 +77,7 @@ export class SerialTransport {
     this._setState(SerialState.CONNECTING);
     const gen = ++this._gen;
     try {
-      const port = await navigator.serial.requestPort();
+      const port = this._lastPort || (await navigator.serial.requestPort());
       if (gen !== this._gen) {
         try {
           await port.close();
@@ -98,6 +102,8 @@ export class SerialTransport {
         throw new Error("connect cancelled");
       }
       this.port = port;
+      this._lastPort = port;
+      this.lastBaud = baudRate;
       this._setState(SerialState.CONNECTED);
       void this._readLoop(gen);
     } catch (e) {
@@ -105,6 +111,25 @@ export class SerialTransport {
       this._setState(SerialState.DISCONNECTED, e);
       throw e;
     }
+  }
+
+  /**
+   * 用上次 port + baud 重连（拔插后可能仍有效）。
+   * @param {number} [baudRate]
+   */
+  async reconnect(baudRate = 0) {
+    if (this.state === SerialState.CONNECTED || this.state === SerialState.READING) return;
+    if (this.state === SerialState.DISCONNECTING) throw new Error("busy: DISCONNECTING");
+    const baud = baudRate || this.lastBaud || 6500000;
+    if (!this._lastPort) {
+      return this.connect(baud);
+    }
+    await this.connect(baud);
+  }
+
+  /** 放弃缓存的 port，下次 connect 必须重新选择 */
+  forgetPort() {
+    this._lastPort = null;
   }
 
   async _readLoop(gen) {
