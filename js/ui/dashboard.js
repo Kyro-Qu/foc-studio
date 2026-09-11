@@ -1,22 +1,50 @@
 /**
- * Dashboard：状态条 + 关键量卡片 + 故障解码。与 Scope 同一 TelemetryStore。
+ * Dashboard：状态条 + 分组关键量。与 Scope 同一 TelemetryStore。
  */
 
 import { formatValue, channelLabel } from "../channels.js";
 import { faultText, decodeFault } from "./fault.js";
-import { getLang } from "../i18n.js";
+import { getLang, t } from "../i18n.js";
 
-const KEY_IDS = [
-  { id: 2, label: "RPM" },
-  { id: 3, label: "Ref" },
-  { id: 5, label: "Iq" },
-  { id: 6, label: "Iq*" },
-  { id: 4, label: "Id" },
-  { id: 15, label: "Vbus" },
-  { id: 0, label: "θe" },
-  { id: 12, label: "Duty" },
-  { id: 8, label: "Vq" },
-  { id: 7, label: "Vd" },
+/** 分组：每组标题 + 通道行 */
+const GROUPS = [
+  {
+    id: "speed",
+    titleKey: "dash.grp.speed",
+    items: [
+      { id: 2, short: "RPM" },
+      { id: 3, short: "REF" },
+    ],
+  },
+  {
+    id: "current",
+    titleKey: "dash.grp.current",
+    items: [
+      { id: 5, short: "Iq" },
+      { id: 6, short: "Iq*" },
+      { id: 4, short: "Id" },
+      { id: 1, short: "Iq_raw" },
+    ],
+  },
+  {
+    id: "voltage",
+    titleKey: "dash.grp.voltage",
+    items: [
+      { id: 15, short: "Vbus" },
+      { id: 8, short: "Vq" },
+      { id: 7, short: "Vd" },
+      { id: 12, short: "Duty" },
+    ],
+  },
+  {
+    id: "angle",
+    titleKey: "dash.grp.angle",
+    items: [
+      { id: 0, short: "θe" },
+      { id: 14, short: "OBS" },
+      { id: 13, short: "FAULT" },
+    ],
+  },
 ];
 
 export class Dashboard {
@@ -25,6 +53,7 @@ export class Dashboard {
     this.store = store;
     this.channels = channels;
     this._timer = null;
+    this._cells = new Map();
     this._build();
   }
 
@@ -33,44 +62,66 @@ export class Dashboard {
     this._build();
   }
 
-  _ch(id) {
-    return this.channels.find((c) => c.id === id) || { name: `ch${id}`, unit: "" };
-  }
-
   _build() {
     this.root.innerHTML = "";
+    this._cells.clear();
+    const lang = getLang();
 
+    // 顶部状态条
     this.strip = document.createElement("div");
     this.strip.className = "dash-strip";
-    this.strip.innerHTML = `
-      <div class="dash-state"><span class="dash-state-label">FAULT</span><strong id="dash-fault">—</strong></div>
-      <div class="dash-state"><span class="dash-state-label">RPM</span><strong id="dash-rpm">—</strong></div>
-      <div class="dash-state"><span class="dash-state-label">Iq</span><strong id="dash-iq">—</strong></div>
-      <div class="dash-state"><span class="dash-state-label">Vbus</span><strong id="dash-vbus">—</strong></div>
-      <div class="dash-state"><span class="dash-state-label">跟踪</span><strong id="dash-err">—</strong></div>
-    `;
+    const stripDefs = [
+      { id: "fault", key: "dash.fault", unit: "" },
+      { id: "rpm", key: "dash.rpm", unit: "rpm" },
+      { id: "iq", key: "dash.iq", unit: "A" },
+      { id: "vbus", key: "dash.vbus", unit: "V" },
+      { id: "track", key: "dash.track", unit: "rpm" },
+    ];
+    for (const s of stripDefs) {
+      const cell = document.createElement("div");
+      cell.className = `dash-state dash-state-${s.id}`;
+      cell.innerHTML = `
+        <div class="dash-state-label">${t(s.key)}${s.unit ? ` <span class="dash-state-unit">${s.unit}</span>` : ""}</div>
+        <div class="dash-state-val" data-strip="${s.id}">—</div>
+      `;
+      this.strip.appendChild(cell);
+    }
     this.root.appendChild(this.strip);
 
+    // 分组网格
     this.grid = document.createElement("div");
-    this.grid.className = "dash-grid";
-    this.cells = [];
-    for (const k of KEY_IDS) {
-      const ch = this._ch(k.id);
-      const label = channelLabel(k.id, getLang());
-      const card = document.createElement("div");
-      card.className = "dash-card";
-      card.innerHTML = `
-        <div class="dash-label">${k.label}<span class="dash-ch">ch${k.id} ${label}</span></div>
-        <div class="dash-value" data-id="${k.id}">—</div>
-      `;
-      this.grid.appendChild(card);
-      this.cells.push(card.querySelector(".dash-value"));
+    this.grid.className = "dash-groups";
+    for (const g of GROUPS) {
+      const sec = document.createElement("section");
+      sec.className = "dash-group";
+      const title = document.createElement("h3");
+      title.className = "dash-group-title";
+      title.textContent = t(g.titleKey);
+      sec.appendChild(title);
+      const list = document.createElement("div");
+      list.className = "dash-list";
+      for (const item of g.items) {
+        const label = channelLabel(item.id, lang);
+        const ch = this.channels.find((c) => c.id === item.id);
+        const unit = ch ? ch.unit : "";
+        const row = document.createElement("div");
+        row.className = "dash-row";
+        row.innerHTML = `
+          <span class="dash-row-name" title="ch${item.id}">${label}</span>
+          <span class="dash-row-val" data-id="${item.id}">—</span>
+          <span class="dash-row-unit">${unit}</span>
+        `;
+        list.appendChild(row);
+        this._cells.set(item.id, row.querySelector(".dash-row-val"));
+      }
+      sec.appendChild(list);
+      this.grid.appendChild(sec);
     }
     this.root.appendChild(this.grid);
 
-    this.hint = document.createElement("div");
+    this.hint = document.createElement("p");
     this.hint.className = "dash-hint";
-    this.hint.textContent = "数据与 Scope 同源。故障位仅供参考，以固件 status/fault 命令为准。";
+    this.hint.textContent = t("dash.hint");
     this.root.appendChild(this.hint);
   }
 
@@ -89,28 +140,38 @@ export class Dashboard {
 
   refresh() {
     const latest = this.store.latest;
-    for (let i = 0; i < this.cells.length; i++) {
-      const id = Number(this.cells[i].dataset.id);
-      const ch = this._ch(id);
-      this.cells[i].textContent = formatValue(latest[id], ch.unit);
-    }
+    const fmt = (id) => {
+      const ch = this.channels.find((c) => c.id === id);
+      return formatValue(latest[id], ch ? ch.unit : "");
+    };
 
-    const faultEl = this.root.querySelector("#dash-fault");
-    if (faultEl) {
-      const f = decodeFault(latest[13]);
-      faultEl.textContent = f.ok ? "OK" : faultText(latest[13]);
-      faultEl.classList.toggle("bad", !f.ok);
-    }
-    const rpm = this.root.querySelector("#dash-rpm");
-    if (rpm) rpm.textContent = formatValue(latest[2], "rpm");
-    const iq = this.root.querySelector("#dash-iq");
-    if (iq) iq.textContent = formatValue(latest[5], "A");
-    const vbus = this.root.querySelector("#dash-vbus");
-    if (vbus) vbus.textContent = formatValue(latest[15], "V");
-    const err = this.root.querySelector("#dash-err");
-    if (err) {
-      const e = latest[2] - latest[3];
-      err.textContent = Number.isFinite(e) ? `${e.toFixed(1)} rpm` : "—";
+    // 简化数值（条上不带单位重复）
+    const raw = (id, digits = 2) => {
+      const v = latest[id];
+      return Number.isFinite(v) ? v.toFixed(digits) : "—";
+    };
+
+    const setStrip = (id, text, bad) => {
+      const el = this.root.querySelector(`[data-strip="${id}"]`);
+      if (!el) return;
+      el.textContent = text;
+      el.classList.toggle("bad", !!bad);
+    };
+
+    const fd = decodeFault(latest[13]);
+    setStrip("fault", fd.ok ? "OK" : faultText(latest[13]), !fd.ok);
+    setStrip("rpm", `${raw(2, 1)}`);
+    setStrip("iq", `${raw(5, 3)}`);
+    setStrip("vbus", `${raw(15, 2)}`);
+    const track = latest[2] - latest[3];
+    setStrip("track", Number.isFinite(track) ? `${track.toFixed(1)}` : "—");
+
+    for (const [id, el] of this._cells) {
+      el.textContent = fmt(id);
+      if (id === 13) {
+        const f = decodeFault(latest[13]);
+        el.classList.toggle("bad", !f.ok);
+      }
     }
   }
 }
