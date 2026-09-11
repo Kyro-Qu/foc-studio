@@ -10,9 +10,20 @@ export const PRESET_COMMANDS = [
   { id: "disable", label: "Disable", cmd: "disable", kind: "warn" },
   { id: "fault", label: "Fault?", cmd: "fault", kind: "normal" },
   { id: "faultclear", label: "Fault Clear", cmd: "fault clear", kind: "warn" },
-  { id: "calib", label: "Calib", cmd: "calib", kind: "normal" },
+  { id: "calib", label: "Calib full", cmd: "calib full", kind: "normal" },
   { id: "logon", label: "Log ON", cmd: "log 1", kind: "normal" },
   { id: "logoff", label: "Log OFF", cmd: "log 0", kind: "normal" },
+];
+
+/** 参数辨识 — 映射固件 ident [full|rs|ldq|pp|flux|show|apply] */
+export const IDENT_COMMANDS = [
+  { id: "ident-rs", key: "ident.rs", cmd: "ident rs", danger: false },
+  { id: "ident-ldq", key: "ident.ldq", cmd: "ident ldq", danger: false },
+  { id: "ident-pp", key: "ident.pp", cmd: "ident pp", danger: true },
+  { id: "ident-flux", key: "ident.flux", cmd: "ident flux", danger: true },
+  { id: "ident-full", key: "ident.full", cmd: "ident full", danger: true },
+  { id: "ident-show", key: "ident.show", cmd: "ident show", danger: false },
+  { id: "ident-apply", key: "ident.apply", cmd: "ident apply", danger: false },
 ];
 
 export const MODES = [

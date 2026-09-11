@@ -8,7 +8,7 @@ import { SessionRecorder, parseCsv, ReplaySource } from "./data/recorder.js";
 import { Scope } from "./ui/scope.js";
 import { Dashboard } from "./ui/dashboard.js";
 import { Terminal } from "./ui/terminal.js";
-import { ControlConsole, PRESET_COMMANDS, MODES } from "./ui/console.js";
+import { ControlConsole, PRESET_COMMANDS, MODES, IDENT_COMMANDS } from "./ui/console.js";
 import { MathChannels, MATH_OPS } from "./ui/math.js";
 import { TriggerEngine, TriggerMode } from "./ui/trigger.js";
 import { measureChannel } from "./ui/measure.js";
@@ -251,6 +251,36 @@ function renderConsole() {
   }
   presets.appendChild(grid);
   root.appendChild(presets);
+
+  /* 参数辨识 — 会转动电机的按钮标 danger */
+  const identSec = document.createElement("div");
+  identSec.className = "console-section";
+  identSec.innerHTML = `<div class="panel-title" style="font-size:11px">${t("ident.title")}</div>
+    <p class="dash-ctrl-note" style="margin:0">${t("ident.note")}</p>`;
+  const identGrid = document.createElement("div");
+  identGrid.className = "console-grid";
+  for (const ic of IDENT_COMMANDS) {
+    const b = document.createElement("button");
+    b.textContent = t(ic.key);
+    if (ic.danger) b.classList.add("danger");
+    b.title = ic.cmd;
+    b.addEventListener("click", () => {
+      if (ic.danger) {
+        if (!confirm(`${t(ic.key)} — ${ic.cmd}\n${t("ident.note")}`)) return;
+      }
+      consoleCtl
+        .run(ic.cmd)
+        .then(() => {
+          if (ic.cmd.startsWith("ident") && ic.cmd !== "ident show" && ic.cmd !== "ident apply") {
+            terminal.appendText(`[sys] ${t("ident.busy")} — 完成后 Terminal 看 ident show\n`, "sys");
+          }
+        })
+        .catch((e) => terminal.appendText(String(e) + "\n", "err"));
+    });
+    identGrid.appendChild(b);
+  }
+  identSec.appendChild(identGrid);
+  root.appendChild(identSec);
 
   const ctrl = document.createElement("div");
   ctrl.className = "console-section";

@@ -72,6 +72,14 @@
 | VF 200rpm 时 JustFloat | PASS（181 tail / 12308 B） |
 | 旋转中遥测下发 `status` | PASS |
 
+## ident 参数辨识（tools/test-ident.ps1）
+
+| 项 | 结果 |
+|----|------|
+| `ident show`（之前 valid=0） | PASS |
+| `ident rs`（静止 Rs/Ls） | PASS — **Rs=0.3991 Ω, Ls=100.59 µH @ I=1.01A** |
+| UI | 控制台「参数辨识」按钮（PP/磁链/完整 需确认） |
+
 ## 注意
 
 1. **先 `log 0` 再发 CLI**，否则遥测二进制会混进命令解析（实测 `version` 被污染成 `unknown`）。  
