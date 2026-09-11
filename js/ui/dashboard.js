@@ -2,8 +2,9 @@
  * Dashboard：状态条 + 关键量卡片 + 故障解码。与 Scope 同一 TelemetryStore。
  */
 
-import { formatValue } from "../channels.js";
+import { formatValue, channelLabel } from "../channels.js";
 import { faultText, decodeFault } from "./fault.js";
+import { getLang } from "../i18n.js";
 
 const KEY_IDS = [
   { id: 2, label: "RPM" },
@@ -55,10 +56,11 @@ export class Dashboard {
     this.cells = [];
     for (const k of KEY_IDS) {
       const ch = this._ch(k.id);
+      const label = channelLabel(k.id, getLang());
       const card = document.createElement("div");
       card.className = "dash-card";
       card.innerHTML = `
-        <div class="dash-label">${k.label}<span class="dash-ch">ch${k.id} ${ch.name}</span></div>
+        <div class="dash-label">${k.label}<span class="dash-ch">ch${k.id} ${label}</span></div>
         <div class="dash-value" data-id="${k.id}">—</div>
       `;
       this.grid.appendChild(card);

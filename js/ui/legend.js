@@ -2,8 +2,9 @@
  * Scope 侧栏图例：色块 + 通道名 + 实时值（与 Store 同源）。
  */
 
-import { formatValue } from "../channels.js";
+import { formatValue, channelLabel } from "../channels.js";
 import { faultText } from "./fault.js";
+import { getLang } from "../i18n.js";
 
 export class ScopeLegend {
   /**
@@ -54,8 +55,9 @@ export class ScopeLegend {
       let text;
       if (ch.id === 13) text = faultText(this.store.latest[13]);
       else text = formatValue(this.store.latest[ch.id], ch.unit);
+      const label = channelLabel(ch.id, getLang());
       rows.push(
-        `<div class="legend-row"><span class="swatch" style="background:${ch.color}"></span><span class="legend-name">${ch.name}</span><span class="legend-val">${text}</span></div>`
+        `<div class="legend-row"><span class="swatch" style="background:${ch.color}"></span><span class="legend-name">${label}</span><span class="legend-val">${text}</span></div>`
       );
     }
     if (this.math) {

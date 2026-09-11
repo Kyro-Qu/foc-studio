@@ -1,6 +1,6 @@
 /**
- * JustFloat 16 通道默认定义 — 与 foc_telemetry.h 对齐。
- * ch15 单轴=vbus / 双轴=轴1电角度，允许用户改名。
+ * JustFloat 16 通道 — 与 foc_telemetry.h 对齐。
+ * 显示名按语言本地化，不再提供可编辑输入框。
  */
 
 export const CHANNEL_COUNT = 16;
@@ -24,6 +24,36 @@ export const DEFAULT_CHANNELS = [
   { id: 15, name: "vbus",        unit: "V",    color: "#fcbf49", visible: true  },
 ];
 
+/** 显示名：中文友好名 / 英文技术名 */
+export const CHANNEL_LABELS = {
+  0:  { zh: "电角度 θe", en: "THETA_E" },
+  1:  { zh: "Iq 原始",   en: "IQ_RAW" },
+  2:  { zh: "转速",      en: "RPM" },
+  3:  { zh: "转速给定",  en: "RPM_REF" },
+  4:  { zh: "Id 滤波",   en: "ID_FILT" },
+  5:  { zh: "Iq 滤波",   en: "IQ_FILT" },
+  6:  { zh: "Iq 给定",   en: "IQ_REF" },
+  7:  { zh: "Vd",        en: "VD" },
+  8:  { zh: "Vq",        en: "VQ" },
+  9:  { zh: "Ia",        en: "IA" },
+  10: { zh: "Ib",        en: "IB" },
+  11: { zh: "Ic",        en: "IC" },
+  12: { zh: "A 相占空比", en: "DUTY_A" },
+  13: { zh: "故障码",    en: "FAULT" },
+  14: { zh: "观测误差",  en: "OBS_ERR" },
+  15: { zh: "母线电压",  en: "VBUS" },
+};
+
+/**
+ * @param {number} id
+ * @param {'zh'|'en'} lang
+ */
+export function channelLabel(id, lang = "zh") {
+  const c = CHANNEL_LABELS[id];
+  if (!c) return `ch${id}`;
+  return lang === "en" ? c.en : c.zh;
+}
+
 const LS_KEY = "foc-studio-channels-v1";
 
 export function loadChannels() {
@@ -33,7 +63,8 @@ export function loadChannels() {
     const saved = JSON.parse(raw);
     return DEFAULT_CHANNELS.map((def) => {
       const s = saved.find((x) => x.id === def.id);
-      return s ? { ...def, name: s.name ?? def.name, unit: s.unit ?? def.unit, visible: s.visible ?? def.visible } : { ...def };
+      // 只恢复可见性；显示名始终用本地化标签
+      return s ? { ...def, visible: s.visible ?? def.visible } : { ...def };
     });
   } catch {
     return DEFAULT_CHANNELS.map((c) => ({ ...c }));
@@ -44,10 +75,10 @@ export function saveChannels(channels) {
   try {
     localStorage.setItem(
       LS_KEY,
-      JSON.stringify(channels.map((c) => ({ id: c.id, name: c.name, unit: c.unit, visible: c.visible })))
+      JSON.stringify(channels.map((c) => ({ id: c.id, visible: c.visible })))
     );
   } catch {
-    /* ignore quota errors */
+    /* ignore */
   }
 }
 

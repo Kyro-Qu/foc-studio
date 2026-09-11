@@ -1,4 +1,4 @@
-import { loadChannels, saveChannels, CHANNEL_COUNT } from "./channels.js";
+import { loadChannels, saveChannels, CHANNEL_COUNT, channelLabel } from "./channels.js";
 import { SerialTransport, SerialState } from "./transport/serial.js";
 import { JustFloatDecoder } from "./protocol/justfloat.js";
 import { TelemetryAdapter } from "./protocol/protocol.js";
@@ -172,7 +172,10 @@ function downloadText(filename, text, mime = "text/plain") {
 }
 
 function fillChannelSelects() {
-  const opts = state.channels.map((c) => `<option value="${c.id}">ch${c.id} ${c.name}</option>`).join("");
+  const lang = getLang();
+  const opts = state.channels
+    .map((c) => `<option value="${c.id}">ch${c.id} ${channelLabel(c.id, lang)}</option>`)
+    .join("");
   $("trig-src").innerHTML = opts;
   $("math-a").innerHTML = opts;
   $("math-b").innerHTML = opts;
@@ -307,15 +310,17 @@ function renderConsole() {
 
 function renderChannelList() {
   const box = $("channel-list");
+  const lang = getLang();
   box.innerHTML = "";
   for (const ch of state.channels) {
+    const label = channelLabel(ch.id, lang);
     const row = document.createElement("label");
-    row.className = "ch-row";
+    row.className = "ch-row ch-row-static";
     row.innerHTML = `
       <input type="checkbox" ${ch.visible ? "checked" : ""} data-id="${ch.id}" />
       <span class="swatch" style="background:${ch.color}"></span>
-      <input type="text" class="ch-name" data-id="${ch.id}" value="${ch.name}" />
-      <input type="text" class="ch-unit" data-id="${ch.id}" value="${ch.unit}" title="单位" />
+      <span class="ch-label" title="ch${ch.id} ${ch.name}">${label}</span>
+      <span class="ch-unit-static">${ch.unit || ""}</span>
     `;
     box.appendChild(row);
   }
@@ -333,20 +338,6 @@ function renderChannelList() {
       sync();
     });
   });
-  box.querySelectorAll(".ch-name").forEach((el) => {
-    el.addEventListener("change", () => {
-      const ch = state.channels.find((c) => c.id === Number(el.dataset.id));
-      if (ch) ch.name = el.value.trim() || `ch${ch.id}`;
-      sync();
-    });
-  });
-  box.querySelectorAll(".ch-unit").forEach((el) => {
-    el.addEventListener("change", () => {
-      const ch = state.channels.find((c) => c.id === Number(el.dataset.id));
-      if (ch) ch.unit = el.value.trim();
-      sync();
-    });
-  });
 }
 
 function updateMeasures() {
@@ -361,6 +352,7 @@ function updateMeasures() {
   const parts = [];
   for (const ch of state.channels) {
     if (!ch.visible) continue;
+    const label = channelLabel(ch.id, getLang());
     let m;
     if (frozen) {
       const vw = trigger.viewWindow(n, store.latestIndex);
@@ -388,7 +380,7 @@ function updateMeasures() {
     if (!m) m = measureChannel(store, ch.id, n);
     if (!m || !Number.isFinite(m.min)) continue;
     parts.push(
-      `<span><span class="m-name" style="color:${ch.color}">${ch.name}</span> min ${m.min.toFixed(3)} max ${m.max.toFixed(3)} avg ${m.mean.toFixed(3)} rms ${m.rms.toFixed(3)} p2p ${m.p2p.toFixed(3)} last ${Number.isFinite(m.last) ? m.last.toFixed(3) : "—"}</span>`
+      `<span><span class="m-name" style="color:${ch.color}">${label}</span> min ${m.min.toFixed(3)} max ${m.max.toFixed(3)} avg ${m.mean.toFixed(3)} rms ${m.rms.toFixed(3)} p2p ${m.p2p.toFixed(3)} last ${Number.isFinite(m.last) ? m.last.toFixed(3) : "—"}</span>`
     );
   }
   bar.innerHTML = parts.join("") || "—";
@@ -814,6 +806,10 @@ try {
       setLang(langSel.value);
       applyI18n();
       $("btn-pause").textContent = scope.paused ? t("resume") : t("pause");
+      renderChannelList();
+      fillChannelSelects();
+      dashboard.setChannels(state.channels);
+      legend.setChannels(state.channels);
       const rateNow = Number($("sim-rate")?.value) || 1000;
       if (state.mode === "sim") setStatusKey(rateNow >= 5000 ? "status.stress" : "status.sim", "sim");
       terminal.appendText(`[sys] lang → ${getLang()}\n`, "sys");

@@ -346,10 +346,31 @@ main {
   align-items: center;
 }
 
+.ch-row-static {
+  cursor: pointer;
+  user-select: none;
+}
+
 .swatch {
   width: 10px;
   height: 10px;
   border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.ch-label {
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ch-unit-static {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-align: right;
+  font-family: var(--mono);
 }
 
 .ch-name {

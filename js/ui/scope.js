@@ -3,6 +3,9 @@
  * 双游标、触发冻结、滚轮缩放、截图、测量、数学通道叠加
  */
 
+import { channelLabel } from "../channels.js";
+import { getLang } from "../i18n.js";
+
 export class Scope {
   constructor(canvas, store, channels) {
     this.canvas = canvas;
@@ -270,7 +273,12 @@ export class Scope {
     const samples = [];
     for (const ch of this.channels) {
       if (!ch.visible) continue;
-      samples.push({ name: ch.name, unit: ch.unit, color: ch.color, value: s.values[ch.id] });
+      samples.push({
+        name: channelLabel(ch.id, getLang()),
+        unit: ch.unit,
+        color: ch.color,
+        value: s.values[ch.id],
+      });
     }
     if (this.math) {
       for (const m of this.math.items) {
@@ -301,7 +309,11 @@ export class Scope {
         const deltas = [];
         for (const ch of this.channels) {
           if (!ch.visible) continue;
-          deltas.push({ name: ch.name, unit: ch.unit, delta: s2.values[ch.id] - s1.values[ch.id] });
+          deltas.push({
+            name: channelLabel(ch.id, getLang()),
+            unit: ch.unit,
+            delta: s2.values[ch.id] - s1.values[ch.id],
+          });
         }
         cursorDelta = { dt, deltas };
       }
