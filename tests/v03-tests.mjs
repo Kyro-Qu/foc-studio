@@ -4,6 +4,7 @@
 
 import { decodeFault, faultText, MOTOR_FAULTS, SENSE_FAULTS } from "../js/ui/fault.js";
 import { TUNING_PARAMS } from "../js/ui/tuning.js";
+import { FEEDBACK_COMMANDS } from "../js/ui/console.js";
 
 let passed = 0;
 let failed = 0;
@@ -36,6 +37,14 @@ console.log("\n[fault decode — real enums]");
 console.log("\n[tuning]");
 {
   assert(TUNING_PARAMS.every((p) => p.cmdPrefix && p.min < p.max), "params valid");
+  assert(TUNING_PARAMS.some((p) => p.id === "pos_vkp"), "pos_vkp present");
+  assert(TUNING_PARAMS.some((p) => p.id === "fb_if_curr"), "fb_if_curr present");
+}
+
+console.log("\n[feedback commands]");
+{
+  assert(FEEDBACK_COMMANDS.length >= 5, "feedback commands count");
+  assert(FEEDBACK_COMMANDS.every((c) => c.cmd.startsWith("feedback")), "valid feedback commands");
 }
 
 console.log(`\nResult: ${passed} passed, ${failed} failed\n`);

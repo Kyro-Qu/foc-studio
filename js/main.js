@@ -8,7 +8,7 @@ import { SessionRecorder, parseCsv, ReplaySource } from "./data/recorder.js";
 import { Scope } from "./ui/scope.js";
 import { Dashboard } from "./ui/dashboard.js";
 import { Terminal } from "./ui/terminal.js";
-import { ControlConsole, PRESET_COMMANDS, MODES, IDENT_COMMANDS } from "./ui/console.js";
+import { ControlConsole, PRESET_COMMANDS, MODES, IDENT_COMMANDS, FEEDBACK_COMMANDS } from "./ui/console.js";
 import { MathChannels, MATH_OPS } from "./ui/math.js";
 import { TriggerEngine, TriggerMode } from "./ui/trigger.js";
 import { measureChannel } from "./ui/measure.js";
@@ -281,6 +281,28 @@ function renderConsole() {
   }
   identSec.appendChild(identGrid);
   root.appendChild(identSec);
+
+  /* 无感闭环控制 — feedback 命令集合 */
+  const fbSec = document.createElement("div");
+  fbSec.className = "console-section";
+  fbSec.innerHTML = `<div class="panel-title" style="font-size:11px">${t("fb.title")}</div>
+    <p class="dash-ctrl-note" style="margin:0">${t("fb.note")}</p>`;
+  const fbGrid = document.createElement("div");
+  fbGrid.className = "console-grid";
+  for (const fc of FEEDBACK_COMMANDS) {
+    const b = document.createElement("button");
+    b.textContent = t(fc.key);
+    if (fc.danger) b.classList.add("danger");
+    b.title = fc.cmd;
+    b.addEventListener("click", () => {
+      consoleCtl
+        .run(fc.cmd)
+        .catch((e) => terminal.appendText(String(e) + "\n", "err"));
+    });
+    fbGrid.appendChild(b);
+  }
+  fbSec.appendChild(fbGrid);
+  root.appendChild(fbSec);
 
   const ctrl = document.createElement("div");
   ctrl.className = "console-section";

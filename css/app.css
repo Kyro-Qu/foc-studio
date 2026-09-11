@@ -520,6 +520,54 @@ main {
   min-width: 100px;
 }
 
+/* 目标滑条零位标记（min/max 对称时 0 在正中） */
+.slider-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  align-items: center;
+}
+
+.slider-wrap input[type="range"] {
+  width: 100%;
+  flex: 1;
+  margin: 10px 0;
+}
+
+.slider-zero {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.slider-zero-tick {
+  width: 2px;
+  height: 14px;
+  background: linear-gradient(180deg, var(--accent-2), transparent);
+  border-radius: 1px;
+  margin-top: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.slider-zero-label {
+  font-size: 9px;
+  font-family: var(--mono);
+  color: var(--accent-2);
+  line-height: 1;
+  margin-top: 1px;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+}
+
 .dash-ctrl-actions button {
   flex: 1;
 }

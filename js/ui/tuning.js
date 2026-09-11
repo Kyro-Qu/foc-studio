@@ -15,7 +15,10 @@ export const TUNING_PARAMS = [
   { id: "vel_ramp", label: "速度斜坡", group: "速度", cmdPrefix: "vel ramp", min: 0, max: 20000, step: 100, unit: "RPM/s" },
   { id: "vel_filter", label: "速度滤波", group: "速度", cmdPrefix: "vel filter", min: 0, max: 200, step: 1, unit: "Hz" },
   { id: "pos_kp", label: "位置 Kp", group: "位置", cmdPrefix: "pos kp", min: 0, max: 200, step: 0.5, unit: "" },
+  { id: "pos_vkp", label: "速度阻尼 vkp", group: "位置", cmdPrefix: "pos vkp", min: 0, max: 0.2, step: 0.001, unit: "A/RPM" },
+  { id: "pos_accel", label: "规划加速度", group: "位置", cmdPrefix: "pos accel", min: 100, max: 50000, step: 100, unit: "RPM/s" },
   { id: "vf_slope", label: "V/F 斜率", group: "V/F", cmdPrefix: "vf slope", min: 0, max: 0.01, step: 0.0001, unit: "V/RPM" },
+  { id: "fb_if_curr", label: "I/F 启动电流", group: "无感", cmdPrefix: "feedback if", min: 0.1, max: 0.8, step: 0.05, unit: "A" },
 ];
 
 const LS_KEY = "foc-studio-tuning-values-v1";

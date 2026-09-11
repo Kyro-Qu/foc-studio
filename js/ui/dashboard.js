@@ -112,7 +112,13 @@ export class Dashboard {
       <h3 class="dash-group-title">${t("dash.ctrl.title")}</h3>
       <div class="dash-ctrl-row">
         <label>${t("dash.ctrl.target")} <span id="dash-target-label" class="dash-unit-tag">RPM</span></label>
-        <input type="range" id="dash-target-range" min="-8000" max="8000" step="10" value="0" />
+        <div class="slider-wrap">
+          <input type="range" id="dash-target-range" min="-8000" max="8000" step="10" value="0" />
+          <span class="slider-zero" title="0" aria-hidden="true">
+            <span class="slider-zero-tick"></span>
+            <span class="slider-zero-label">0</span>
+          </span>
+        </div>
         <input type="number" id="dash-target-num" min="-8000" max="8000" step="10" value="0" style="width:90px" />
         <button class="small" id="dash-target-send">${t("dash.ctrl.send")}</button>
       </div>
@@ -200,6 +206,12 @@ export class Dashboard {
         num.step = String(m.step);
       }
       if (targetLabel) targetLabel.textContent = m.unit;
+      // 对称量程时 0 在中点；非对称则按公式定位
+      const zeroEl = this.root.querySelector(".slider-zero");
+      if (zeroEl) {
+        const frac = (0 - m.min) / (m.max - m.min);
+        zeroEl.style.left = `${(frac * 100).toFixed(2)}%`;
+      }
     };
     applyModeMeta();
     if (modeSel) modeSel.addEventListener("change", applyModeMeta);

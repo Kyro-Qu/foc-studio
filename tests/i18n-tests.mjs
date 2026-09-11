@@ -17,8 +17,10 @@ assert(typeof getLang() === "string", `lang=${getLang()}`);
 setLang("zh");
 assert(t("nav.dashboard") === "仪表盘", `zh: ${t("nav.dashboard")}`);
 assert(t("nav.scope") === "示波器", "zh scope");
+assert(t("fb.status") === "无感状态", "zh fb.status");
 setLang("en");
 assert(t("nav.dashboard") === "Dashboard", `en: ${t("nav.dashboard")}`);
+assert(t("fb.status") === "Feedback Status", "en fb.status");
 assert(t("sys.sim", { rate: 5000 }).includes("5000"), "interp");
 setLang("zh");
 
