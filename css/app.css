@@ -235,6 +235,10 @@ nav {
   border: none;
 }
 
+body {
+  overflow: hidden;
+}
+
 main {
   min-width: 0;
   min-height: 0;
@@ -248,6 +252,7 @@ main {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  min-width: 0;
   padding: 10px;
   gap: 10px;
   overflow: auto;
@@ -309,10 +314,11 @@ main {
 
 .scope-layout {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
   gap: 10px;
   flex: 1;
   min-height: 0;
+  min-width: 0;
 }
 
 .scope-side {
@@ -324,6 +330,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 #channel-list {
@@ -362,14 +369,16 @@ main {
   flex-direction: column;
   gap: 8px;
   min-height: 0;
+  min-width: 0;
   flex: 1;
 }
 
 .scope-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px 8px;
   align-items: center;
+  min-width: 0;
 }
 
 .scope-toolbar .spacer {
@@ -577,8 +586,9 @@ button.small {
 }
 
 .preset-row button {
-  flex: 1 1 auto;
-  min-width: 64px;
+  flex: 1 1 40%;
+  min-width: 72px;
+  max-width: 100%;
 }
 
 .math-add select {

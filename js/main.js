@@ -747,23 +747,41 @@ setInterval(() => {
   if (empty) empty.hidden = store.length > 2;
 }, 400);
 
-/* boot */
-scope.setSampleRate(state.sampleRate);
-scope.setWindowSec(state.windowSec);
-renderChannelList();
-fillChannelSelects();
-renderMathList();
-renderConsole();
-scope.start();
-dashboard.start();
-applyModeUI();
-setConnStatus("DISCONNECTED", "off");
-
-if (!SerialTransport.supported()) {
-  terminal.appendText("[sys] 无 Web Serial。请 Chrome/Edge，或用 Simulation/Replay。\n", "err");
-} else {
-  terminal.appendText("[sys] FOC Studio v0.2 — Scope 触发/游标/数学 · Console · Record\n", "sys");
+/* boot — 任一异常都要可见，否则整页“点不动” */
+function showBootError(err) {
+  console.error(err);
+  const bar = document.createElement("div");
+  bar.style.cssText =
+    "position:fixed;inset:auto 8px 8px 8px;z-index:9999;background:#3d1117;color:#ffb4b4;border:1px solid #f85149;border-radius:8px;padding:10px 12px;font:12px ui-monospace,monospace;white-space:pre-wrap";
+  bar.textContent = `FOC Studio boot failed:\n${err && err.stack ? err.stack : err}`;
+  document.body.appendChild(bar);
+  const empty = document.getElementById("scope-empty");
+  if (empty) {
+    empty.hidden = false;
+    empty.textContent = "启动失败，请查看底部红条";
+  }
 }
 
-$("mode-sim").checked = true;
-switchMode("sim");
+try {
+  scope.setSampleRate(state.sampleRate);
+  scope.setWindowSec(state.windowSec);
+  renderChannelList();
+  fillChannelSelects();
+  renderMathList();
+  renderConsole();
+  scope.start();
+  dashboard.start();
+  applyModeUI();
+  setConnStatus("DISCONNECTED", "off");
+
+  if (!SerialTransport.supported()) {
+    terminal.appendText("[sys] 无 Web Serial。请 Chrome/Edge，或用 Simulation/Replay。\n", "err");
+  } else {
+    terminal.appendText("[sys] FOC Studio v0.2.3 — Scope 触发/游标/数学 · Console · Record\n", "sys");
+  }
+
+  $("mode-sim").checked = true;
+  switchMode("sim").catch(showBootError);
+} catch (err) {
+  showBootError(err);
+}

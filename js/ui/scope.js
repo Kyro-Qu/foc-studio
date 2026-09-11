@@ -430,7 +430,6 @@ export class Scope {
       ctx.fillText(v.toFixed(2), area.x - 8, area.y + (area.h * i) / 4);
     }
 
-    const range = this._viewRange() || { startIdx: 0, endIdx: 1, triggerIndex: -1 };
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
     const tS = range.startIdx / this.sampleRate;
