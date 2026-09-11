@@ -34,6 +34,8 @@ export class SerialTransport {
     /** @type {Array<{bytes:Uint8Array, resolve:Function, reject:Function, priority:number}>} */
     this._writeQueue = [];
     this._writing = false;
+    /** @type {object|null} 当前 in-flight write job */
+    this._inFlight = null;
   }
 
   static supported() {
@@ -188,14 +190,21 @@ export class SerialTransport {
           job.reject(new Error("串口已断开"));
           continue;
         }
+        this._inFlight = job;
         const writer = this.port.writable.getWriter();
         try {
           await writer.write(job.bytes);
-          if (gen === this._gen) this.bytesTx += job.bytes.length;
-          job.resolve();
+          // generation 已失效：不得当作成功
+          if (gen !== this._gen) {
+            job.reject(new Error("串口已断开"));
+          } else {
+            this.bytesTx += job.bytes.length;
+            job.resolve();
+          }
         } catch (e) {
           job.reject(e);
         } finally {
+          this._inFlight = null;
           try {
             writer.releaseLock();
           } catch {

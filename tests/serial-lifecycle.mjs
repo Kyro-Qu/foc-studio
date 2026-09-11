@@ -216,5 +216,53 @@ console.log("\n[20x connect/disconnect cycles]");
   assert(t.state === SerialState.DISCONNECTED, "20 cycles end DISCONNECTED");
 }
 
+console.log("\n[in-flight write settles on disconnect]");
+{
+  const t = new SerialTransport();
+  const port = mockPort();
+  let releaseWrite;
+  const gate = new Promise((r) => {
+    releaseWrite = r;
+  });
+  const origGetWriter = port.writable.getWriter.bind(port.writable);
+  port.writable.getWriter = () => {
+    const w = origGetWriter();
+    const ow = w.write.bind(w);
+    w.write = async (b) => {
+      await gate;
+      return ow(b);
+    };
+    return w;
+  };
+  ports.push(port);
+  await t.connect(115200);
+  const p = t.write("inflight\r\n").then(
+    () => "resolved",
+    (e) => e.message
+  );
+  // 等 write 进入 in-flight
+  await new Promise((r) => setTimeout(r, 5));
+  const pd = t.disconnect();
+  releaseWrite();
+  await pd;
+  const r = await p;
+  assert(r === "resolved" || r === "串口已断开", `in-flight settled: ${r}`);
+  assert(t.state === SerialState.DISCONNECTED, "state clean");
+}
+
+console.log("\n[100x connect/disconnect cycles]");
+{
+  const t = new SerialTransport();
+  for (let i = 0; i < 100; i++) {
+    ports.push(mockPort());
+    await t.connect(115200);
+    await t.write(`p${i}\r\n`);
+    await t.disconnect();
+  }
+  assert(t.state === SerialState.DISCONNECTED, "100 cycles end DISCONNECTED");
+  assert(t.reader === null, "no leftover reader");
+  assert(t.port === null, "no leftover port");
+}
+
 console.log(`\nResult: ${passed} passed, ${failed} failed\n`);
 process.exit(failed ? 1 : 0);

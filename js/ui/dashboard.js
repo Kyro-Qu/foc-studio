@@ -111,9 +111,9 @@ export class Dashboard {
     ctrl.innerHTML = `
       <h3 class="dash-group-title">${t("dash.ctrl.title")}</h3>
       <div class="dash-ctrl-row">
-        <label>${t("dash.ctrl.target")}</label>
-        <input type="range" id="dash-target-range" min="-5000" max="5000" step="10" value="0" />
-        <input type="number" id="dash-target-num" min="-5000" max="5000" step="10" value="0" style="width:90px" />
+        <label>${t("dash.ctrl.target")} <span id="dash-target-label" class="dash-unit-tag">RPM</span></label>
+        <input type="range" id="dash-target-range" min="-8000" max="8000" step="10" value="0" />
+        <input type="number" id="dash-target-num" min="-8000" max="8000" step="10" value="0" style="width:90px" />
         <button class="small" id="dash-target-send">${t("dash.ctrl.send")}</button>
       </div>
       <div class="dash-ctrl-row">
@@ -177,6 +177,33 @@ export class Dashboard {
   _wireCtrl() {
     const range = this.root.querySelector("#dash-target-range");
     const num = this.root.querySelector("#dash-target-num");
+    const modeSel = this.root.querySelector("#dash-mode");
+    const targetLabel = this.root.querySelector("#dash-target-label");
+
+    const MODE_META = {
+      vel: { unit: "RPM", min: -8000, max: 8000, step: 10 },
+      iq: { unit: "A", min: -20, max: 20, step: 0.1 },
+      pos: { unit: "rad", min: -50, max: 50, step: 0.01 },
+      vf: { unit: "RPM", min: -8000, max: 8000, step: 10 },
+    };
+
+    const applyModeMeta = () => {
+      const m = MODE_META[modeSel?.value || "vel"] || MODE_META.vel;
+      if (range) {
+        range.min = String(m.min);
+        range.max = String(m.max);
+        range.step = String(m.step);
+      }
+      if (num) {
+        num.min = String(m.min);
+        num.max = String(m.max);
+        num.step = String(m.step);
+      }
+      if (targetLabel) targetLabel.textContent = m.unit;
+    };
+    applyModeMeta();
+    if (modeSel) modeSel.addEventListener("change", applyModeMeta);
+
     if (range && num) {
       range.addEventListener("input", () => {
         num.value = range.value;
@@ -190,7 +217,7 @@ export class Dashboard {
       send.addEventListener("click", () => {
         const v = Number(num && num.value);
         if (!Number.isFinite(v) || !this.send) return;
-        const mode = this.root.querySelector("#dash-mode")?.value || "vel";
+        const mode = modeSel?.value || "vel";
         const cmd = mode === "vf" ? `rpm ${v}` : `target ${v}`;
         Promise.resolve(this.send(cmd)).catch(() => {});
       });
@@ -198,7 +225,7 @@ export class Dashboard {
     const modeSend = this.root.querySelector("#dash-mode-send");
     if (modeSend) {
       modeSend.addEventListener("click", () => {
-        const m = this.root.querySelector("#dash-mode")?.value;
+        const m = modeSel?.value;
         if (m && this.send) Promise.resolve(this.send(`mode ${m}`)).catch(() => {});
       });
     }

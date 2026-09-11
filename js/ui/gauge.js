@@ -36,7 +36,11 @@ export class Gauge {
   }
 
   destroy() {
-    if (this._ro) this._ro.disconnect();
+    if (this._ro) {
+      this._ro.disconnect();
+      this._ro = null;
+    }
+    this._destroyed = true;
   }
 
   setRange(min, max) {
@@ -47,25 +51,31 @@ export class Gauge {
   }
 
   setValue(v) {
+    if (this._destroyed) return;
     this.value = Number.isFinite(v) ? v : NaN;
     this.draw();
   }
 
   _resize() {
-    const parent = this.canvas.parentElement;
-    const dpr = window.devicePixelRatio || 1;
+    const parent = this.canvas && this.canvas.parentElement;
+    const dpr = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
     const w = Math.max(120, (parent && parent.clientWidth) || 160);
     const h = Math.max(120, (parent && parent.clientHeight) || 150);
-    this.canvas.width = Math.floor(w * dpr);
-    this.canvas.height = Math.floor(h * dpr);
-    this.canvas.style.width = `${w}px`;
-    this.canvas.style.height = `${h}px`;
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (this.canvas) {
+      this.canvas.width = Math.floor(w * dpr);
+      this.canvas.height = Math.floor(h * dpr);
+      if (this.canvas.style) {
+        this.canvas.style.width = `${w}px`;
+        this.canvas.style.height = `${h}px`;
+      }
+      if (this.ctx && this.ctx.setTransform) this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     this.cssW = w;
     this.cssH = h;
   }
 
   draw() {
+    if (this._destroyed || !this.ctx) return;
     const ctx = this.ctx;
     const w = this.cssW || 160;
     const h = this.cssH || 150;

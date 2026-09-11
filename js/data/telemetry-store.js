@@ -183,7 +183,10 @@ export class TelemetryStore {
   }
 
   /**
-   * sampleIndex → 环形缓冲内偏移；不在窗口返回 -1
+   * sampleIndex → 环形缓冲内偏移。
+   *
+   * **约束**：假定 push 的 sampleIndex 连续递增（JustFloat/Sim 语义）。
+   * 非连续 index 时 offsetOf 可能返回 -1；不要依赖它做乱序索引。
    */
   offsetOf(sampleIndex) {
     if (this.count < 1) return -1;
