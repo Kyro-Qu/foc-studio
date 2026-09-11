@@ -18,33 +18,82 @@ export class Scope {
     this.cursor = null;
     this.cursorT1 = null;
     this.cursorT2 = null;
-    this.trigger = null; // TriggerEngine
-    this.math = null; // MathChannels
-    this.measures = null; // {chId: measure}
+    this.trigger = null;
+    this.math = null;
     this.onCursor = null;
     this.onWheelWindow = null;
     this._raf = 0;
+    this._running = false;
     this._needsDraw = true;
     this.cssW = 0;
     this.cssH = 0;
     this._peakCache = new Map();
-    this._ro = new ResizeObserver(() => this._resize());
-    this._ro.observe(canvas.parentElement || canvas);
-    this._resize();
+    this._mathBuf = new Map();
+    this._destroyed = false;
+    this._resizePending = 0;
 
-    canvas.addEventListener("pointermove", (e) => this._onPointer(e, false));
-    canvas.addEventListener("pointerleave", () => {
+    this._onPointerMove = (e) => this._onPointer(e, false);
+    this._onPointerLeave = () => {
       this.cursor = null;
       if (this.onCursor) this.onCursor(null);
       this._needsDraw = true;
-    });
-    canvas.addEventListener("pointerdown", (e) => this._onPointer(e, true));
-    canvas.addEventListener("wheel", (e) => this._onWheel(e), { passive: false });
+    };
+    this._onPointerDown = (e) => this._onPointer(e, true);
+    this._onWheel = (e) => this._onWheelEvent(e);
+    this._onResize = () => {
+      if (this._resizePending) return;
+      this._resizePending = requestAnimationFrame(() => {
+        this._resizePending = 0;
+        if (!this._destroyed) this._resize();
+      });
+    };
+
+    this._ro = new ResizeObserver(this._onResize);
+    this._ro.observe(canvas.parentElement || canvas);
+    this._resize();
+
+    canvas.addEventListener("pointermove", this._onPointerMove);
+    canvas.addEventListener("pointerleave", this._onPointerLeave);
+    canvas.addEventListener("pointerdown", this._onPointerDown);
+    canvas.addEventListener("wheel", this._onWheel, { passive: false });
   }
 
   destroy() {
-    cancelAnimationFrame(this._raf);
+    this._destroyed = true;
+    this.stop();
+    if (this._resizePending) {
+      cancelAnimationFrame(this._resizePending);
+      this._resizePending = 0;
+    }
     this._ro.disconnect();
+    const c = this.canvas;
+    c.removeEventListener("pointermove", this._onPointerMove);
+    c.removeEventListener("pointerleave", this._onPointerLeave);
+    c.removeEventListener("pointerdown", this._onPointerDown);
+    c.removeEventListener("wheel", this._onWheel);
+  }
+
+  /** 幂等启动：重复 start 不会产生多个 RAF */
+  start() {
+    if (this._running || this._destroyed) return;
+    this._running = true;
+    const loop = () => {
+      if (!this._running || this._destroyed) return;
+      if (this._needsDraw || !this.paused) {
+        this.draw();
+        this._needsDraw = false;
+      }
+      this._raf = requestAnimationFrame(loop);
+    };
+    this._raf = requestAnimationFrame(loop);
+  }
+
+  stop() {
+    this._running = false;
+    if (this._raf) {
+      cancelAnimationFrame(this._raf);
+      this._raf = 0;
+    }
   }
 
   setChannels(channels) {
@@ -108,7 +157,10 @@ export class Scope {
   }
 
   start() {
+    if (this._running || this._destroyed) return;
+    this._running = true;
     const loop = () => {
+      if (!this._running || this._destroyed) return;
       if (this._needsDraw || !this.paused) {
         this.draw();
         this._needsDraw = false;
@@ -172,11 +224,10 @@ export class Scope {
     return range.startIdx + ((x - area.x) / area.w) * span;
   }
 
-  _onWheel(e) {
+  _onWheelEvent(e) {
     e.preventDefault();
     const factor = e.deltaY > 0 ? 1.15 : 1 / 1.15;
-    const next = this.windowSec * factor;
-    this.setWindowSec(next);
+    this.setWindowSec(this.windowSec * factor);
     if (this.onWheelWindow) this.onWheelWindow(this.windowSec);
   }
 
@@ -308,28 +359,37 @@ export class Scope {
     this.yMax = mx + pad;
   }
 
-  /** 冻结时按 sampleIndex 区间取序列；否则 last-n */
+  /** 冻结时按 sampleIndex 区间取序列；否则 last-n。复用缓冲降低 GC。 */
   _series(channelId) {
     const range = this._viewRange();
     const frozen = !!(this.trigger && this.trigger.frozen && range);
     const n = this._windowPoints();
     if (n < 1) return null;
+    let buf = this._mathBuf.get(channelId);
     if (frozen) {
       const off0 = this.store.offsetOf(range.startIdx);
       const off1 = this.store.offsetOf(range.endIdx);
       if (off0 < 0 || off1 < 0 || off1 < off0) return null;
       const take = off1 - off0 + 1;
-      const s = this.store.getSeries(channelId, this.store.length);
-      // getSeries 返回 last-n；改用 sampleAt 逐点
-      const y = new Float32Array(take);
-      for (let i = 0; i < take; i++) {
-        const sm = this.store.sampleAt(off0 + i);
-        y[i] = sm ? sm.values[channelId] : NaN;
+      if (!buf || buf.length < take) {
+        buf = new Float32Array(take);
+        this._mathBuf.set(channelId, buf);
       }
-      return y;
+      const view = buf.subarray(0, take);
+      const tmp = this.store._scratch || (this.store._scratch = new Float32Array(this.store.numChannels));
+      for (let i = 0; i < take; i++) {
+        const idx = this.store.sampleAtInto(off0 + i, tmp);
+        view[i] = idx >= 0 ? tmp[channelId] : NaN;
+      }
+      return view;
     }
-    const s = this.store.getSeries(channelId, n);
-    return s.n ? s.y.subarray(0, s.n) : null;
+    const take = Math.min(n, this.store.length);
+    if (!buf || buf.length < take) {
+      buf = new Float32Array(take);
+      this._mathBuf.set(channelId, buf);
+    }
+    const s = this.store.getSeries(channelId, take, null, buf);
+    return s.n ? buf.subarray(0, s.n) : null;
   }
 
   draw() {

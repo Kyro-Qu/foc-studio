@@ -396,10 +396,13 @@ async function switchMode(next) {
   resetPipeline();
 
   if (state.mode === "sim") {
-    sim = new SimulationSource({ rateHz: state.sampleRate, onFrame: onSample });
-    sim.start();
-    setConnStatus("SIMULATION", "sim");
-    terminal.appendText("[sys] simulation @ 1 kHz\n", "sys");
+    const rate = Number($("sim-rate")?.value) || 1000;
+    state.sampleRate = rate;
+    scope.setSampleRate(rate);
+    sim = new SimulationSource({ rateHz: rate, onFrame: onSample });
+    sim.start(rate);
+    setConnStatus(rate >= 5000 ? "SIM STRESS" : "SIMULATION", "sim");
+    terminal.appendText(`[sys] simulation @ ${rate} Hz\n`, "sys");
   } else if (state.mode === "replay") {
     setConnStatus("REPLAY", "sim");
     terminal.appendText("[sys] replay mode — 在 Record 页加载 CSV 后点 Replay\n", "sys");
@@ -441,8 +444,16 @@ $("btn-disconnect").addEventListener("click", async () => {
 });
 
 $("btn-estop").addEventListener("click", async () => {
-  await consoleCtl.estop();
-  terminal.appendText("[sys] E-STOP → disable\n", "err");
+  try {
+    if (state.mode === "serial") {
+      await serial.writePriority("disable\r\n");
+    } else {
+      await consoleCtl.estop();
+    }
+    terminal.appendText("[sys] E-STOP → disable\n", "err");
+  } catch (e) {
+    terminal.appendText(`[sys] E-STOP failed: ${e.message || e}\n`, "err");
+  }
 });
 
 serial.onState = (s) => {
@@ -696,6 +707,17 @@ $("btn-replay").addEventListener("click", async () => {
 $("btn-replay-stop").addEventListener("click", () => {
   if (replay) replay.stop();
   recordLog("replay stopped");
+});
+
+$("sim-rate")?.addEventListener("change", () => {
+  if (state.mode !== "sim" || !sim) return;
+  const rate = Number($("sim-rate").value) || 1000;
+  state.sampleRate = rate;
+  scope.setSampleRate(rate);
+  sim.stop();
+  sim.start(rate);
+  setConnStatus(rate >= 5000 ? "SIM STRESS" : "SIMULATION", "sim");
+  recordLog(`sim rate → ${rate} Hz`);
 });
 
 /* keyboard */

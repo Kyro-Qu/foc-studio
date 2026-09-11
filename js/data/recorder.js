@@ -12,7 +12,8 @@ export class SessionRecorder {
     this.numChannels = numChannels;
     this.capacity = capacity;
     this.data = new Float32Array(numChannels * capacity);
-    this.indices = new Float32Array(capacity);
+    // Float64：长时间录制 sampleIndex 仍精确
+    this.indices = new Float64Array(capacity);
     this.marks = [];
     this.head = 0;
     this.count = 0;
@@ -59,12 +60,25 @@ export class SessionRecorder {
   /** @returns {{values:Float32Array, sampleIndex:number}|null} */
   at(i) {
     if (i < 0 || i >= this.count) return null;
+    const values = new Float32Array(this.numChannels);
+    const sampleIndex = this.atInto(i, values);
+    if (sampleIndex < 0 && this.count > 0) {
+      /* keep */
+    }
+    return { values, sampleIndex };
+  }
+
+  /**
+   * 低分配读取
+   * @returns {number} sampleIndex or -1
+   */
+  atInto(i, out) {
+    if (i < 0 || i >= this.count || !out || out.length < this.numChannels) return -1;
     const start = (this.head - this.count + this.capacity) % this.capacity;
     const slot = (start + i) % this.capacity;
-    const values = new Float32Array(this.numChannels);
     const base = slot * this.numChannels;
-    for (let c = 0; c < this.numChannels; c++) values[c] = this.data[base + c];
-    return { values, sampleIndex: this.indices[slot] };
+    for (let c = 0; c < this.numChannels; c++) out[c] = this.data[base + c];
+    return this.indices[slot];
   }
 
   /**
@@ -74,11 +88,12 @@ export class SessionRecorder {
     const header = ["time_s", ...channels.map((c) => c.name)].join(",");
     const lines = [header];
     const row = new Array(this.numChannels + 1);
+    const buf = new Float32Array(this.numChannels);
     for (let i = 0; i < this.count; i++) {
-      const s = this.at(i);
-      if (!s) continue;
-      row[0] = (s.sampleIndex / this.sampleRate).toFixed(6);
-      for (let c = 0; c < this.numChannels; c++) row[c + 1] = s.values[c].toFixed(6);
+      const idx = this.atInto(i, buf);
+      if (idx < 0 && this.count === 0) continue;
+      row[0] = (idx / this.sampleRate).toFixed(6);
+      for (let c = 0; c < this.numChannels; c++) row[c + 1] = buf[c].toFixed(6);
       lines.push(row.join(","));
     }
     return lines.join("\n");
@@ -86,12 +101,12 @@ export class SessionRecorder {
 
   toJson(channels) {
     const frames = [];
+    const buf = new Float32Array(this.numChannels);
     for (let i = 0; i < this.count; i++) {
-      const s = this.at(i);
-      if (!s) continue;
+      const t = this.atInto(i, buf);
       frames.push({
-        t: s.sampleIndex,
-        v: Array.from(s.values, (x) => Number(x.toFixed(6))),
+        t,
+        v: Array.from(buf, (x) => Number(x.toFixed(6))),
       });
     }
     return JSON.stringify(

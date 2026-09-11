@@ -49,6 +49,13 @@ export class TuningPanel {
   }
 
   _build() {
+    // 钳位损坏/越界的 localStorage 值
+    for (const p of TUNING_PARAMS) {
+      const v = this.values[p.id];
+      if (!Number.isFinite(v) || v < p.min || v > p.max) {
+        this.values[p.id] = p.min;
+      }
+    }
     this.root.innerHTML = "";
     const groups = new Map();
     for (const p of TUNING_PARAMS) {
@@ -76,7 +83,8 @@ export class TuningPanel {
 
     const note = document.createElement("div");
     note.className = "tune-note";
-    note.textContent = "Set 发送 CLI（如 vel kp 0.20）。参数写在 RAM；保存请在 Terminal 执行 conf write。";
+    note.textContent =
+      "Set 发送 CLI。数值为本地编辑值（非 MCU 回读）；写入 RAM，持久化请 Terminal 执行 conf write。";
     this.root.appendChild(note);
 
     this.root.querySelectorAll('input[type="range"]').forEach((el) => {

@@ -9,7 +9,7 @@
   <body>
     <div id="app">
       <header>
-        <div class="brand">FOC <span>Studio</span> <small>v0.3</small></div>
+        <div class="brand">FOC <span>Studio</span> <small>v0.3.1</small></div>
 
         <div class="mode-group" title="数据源">
           <label title="JustFloat / UART"><input type="radio" name="data-mode" id="mode-serial" value="serial" /> UART</label>
@@ -24,6 +24,14 @@
             <option value="921600">921600</option>
             <option value="2000000">2000000</option>
             <option value="6500000" selected>6500000</option>
+          </select>
+        </div>
+
+        <div class="field" title="仅 Simulation：5 kHz 压力测 UI/Store">
+          <label for="sim-rate">Sim</label>
+          <select id="sim-rate">
+            <option value="1000" selected>1 kHz</option>
+            <option value="5000">5 kHz Stress</option>
           </select>
         </div>
 

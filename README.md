@@ -1,60 +1,51 @@
-# FOC Studio
+# FOC Studio v0.3.1
 
 网页版 FOC 上位机：兼容 G431B-FOC 的 **JustFloat 遥测 + ASCII CLI**，不依赖 VOFA+。
 
-**不修改单片机固件。**
+**不修改单片机固件。当前未实现 Binary Protocol / CAN。**
 
-## 在线使用（GitHub Pages）
+## 在线
 
-打开部署地址后：
+https://kyroqu.xyz/foc-studio/ （Chrome / Edge，Web Serial 需 HTTPS）
 
-1. 使用 **Chrome / Edge**（Web Serial）
-2. Simulation 模式可直接看波形
-3. 接真板：切换 **UART** → Baud **6500000** → Connect
-
-> Web Serial 需要 HTTPS（Pages 已满足）或 localhost。
-
-## 功能（v0.2）
+## 功能（v0.3.1）
 
 | 模块 | 能力 |
 |------|------|
-| **Scope** | 16 通道、min/max 保峰绘制、双游标 Δt/Δy、触发（Auto/Normal、边沿/电平）、滚轮缩放、PNG/CSV 导出、数学通道 a±b / \|a\| / da/dt |
-| **Dashboard** | 与 Scope 同一 TelemetryStore |
-| **Console** | Enable/Disable/E-STOP、mode、target/rpm/vq、自定义 CLI 按钮 |
-| **Terminal** | CLI + JustFloat 自动解复用、历史、Raw RX |
-| **Record** | 录制、标记、CSV/JSON 导出、CSV 回放 |
-| **Simulation** | 无板 1 kHz 自测 |
+| Scope | 16 通道、保峰绘制、双游标、触发、数学通道、PNG/CSV、图例实时值 |
+| Dashboard | 状态条 + 关键量 + 故障名（对齐固件枚举） |
+| Console | Enable / E-STOP / mode / target / 自定义 CLI |
+| Tuning | 滑条 → CLI（本地编辑值，非 MCU 回读；RAM） |
+| Terminal | CLI + JustFloat 解复用 |
+| Record | 录制 / 标记 / CSV·JSON / 回放 |
+| Sim | 1 kHz Normal / 5 kHz Stress |
 
-## 本地开发
+## 稳定性（v0.3.1 加固）
+
+- Serial：generation 防串台、写队列串行化、E-STOP 优先、异常回 DISCONNECTED
+- JustFloat：随机分包 / 文本插入 / 假 tail / Inf 可恢复
+- Store：环形缓冲不膨胀；`sampleAtInto` 低分配；index 用 Float64
+- Scope：`start()` 幂等；`destroy()` 卸监听
+- 测试：`npm test` 含 lifecycle + soak/fuzz
+
+## 本地
 
 ```powershell
-# 测试
 npm test
-
-# 预览
+npm run test:stability
 python -m http.server 8765
-# http://localhost:8765
 ```
 
 ## 协议
 
-JustFloat：`16 × float32-LE + 00 00 80 7F`（68 字节），通道与 `foc_telemetry.h` 对齐。
-
-CLI 见固件 `help`（`foc_cmd.h`）。
+JustFloat：`16 × float32-LE + 00 00 80 7F`。通道见 `foc_telemetry.h`。  
+ch13 = `motor_fault*100 + current_shunt_fault`。
 
 ## 架构
 
 ```
-UI (Scope / Console / Terminal / Record)
-        │
-  Math + Trigger + Measure
-        │
-  TelemetryAdapter → Store
-        │
-  JustFloatDecoder / Sim / Replay / Serial
+UI → Math/Trigger/Measure → Adapter/Store → JustFloat/Sim/Replay/Serial
 ```
-
-Phase 2+ 可在此挂 Binary Protocol Decoder，UI 不必重写。
 
 ## License
 

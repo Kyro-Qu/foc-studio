@@ -1,6 +1,5 @@
 /**
- * 无板自测信号源：基于 performance.now 的追赶式 1 kHz 发帧，
- * 避免 setInterval 被浏览器夹到 ~4ms。
+ * 无板自测信号源：追赶式发帧，支持 Normal 1 kHz / Stress 5 kHz。
  */
 
 export class SimulationSource {
@@ -17,14 +16,15 @@ export class SimulationSource {
     this.sampleIndex = 0;
     this.values = new Float32Array(16);
     this._nextDue = 0;
-    this._maxCatchUp = 8;
+    this._maxCatchUp = 16;
   }
 
-  start() {
+  /** @param {number} [rateHz] 覆盖采样率 */
+  start(rateHz = 0) {
     if (this._timer) return;
+    if (rateHz > 0) this.rateHz = rateHz;
     this._nextDue = performance.now();
-    const interval = 2; // ms，主循环足够密
-    this._timer = setInterval(() => this._pump(), interval);
+    this._timer = setInterval(() => this._pump(), 2);
   }
 
   stop() {
@@ -32,6 +32,10 @@ export class SimulationSource {
       clearInterval(this._timer);
       this._timer = null;
     }
+  }
+
+  get running() {
+    return this._timer != null;
   }
 
   reset() {
@@ -49,10 +53,7 @@ export class SimulationSource {
       this._nextDue += period;
       n += 1;
     }
-    // 严重落后则对齐到当前时刻，避免螺旋追赶
-    if (this._nextDue < now - 50) {
-      this._nextDue = now;
-    }
+    if (this._nextDue < now - 50) this._nextDue = now;
   }
 
   _tick() {
@@ -65,7 +66,8 @@ export class SimulationSource {
     else if (t > 0.5) velRef = 1200;
 
     const tau = 0.25;
-    const vel = (Number.isFinite(v[2]) ? v[2] : 0) + (velRef - (Number.isFinite(v[2]) ? v[2] : 0)) * (dt / tau);
+    const prevVel = Number.isFinite(v[2]) ? v[2] : 0;
+    const vel = prevVel + (velRef - prevVel) * (dt / tau);
 
     const iqRef = (velRef - vel) * 0.01 + 0.4 + 0.15 * Math.sin(t * 4);
     const iq = iqRef + 0.08 * Math.sin(t * 40) + (Math.random() - 0.5) * 0.04;

@@ -12,7 +12,8 @@ export class TelemetryStore {
     this.numChannels = numChannels;
     this.capacity = capacity;
     this.data = new Float32Array(numChannels * capacity);
-    this.indices = new Float32Array(capacity);
+    // Float64 保证 sampleIndex 在长时间运行后仍精确（>2^24）
+    this.indices = new Float64Array(capacity);
     this.head = 0;
     this.count = 0;
     this.latest = new Float32Array(numChannels);
@@ -193,14 +194,23 @@ export class TelemetryStore {
 
   /** @returns {{values:Float32Array, sampleIndex:number}|null} */
   sampleAt(i) {
-    const take = this.count;
-    if (i < 0 || i >= take) return null;
-    const startSlot = (this.head - take + this.capacity) % this.capacity;
-    const slot = (startSlot + i) % this.capacity;
+    if (i < 0 || i >= this.count) return null;
     const out = new Float32Array(this.numChannels);
+    const sampleIndex = this.sampleAtInto(i, out);
+    return { values: out, sampleIndex };
+  }
+
+  /**
+   * 低分配读取：结果写入 out
+   * @returns {number} sampleIndex；无效返回 -1
+   */
+  sampleAtInto(i, out) {
+    if (i < 0 || i >= this.count || !out || out.length < this.numChannels) return -1;
+    const startSlot = (this.head - this.count + this.capacity) % this.capacity;
+    const slot = (startSlot + i) % this.capacity;
     const base = slot * this.numChannels;
     for (let c = 0; c < this.numChannels; c++) out[c] = this.data[base + c];
-    return { values: out, sampleIndex: this.indices[slot] };
+    return this.indices[slot];
   }
 
   get length() {
