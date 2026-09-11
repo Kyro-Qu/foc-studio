@@ -1,0 +1,525 @@
+/**
+ * Canvas 多通道示波器 v0.2
+ * 双游标、触发冻结、滚轮缩放、截图、测量、数学通道叠加
+ */
+
+export class Scope {
+  constructor(canvas, store, channels) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("2d", { alpha: false });
+    this.store = store;
+    this.channels = channels;
+    this.sampleRate = 1000;
+    this.windowSec = 5;
+    this.paused = false;
+    this.autoScale = true;
+    this.yMin = -1;
+    this.yMax = 1;
+    this.cursor = null;
+    this.cursorT1 = null;
+    this.cursorT2 = null;
+    this.trigger = null; // TriggerEngine
+    this.math = null; // MathChannels
+    this.measures = null; // {chId: measure}
+    this.onCursor = null;
+    this.onWheelWindow = null;
+    this._raf = 0;
+    this._needsDraw = true;
+    this.cssW = 0;
+    this.cssH = 0;
+    this._peakCache = new Map();
+    this._ro = new ResizeObserver(() => this._resize());
+    this._ro.observe(canvas.parentElement || canvas);
+    this._resize();
+
+    canvas.addEventListener("pointermove", (e) => this._onPointer(e, false));
+    canvas.addEventListener("pointerleave", () => {
+      this.cursor = null;
+      if (this.onCursor) this.onCursor(null);
+      this._needsDraw = true;
+    });
+    canvas.addEventListener("pointerdown", (e) => this._onPointer(e, true));
+    canvas.addEventListener("wheel", (e) => this._onWheel(e), { passive: false });
+  }
+
+  destroy() {
+    cancelAnimationFrame(this._raf);
+    this._ro.disconnect();
+  }
+
+  setChannels(channels) {
+    this.channels = channels;
+    this._needsDraw = true;
+  }
+
+  setSampleRate(hz) {
+    this.sampleRate = hz;
+    if (this.math) this.math.sampleRate = hz;
+    this._needsDraw = true;
+  }
+
+  setWindowSec(s) {
+    this.windowSec = Math.min(30, Math.max(0.05, s));
+    this._needsDraw = true;
+  }
+
+  setPaused(p) {
+    this.paused = p;
+    this._needsDraw = true;
+  }
+
+  setAutoScale(a) {
+    this.autoScale = a;
+    this._needsDraw = true;
+  }
+
+  setYRange(min, max) {
+    if (!(max > min)) return;
+    this.yMin = min;
+    this.yMax = max;
+    this._needsDraw = true;
+  }
+
+  setTrigger(t) {
+    this.trigger = t;
+    this._needsDraw = true;
+  }
+
+  setMath(m) {
+    this.math = m;
+    this._needsDraw = true;
+  }
+
+  clear() {
+    this.store.clear();
+    this.cursorT1 = null;
+    this.cursorT2 = null;
+    this._needsDraw = true;
+  }
+
+  clearCursors() {
+    this.cursorT1 = null;
+    this.cursorT2 = null;
+    this._needsDraw = true;
+  }
+
+  invalidate() {
+    this._needsDraw = true;
+  }
+
+  start() {
+    const loop = () => {
+      if (this._needsDraw || !this.paused) {
+        this.draw();
+        this._needsDraw = false;
+      }
+      this._raf = requestAnimationFrame(loop);
+    };
+    this._raf = requestAnimationFrame(loop);
+  }
+
+  _resize() {
+    const parent = this.canvas.parentElement || this.canvas;
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.max(320, parent.clientWidth || 640);
+    const h = Math.max(220, parent.clientHeight || 360);
+    const pw = Math.floor(w * dpr);
+    const ph = Math.floor(h * dpr);
+    if (this.canvas.width !== pw || this.canvas.height !== ph) {
+      this.canvas.width = pw;
+      this.canvas.height = ph;
+    }
+    this.canvas.style.width = `${w}px`;
+    this.canvas.style.height = `${h}px`;
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.cssW = w;
+    this.cssH = h;
+    this._needsDraw = true;
+  }
+
+  _plotArea() {
+    return {
+      x: 56,
+      y: 10,
+      w: Math.max(50, this.cssW - 68),
+      h: Math.max(40, this.cssH - 38),
+    };
+  }
+
+  _windowPoints() {
+    return Math.min(Math.floor(this.windowSec * this.sampleRate), this.store.length);
+  }
+
+  /** 显示用的时间范围（sampleIndex） */
+  _viewRange() {
+    const n = this._windowPoints();
+    if (n < 1) return null;
+    if (this.trigger && this.trigger.frozen) {
+      const vw = this.trigger.viewWindow(n, this.store.latestIndex);
+      if (vw) return vw;
+    }
+    const latest = this.store.latestIndex;
+    return { startIdx: latest - n + 1, endIdx: latest, triggerIndex: this.trigger ? this.trigger.triggerIndex : -1 };
+  }
+
+  _sampleIndexToX(area, idx, range) {
+    const span = Math.max(1, range.endIdx - range.startIdx);
+    return area.x + ((idx - range.startIdx) / span) * area.w;
+  }
+
+  _xToSampleIndex(area, x, range) {
+    const span = Math.max(1, range.endIdx - range.startIdx);
+    return range.startIdx + ((x - area.x) / area.w) * span;
+  }
+
+  _onWheel(e) {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 1.15 : 1 / 1.15;
+    const next = this.windowSec * factor;
+    this.setWindowSec(next);
+    if (this.onWheelWindow) this.onWheelWindow(this.windowSec);
+  }
+
+  _onPointer(e, isDown) {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    this.cursor = { x, y };
+    if (isDown) {
+      if (e.shiftKey) this.cursorT2 = x;
+      else if (e.altKey) this.cursorT1 = x;
+      else {
+        // 普通点击：交替设置 t1/t2
+        if (this.cursorT1 === null) this.cursorT1 = x;
+        else if (this.cursorT2 === null) this.cursorT2 = x;
+        else {
+          this.cursorT1 = x;
+          this.cursorT2 = null;
+        }
+      }
+    }
+    this._needsDraw = true;
+    this._emitCursor();
+  }
+
+  _emitCursor() {
+    if (!this.onCursor) return;
+    const area = this._plotArea();
+    const range = this._viewRange();
+    if (!range || !this.cursor) {
+      this.onCursor(null);
+      return;
+    }
+    const idx = Math.round(this._xToSampleIndex(area, this.cursor.x, range));
+    const s = this._sampleNear(idx);
+    if (!s) {
+      this.onCursor(null);
+      return;
+    }
+    const samples = [];
+    for (const ch of this.channels) {
+      if (!ch.visible) continue;
+      samples.push({ name: ch.name, unit: ch.unit, color: ch.color, value: s.values[ch.id] });
+    }
+    if (this.math) {
+      for (const m of this.math.items) {
+        if (!m.visible) continue;
+        const ya = this._series(m.a);
+        const yb = m.arity !== 1 && this._series(m.b);
+        if (!ya) continue;
+        // 简化：用当前点原始值估算数学量（非全序列）
+        const va = s.values[m.a];
+        const vb = s.values[m.b];
+        let mv = NaN;
+        if (m.op === "sub") mv = va - vb;
+        else if (m.op === "add") mv = va + vb;
+        else if (m.op === "abs") mv = Math.abs(va);
+        samples.push({ name: m.name, unit: "", color: m.color, value: mv });
+      }
+    }
+
+    let cursorDelta = null;
+    if (this.cursorT1 !== null && this.cursorT2 !== null) {
+      const i1 = Math.round(this._xToSampleIndex(area, this.cursorT1, range));
+      const i2 = Math.round(this._xToSampleIndex(area, this.cursorT2, range));
+      const s1 = this._sampleNear(i1);
+      const s2 = this._sampleNear(i2);
+      if (s1 && s2) {
+        const dt = (s2.sampleIndex - s1.sampleIndex) / this.sampleRate;
+        const deltas = [];
+        for (const ch of this.channels) {
+          if (!ch.visible) continue;
+          deltas.push({ name: ch.name, unit: ch.unit, delta: s2.values[ch.id] - s1.values[ch.id] });
+        }
+        cursorDelta = { dt, deltas };
+      }
+    }
+
+    this.onCursor({
+      t: s.sampleIndex / this.sampleRate,
+      samples,
+      delta: cursorDelta,
+    });
+  }
+
+  _chIdByName(name) {
+    const ch = this.channels.find((c) => c.name === name);
+    return ch ? ch.id : -1;
+  }
+
+  _series(channelId) {
+    const n = this._windowPoints();
+    if (n < 1) return null;
+    const s = this.store.getSeries(channelId, n);
+    return s.n ? s.y.subarray(0, s.n) : null;
+  }
+
+  _sampleNear(sampleIndex) {
+    const n = this.store.length;
+    if (n < 1) return null;
+    const oldest = this.store.latestIndex - n + 1;
+    const idxInWindow = Math.round(sampleIndex - oldest);
+    return this.store.sampleAt(Math.max(0, Math.min(n - 1, idxInWindow)));
+  }
+
+  /** 导出 PNG */
+  toPngBlob() {
+    return new Promise((resolve) => {
+      this.canvas.toBlob((b) => resolve(b), "image/png");
+    });
+  }
+
+  _autoScale(seriesList) {
+    let mn = Infinity;
+    let mx = -Infinity;
+    for (const s of seriesList) {
+      const src = s.peaks || s.y;
+      if (s.peaks) {
+        for (let i = 0; i < s.peaks.n; i++) {
+          if (Number.isFinite(s.peaks.minY[i]) && s.peaks.minY[i] < mn) mn = s.peaks.minY[i];
+          if (Number.isFinite(s.peaks.maxY[i]) && s.peaks.maxY[i] > mx) mx = s.peaks.maxY[i];
+        }
+      } else if (s.y) {
+        for (let i = 0; i < s.n; i++) {
+          if (!Number.isFinite(s.y[i])) continue;
+          if (s.y[i] < mn) mn = s.y[i];
+          if (s.y[i] > mx) mx = s.y[i];
+        }
+      }
+    }
+    if (!Number.isFinite(mn) || !Number.isFinite(mx)) {
+      mn = -1;
+      mx = 1;
+    }
+    if (mx - mn < 1e-6) mx = mn + 1;
+    const pad = (mx - mn) * 0.08;
+    this.yMin = mn - pad;
+    this.yMax = mx + pad;
+  }
+
+  draw() {
+    if (!this.cssW || !this.cssH) this._resize();
+    const ctx = this.ctx;
+    const area = this._plotArea();
+
+    ctx.fillStyle = "#0d1117";
+    ctx.fillRect(0, 0, this.cssW, this.cssH);
+
+    const vis = this.channels.filter((c) => c.visible);
+    const nWant = this._windowPoints();
+    const cols = Math.max(2, Math.floor(area.w));
+    const seriesList = [];
+
+    for (const ch of vis) {
+      let peaks = this._peakCache.get(ch.id);
+      if (!peaks) {
+        peaks = {};
+        this._peakCache.set(ch.id, peaks);
+      }
+      const p = this.store.getSeriesPeaks(ch.id, nWant, cols, peaks);
+      seriesList.push({ ch: { ...ch, color: ch.color }, peaks: p, n: nWant, y: null });
+    }
+
+    // 数学通道：整段序列下采样（简化：用 getSeries 再 minmax）
+    if (this.math) {
+      for (const m of this.math.items) {
+        if (!m.visible) continue;
+        const ya = this._series(m.a);
+        const yb = m.op === "sub" || m.op === "add" ? this._series(m.b) : null;
+        if (!ya || ya.length < 1) continue;
+        const out = this.math.compute(m, ya, yb || ya);
+        // 下采样到 cols
+        const minY = new Float32Array(cols);
+        const maxY = new Float32Array(cols);
+        const minIdx = new Float32Array(cols);
+        const maxIdx = new Float32Array(cols);
+        const bucket = Math.max(1, Math.ceil(out.length / cols));
+        let col = 0;
+        for (let i = 0; i < out.length && col < cols; i += bucket, col++) {
+          let lo = Infinity;
+          let hi = -Infinity;
+          for (let k = i; k < Math.min(out.length, i + bucket); k++) {
+            if (out[k] < lo) lo = out[k];
+            if (out[k] > hi) hi = out[k];
+          }
+          if (!Number.isFinite(lo)) {
+            lo = 0;
+            hi = 0;
+          }
+          minY[col] = lo;
+          maxY[col] = hi;
+        }
+        seriesList.push({
+          ch: { id: `m${m.id}`, name: m.name, color: m.color, unit: "" },
+          peaks: { n: col, minY, maxY, minIdx, maxIdx },
+          n: out.length,
+          y: out,
+        });
+      }
+    }
+
+    if (this.autoScale) this._autoScale(seriesList);
+    const { yMin, yMax } = this;
+    const yToPx = (v) => area.y + area.h * (1 - (v - yMin) / (yMax - yMin));
+
+    // 网格
+    ctx.strokeStyle = "#21262d";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i <= 8; i++) {
+      const y = area.y + (area.h * i) / 8;
+      ctx.moveTo(area.x, y);
+      ctx.lineTo(area.x + area.w, y);
+    }
+    for (let i = 0; i <= 10; i++) {
+      const x = area.x + (area.w * i) / 10;
+      ctx.moveTo(x, area.y);
+      ctx.lineTo(x, area.y + area.h);
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = "#8b949e";
+    ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    for (let i = 0; i <= 4; i++) {
+      const v = yMax - ((yMax - yMin) * i) / 4;
+      ctx.fillText(v.toFixed(2), area.x - 8, area.y + (area.h * i) / 4);
+    }
+
+    const range = this._viewRange() || { startIdx: 0, endIdx: 1, triggerIndex: -1 };
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    const tS = range.startIdx / this.sampleRate;
+    const tE = range.endIdx / this.sampleRate;
+    for (let i = 0; i <= 5; i++) {
+      const t = tS + ((tE - tS) * i) / 5;
+      ctx.fillText(`${t.toFixed(2)}s`, area.x + (area.w * i) / 5, area.y + area.h + 6);
+    }
+
+    // 波形
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(area.x, area.y, area.w, area.h);
+    ctx.clip();
+    for (const s of seriesList) {
+      const p = s.peaks;
+      if (!p || p.n < 1) continue;
+      ctx.strokeStyle = s.ch.color;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let i = 0; i < p.n; i++) {
+        const x = area.x + (area.w * i) / Math.max(1, p.n - 1);
+        const y = yToPx(p.maxY[i]);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      for (let i = p.n - 1; i >= 0; i--) {
+        const x = area.x + (area.w * i) / Math.max(1, p.n - 1);
+        ctx.lineTo(x, yToPx(p.minY[i]));
+      }
+      ctx.globalAlpha = 0.3;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      for (let i = 0; i < p.n; i++) {
+        const x = area.x + (area.w * i) / Math.max(1, p.n - 1);
+        const y = yToPx((p.maxY[i] + p.minY[i]) * 0.5);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // 触发电平线
+    if (this.trigger && this.trigger.mode !== "off") {
+      const ly = yToPx(this.trigger.level);
+      if (ly >= area.y && ly <= area.y + area.h) {
+        ctx.strokeStyle = "rgba(210, 153, 34, 0.85)";
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(area.x, ly);
+        ctx.lineTo(area.x + area.w, ly);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    // 触发位置竖线
+    if (this.trigger && this.trigger.frozen && range.triggerIndex >= 0) {
+      const tx = this._sampleIndexToX(area, range.triggerIndex, range);
+      ctx.strokeStyle = "#d29922";
+      ctx.beginPath();
+      ctx.moveTo(tx, area.y);
+      ctx.lineTo(tx, area.y + area.h);
+      ctx.stroke();
+      ctx.fillStyle = "#d29922";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText("T", tx, area.y + 4);
+    }
+
+    // 游标
+    const drawVLine = (x, color, label) => {
+      if (x === null || x < area.x || x > area.x + area.w) return;
+      ctx.strokeStyle = color;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(x, area.y);
+      ctx.lineTo(x, area.y + area.h);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = color;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(label, x + 3, area.y + area.h - 16);
+    };
+    drawVLine(this.cursorT1, "#58a6ff", "t1");
+    drawVLine(this.cursorT2, "#f07178", "t2");
+    if (this.cursor) {
+      const frac = (this.cursor.x - area.x) / area.w;
+      if (frac >= 0 && frac <= 1) {
+        drawVLine(this.cursor.x, "rgba(230,237,243,0.35)", "");
+      }
+    }
+
+    ctx.strokeStyle = "#30363d";
+    ctx.strokeRect(area.x, area.y, area.w, area.h);
+
+    if (this.paused) {
+      ctx.fillStyle = "rgba(210, 153, 34, 0.92)";
+      ctx.font = "600 12px system-ui, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText("PAUSED", area.x + 10, area.y + 8);
+    }
+    if (this.trigger && this.trigger.frozen) {
+      ctx.fillStyle = "rgba(210, 153, 34, 0.92)";
+      ctx.font = "600 12px system-ui, sans-serif";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "top";
+      ctx.fillText("TRIG", area.x + area.w - 10, area.y + 8);
+    }
+  }
+}

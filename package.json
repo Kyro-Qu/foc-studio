@@ -1,0 +1,13 @@
+{
+  "name": "foc-studio",
+  "version": "0.2.0",
+  "private": true,
+  "description": "FOC Studio — Web Serial host for G431B-FOC (JustFloat + CLI)",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run-tests.mjs && node tests/integration.mjs && node tests/v02-tests.mjs && node tests/check-links.mjs",
+    "test:unit": "node tests/run-tests.mjs && node tests/v02-tests.mjs",
+    "test:integration": "node tests/integration.mjs",
+    "serve": "python -m http.server 8765"
+  }
+}

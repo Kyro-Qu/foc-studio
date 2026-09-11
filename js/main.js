@@ -1,0 +1,685 @@
+import { loadChannels, saveChannels, CHANNEL_COUNT } from "./channels.js";
+import { SerialTransport, SerialState } from "./transport/serial.js";
+import { JustFloatDecoder } from "./protocol/justfloat.js";
+import { TelemetryAdapter } from "./protocol/protocol.js";
+import { TelemetryStore } from "./data/telemetry-store.js";
+import { SimulationSource } from "./sim/simulation.js";
+import { SessionRecorder, parseCsv, ReplaySource } from "./data/recorder.js";
+import { Scope } from "./ui/scope.js";
+import { Dashboard } from "./ui/dashboard.js";
+import { Terminal } from "./ui/terminal.js";
+import { ControlConsole, PRESET_COMMANDS, MODES } from "./ui/console.js";
+import { MathChannels, MATH_OPS } from "./ui/math.js";
+import { TriggerEngine, TriggerMode } from "./ui/trigger.js";
+import { measureChannel } from "./ui/measure.js";
+
+const $ = (id) => document.getElementById(id);
+
+const state = {
+  mode: "serial", // serial | sim | replay
+  channels: loadChannels(),
+  sampleRate: 1000,
+  windowSec: 5,
+  bytesWindow: 0,
+  framesWindow: 0,
+  lastStats: performance.now(),
+  textBuf: "",
+  textFlush: 0,
+};
+
+const store = new TelemetryStore(CHANNEL_COUNT, 40000);
+const serial = new SerialTransport();
+const decoder = new JustFloatDecoder({ channels: CHANNEL_COUNT });
+const recorder = new SessionRecorder(CHANNEL_COUNT, 60000);
+const math = new MathChannels();
+const trigger = new TriggerEngine();
+let sim = null;
+let replay = null;
+let replaySession = null;
+
+function queueText(text) {
+  state.textBuf += text;
+  if (state.textBuf.length > 8192) state.textBuf = state.textBuf.slice(-8192);
+  if (!state.textFlush) state.textFlush = requestAnimationFrame(flushText);
+}
+
+function flushText() {
+  state.textFlush = 0;
+  if (state.textBuf) {
+    terminal.appendText(state.textBuf, "rx");
+    state.textBuf = "";
+  }
+}
+
+function onSample(values, sampleIndex) {
+  store.push(values, sampleIndex);
+  recorder.push(values, sampleIndex);
+  if (trigger.mode !== TriggerMode.OFF) {
+    const fired = trigger.push(values, sampleIndex);
+    if (fired) {
+      scope.invalidate();
+      recordLog(`TRIG fire @ ${sampleIndex} src=ch${trigger.source} level=${trigger.level}`);
+    }
+  }
+  state.framesWindow += 1;
+}
+
+const adapter = new TelemetryAdapter({
+  onSample: ({ values, sampleIndex }) => onSample(values, sampleIndex),
+  onText: queueText,
+});
+adapter.attach(decoder);
+
+const scope = new Scope($("scope-canvas"), store, state.channels);
+const dashboard = new Dashboard($("dashboard"), store, state.channels);
+
+function sendCli(line) {
+  return consoleCtl.run(line);
+}
+
+const consoleCtl = new ControlConsole({
+  send: async (line) => {
+    flushText();
+    if (state.mode === "sim" || state.mode === "replay") {
+      if (line === "help") {
+        terminal.appendText("FOC CLI (offline): help/status/enable/disable/target/mode/log\r\n", "rx");
+      } else if (line === "status") {
+        terminal.appendText(
+          `M0 RUN mode=vel\r\nvel=${(store.latest[2] || 0).toFixed(1)}rpm\r\niq=${(store.latest[5] || 0).toFixed(3)}A\r\n`,
+          "rx"
+        );
+      } else {
+        terminal.appendText(`OK ${line}\r\n`, "rx");
+      }
+      return;
+    }
+    await serial.write(line + "\r\n");
+  },
+});
+
+const terminal = new Terminal($("term-log"), $("term-input"), $("term-send"), {
+  onSend: async (line) => {
+    await consoleCtl.run(line);
+  },
+});
+
+scope.setMath(math);
+scope.setTrigger(trigger);
+
+/* ---------- helpers ---------- */
+
+function setConnStatus(text, cls) {
+  const el = $("conn-status");
+  el.textContent = text;
+  el.className = `status-pill ${cls}`;
+}
+
+function applyModeUI() {
+  $("btn-connect").disabled = state.mode !== "serial";
+  $("btn-disconnect").disabled = state.mode !== "serial" || serial.state === SerialState.DISCONNECTED;
+  $("baud").disabled = state.mode !== "serial";
+  document.querySelectorAll('input[name="data-mode"]').forEach((r) => {
+    r.checked = r.value === state.mode;
+  });
+}
+
+function resetPipeline() {
+  adapter.reset();
+  decoder.reset();
+  store.clear();
+  trigger.disarm();
+  state.textBuf = "";
+  state.framesWindow = 0;
+  state.bytesWindow = 0;
+}
+
+function recordLog(msg) {
+  const el = $("record-log");
+  const line = `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+  el.textContent += line;
+  el.scrollTop = el.scrollHeight;
+}
+
+function downloadText(filename, text, mime = "text/plain") {
+  const blob = new Blob([text], { type: mime });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function fillChannelSelects() {
+  const opts = state.channels.map((c) => `<option value="${c.id}">ch${c.id} ${c.name}</option>`).join("");
+  $("trig-src").innerHTML = opts;
+  $("math-a").innerHTML = opts;
+  $("math-b").innerHTML = opts;
+  $("trig-src").value = String(trigger.source);
+}
+
+function renderMathList() {
+  const box = $("math-list");
+  box.innerHTML = "";
+  for (const m of math.items) {
+    const row = document.createElement("div");
+    row.className = "math-row";
+    row.innerHTML = `
+      <input type="checkbox" ${m.visible ? "checked" : ""} data-id="${m.id}" />
+      <span class="swatch" style="background:${m.color}"></span>
+      <span>${m.name}</span>
+      <button class="small" data-del="${m.id}">×</button>
+    `;
+    box.appendChild(row);
+  }
+  box.querySelectorAll('input[type="checkbox"]').forEach((el) => {
+    el.addEventListener("change", () => {
+      const item = math.items.find((x) => x.id === Number(el.dataset.id));
+      if (item) item.visible = el.checked;
+      scope.invalidate();
+    });
+  });
+  box.querySelectorAll("[data-del]").forEach((el) => {
+    el.addEventListener("click", () => {
+      math.remove(Number(el.dataset.del));
+      renderMathList();
+      scope.invalidate();
+    });
+  });
+}
+
+function renderConsole() {
+  const root = $("console-root");
+  root.innerHTML = "";
+
+  const presets = document.createElement("div");
+  presets.className = "console-section";
+  presets.innerHTML = `<div class="panel-title" style="font-size:11px">预设命令</div>`;
+  const grid = document.createElement("div");
+  grid.className = "console-grid";
+  for (const p of PRESET_COMMANDS) {
+    const b = document.createElement("button");
+    b.textContent = p.label;
+    if (p.kind === "ok") b.classList.add("ok");
+    if (p.kind === "warn") b.classList.add("danger");
+    b.addEventListener("click", () => consoleCtl.run(p.cmd).catch((e) => terminal.appendText(String(e) + "\n", "err")));
+    grid.appendChild(b);
+  }
+  presets.appendChild(grid);
+  root.appendChild(presets);
+
+  const ctrl = document.createElement("div");
+  ctrl.className = "console-section";
+  ctrl.innerHTML = `<div class="panel-title" style="font-size:11px">模式 / 目标</div>`;
+  const row1 = document.createElement("div");
+  row1.className = "console-row";
+  row1.innerHTML = `<label>Mode</label>`;
+  const modeSel = document.createElement("select");
+  for (const m of MODES) {
+    const o = document.createElement("option");
+    o.value = m.id;
+    o.textContent = m.label;
+    modeSel.appendChild(o);
+  }
+  const modeBtn = document.createElement("button");
+  modeBtn.textContent = "Set Mode";
+  modeBtn.addEventListener("click", () => consoleCtl.setMode(modeSel.value).catch((e) => terminal.appendText(String(e) + "\n", "err")));
+  row1.append(modeSel, modeBtn);
+
+  const row2 = document.createElement("div");
+  row2.className = "console-row";
+  row2.innerHTML = `
+    <label>target</label><input type="number" id="ctl-target" step="0.1" style="width:90px" value="0" />
+    <button id="ctl-target-apply">Apply</button>
+    <label>rpm</label><input type="number" id="ctl-rpm" step="1" style="width:90px" value="0" />
+    <button id="ctl-rpm-apply">Apply</button>
+    <label>vq</label><input type="number" id="ctl-vq" step="0.1" style="width:80px" value="0" />
+    <button id="ctl-vq-apply">Apply</button>
+  `;
+  ctrl.append(row1, row2);
+
+  const custom = document.createElement("div");
+  custom.className = "console-row";
+  custom.innerHTML = `
+    <input type="text" id="ctl-custom-label" placeholder="标签" style="width:80px" />
+    <input type="text" id="ctl-custom-cmd" placeholder="CLI 命令" style="flex:1;min-width:120px" />
+    <button id="ctl-custom-add">Add</button>
+    <div id="ctl-custom-list" style="display:flex;flex-wrap:wrap;gap:6px;width:100%"></div>
+  `;
+  ctrl.appendChild(custom);
+  root.appendChild(ctrl);
+
+  const wire = () => {
+    $("ctl-target-apply").onclick = () => consoleCtl.setTarget($("ctl-target").value).catch((e) => terminal.appendText(String(e) + "\n", "err"));
+    $("ctl-rpm-apply").onclick = () => consoleCtl.setRpm($("ctl-rpm").value).catch((e) => terminal.appendText(String(e) + "\n", "err"));
+    $("ctl-vq-apply").onclick = () => consoleCtl.setVq($("ctl-vq").value).catch((e) => terminal.appendText(String(e) + "\n", "err"));
+    $("ctl-custom-add").onclick = () => {
+      const cmd = $("ctl-custom-cmd").value.trim();
+      if (!cmd) return;
+      consoleCtl.addCustom($("ctl-custom-label").value.trim() || cmd, cmd);
+      $("ctl-custom-label").value = "";
+      $("ctl-custom-cmd").value = "";
+      renderConsole();
+    };
+    const list = $("ctl-custom-list");
+    list.innerHTML = "";
+    for (const c of consoleCtl.custom) {
+      const wrap = document.createElement("span");
+      wrap.style.cssText = "display:inline-flex;gap:4px;align-items:center";
+      const b = document.createElement("button");
+      b.className = "small";
+      b.textContent = c.label;
+      b.onclick = () => consoleCtl.run(c.cmd).catch((e) => terminal.appendText(String(e) + "\n", "err"));
+      const x = document.createElement("button");
+      x.className = "small";
+      x.textContent = "×";
+      x.onclick = () => {
+        consoleCtl.removeCustom(c.id);
+        renderConsole();
+      };
+      wrap.append(b, x);
+      list.appendChild(wrap);
+    }
+  };
+  wire();
+}
+
+function renderChannelList() {
+  const box = $("channel-list");
+  box.innerHTML = "";
+  for (const ch of state.channels) {
+    const row = document.createElement("label");
+    row.className = "ch-row";
+    row.innerHTML = `
+      <input type="checkbox" ${ch.visible ? "checked" : ""} data-id="${ch.id}" />
+      <span class="swatch" style="background:${ch.color}"></span>
+      <input type="text" class="ch-name" data-id="${ch.id}" value="${ch.name}" />
+      <input type="text" class="ch-unit" data-id="${ch.id}" value="${ch.unit}" title="单位" />
+    `;
+    box.appendChild(row);
+  }
+  const sync = () => {
+    saveChannels(state.channels);
+    scope.setChannels(state.channels);
+    dashboard.setChannels(state.channels);
+    fillChannelSelects();
+  };
+  box.querySelectorAll('input[type="checkbox"]').forEach((el) => {
+    el.addEventListener("change", () => {
+      const ch = state.channels.find((c) => c.id === Number(el.dataset.id));
+      if (ch) ch.visible = el.checked;
+      sync();
+    });
+  });
+  box.querySelectorAll(".ch-name").forEach((el) => {
+    el.addEventListener("change", () => {
+      const ch = state.channels.find((c) => c.id === Number(el.dataset.id));
+      if (ch) ch.name = el.value.trim() || `ch${ch.id}`;
+      sync();
+    });
+  });
+  box.querySelectorAll(".ch-unit").forEach((el) => {
+    el.addEventListener("change", () => {
+      const ch = state.channels.find((c) => c.id === Number(el.dataset.id));
+      if (ch) ch.unit = el.value.trim();
+      sync();
+    });
+  });
+}
+
+function updateMeasures() {
+  const bar = $("measure-bar");
+  const n = Math.min(Math.floor(state.windowSec * state.sampleRate), store.length);
+  if (n < 2) {
+    bar.textContent = "—";
+    return;
+  }
+  const parts = [];
+  for (const ch of state.channels) {
+    if (!ch.visible) continue;
+    const m = measureChannel(store, ch.id, n);
+    parts.push(
+      `<span><span class="m-name" style="color:${ch.color}">${ch.name}</span> min ${m.min.toFixed(3)} max ${m.max.toFixed(3)} avg ${m.mean.toFixed(3)} rms ${m.rms.toFixed(3)} p2p ${m.p2p.toFixed(3)}</span>`
+    );
+  }
+  bar.innerHTML = parts.join("") || "—";
+}
+
+async function switchMode(next) {
+  if (next === state.mode) return;
+  if (state.mode === "serial") await serial.disconnect();
+  if (sim) {
+    sim.stop();
+    sim = null;
+  }
+  if (replay) {
+    replay.stop();
+    replay = null;
+  }
+  state.mode = next;
+  resetPipeline();
+
+  if (state.mode === "sim") {
+    sim = new SimulationSource({ rateHz: state.sampleRate, onFrame: onSample });
+    sim.start();
+    setConnStatus("SIMULATION", "sim");
+    terminal.appendText("[sys] simulation @ 1 kHz\n", "sys");
+  } else if (state.mode === "replay") {
+    setConnStatus("REPLAY", "sim");
+    terminal.appendText("[sys] replay mode — 在 Record 页加载 CSV 后点 Replay\n", "sys");
+  } else {
+    setConnStatus("DISCONNECTED", "off");
+    terminal.appendText("[sys] serial mode\n", "sys");
+  }
+  applyModeUI();
+}
+
+/* ---------- header ---------- */
+
+document.querySelectorAll('input[name="data-mode"]').forEach((r) => {
+  r.addEventListener("change", () => switchMode(r.value));
+});
+
+$("btn-connect").addEventListener("click", async () => {
+  const baud = Number($("baud").value) || 6500000;
+  try {
+    setConnStatus("CONNECTING…", "busy");
+    await serial.connect(baud);
+    resetPipeline();
+    terminal.appendText(`[sys] connected @ ${baud}\n`, "sys");
+    applyModeUI();
+  } catch (e) {
+    setConnStatus("ERROR", "err");
+    terminal.appendText(`[sys] connect failed: ${e.message || e}\n`, "err");
+    applyModeUI();
+  }
+});
+
+$("btn-disconnect").addEventListener("click", async () => {
+  await serial.disconnect();
+  setConnStatus("DISCONNECTED", "off");
+  terminal.appendText("[sys] disconnected\n", "sys");
+  applyModeUI();
+});
+
+$("btn-estop").addEventListener("click", async () => {
+  await consoleCtl.estop();
+  terminal.appendText("[sys] E-STOP → disable\n", "err");
+});
+
+serial.onState = (s) => {
+  if (state.mode !== "serial") return;
+  const map = {
+    [SerialState.DISCONNECTED]: ["DISCONNECTED", "off"],
+    [SerialState.CONNECTING]: ["CONNECTING…", "busy"],
+    [SerialState.CONNECTED]: ["CONNECTED", "ok"],
+    [SerialState.READING]: ["CONNECTED", "ok"],
+    [SerialState.ERROR]: ["ERROR", "err"],
+  };
+  const [text, cls] = map[s] || [s, "off"];
+  setConnStatus(text, cls);
+  applyModeUI();
+};
+
+serial.onData = (bytes) => {
+  state.bytesWindow += bytes.length;
+  if ($("chk-raw").checked) terminal.feedRaw(bytes);
+  adapter.feed(bytes);
+};
+
+/* ---------- scope controls ---------- */
+
+$("window-select").addEventListener("change", (e) => {
+  state.windowSec = Number(e.target.value);
+  scope.setWindowSec(state.windowSec);
+});
+
+scope.onWheelWindow = (sec) => {
+  state.windowSec = sec;
+};
+
+$("btn-pause").addEventListener("click", () => {
+  const p = !scope.paused;
+  scope.setPaused(p);
+  $("btn-pause").textContent = p ? "Resume" : "Pause";
+  $("btn-pause").classList.toggle("active", p);
+});
+
+$("btn-clear").addEventListener("click", () => {
+  store.clear();
+  if (sim) sim.reset();
+  decoder.resetSampleIndex();
+  trigger.disarm();
+  scope.invalidate();
+});
+
+$("btn-clear-cursors").addEventListener("click", () => scope.clearCursors());
+
+$("btn-png").addEventListener("click", async () => {
+  const blob = await scope.toPngBlob();
+  if (!blob) return;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `foc-studio-${Date.now()}.png`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+$("chk-autoscale").addEventListener("change", (e) => {
+  const on = e.target.checked;
+  scope.setAutoScale(on);
+  $("y-min").disabled = on;
+  $("y-max").disabled = on;
+  if (!on) scope.setYRange(Number($("y-min").value), Number($("y-max").value));
+});
+$("y-min").addEventListener("change", () => {
+  if (!scope.autoScale) scope.setYRange(Number($("y-min").value), Number($("y-max").value));
+});
+$("y-max").addEventListener("change", () => {
+  if (!scope.autoScale) scope.setYRange(Number($("y-min").value), Number($("y-max").value));
+});
+
+$("btn-csv").addEventListener("click", () => {
+  const n = store.length;
+  if (n < 1) {
+    alert("暂无数据");
+    return;
+  }
+  const take = Math.min(n, Math.floor(state.windowSec * state.sampleRate));
+  const header = ["time_s", ...state.channels.map((c) => c.name)].join(",");
+  const parts = [header];
+  const row = new Array(17);
+  for (let i = n - take; i < n; i++) {
+    const s = store.sampleAt(i);
+    if (!s) continue;
+    row[0] = (s.sampleIndex / state.sampleRate).toFixed(6);
+    for (let c = 0; c < 16; c++) row[c + 1] = s.values[c].toFixed(6);
+    parts.push(row.join(","));
+  }
+  downloadText(`foc-studio-${Date.now()}.csv`, parts.join("\n"), "text/csv");
+});
+
+/* trigger UI */
+$("trig-mode").addEventListener("change", (e) => {
+  const m = e.target.value;
+  trigger.configure({ mode: m });
+  if (m === TriggerMode.OFF) trigger.disarm();
+});
+$("trig-src").addEventListener("change", (e) => trigger.configure({ source: Number(e.target.value) }));
+$("trig-edge").addEventListener("change", (e) => trigger.configure({ edge: e.target.value }));
+$("trig-level").addEventListener("change", (e) => trigger.configure({ level: Number(e.target.value) }));
+$("btn-trig-arm").addEventListener("click", () => {
+  trigger.configure({
+    mode: $("trig-mode").value,
+    source: Number($("trig-src").value),
+    edge: $("trig-edge").value,
+    level: Number($("trig-level").value),
+    windowPoints: Math.floor(state.windowSec * state.sampleRate),
+  });
+  if (trigger.mode === TriggerMode.OFF) {
+    $("trig-mode").value = TriggerMode.NORMAL;
+    trigger.configure({ mode: TriggerMode.NORMAL });
+  }
+  trigger.arm();
+  recordLog(`TRIG armed level=${trigger.level} edge=${trigger.edge}`);
+});
+$("btn-trig-release").addEventListener("click", () => {
+  trigger.disarm();
+  scope.invalidate();
+});
+
+/* math */
+$("btn-math-add").addEventListener("click", () => {
+  const op = $("math-op").value;
+  const a = Number($("math-a").value);
+  const b = Number($("math-b").value);
+  math.add(op, a, b);
+  renderMathList();
+  scope.invalidate();
+});
+
+/* cursor readout */
+scope.onCursor = (info) => {
+  const el = $("cursor-readout");
+  if (!info) {
+    el.textContent = "—";
+    return;
+  }
+  const parts = info.samples.map(
+    (s) => `${s.name}=${Number.isFinite(s.value) ? s.value.toFixed(3) : "—"}${s.unit ? " " + s.unit : ""}`
+  );
+  let text = `t=${info.t.toFixed(3)}s  ${parts.join("  ")}`;
+  if (info.delta) {
+    const d = info.delta.deltas.map((x) => `Δ${x.name}=${x.delta.toFixed(3)}`).join(" ");
+    text += `  |  Δt=${info.delta.dt.toFixed(4)}s ${d}`;
+  }
+  el.textContent = text;
+};
+
+/* terminal extras */
+$("chk-autoscroll").addEventListener("change", (e) => {
+  terminal.autoScroll = e.target.checked;
+});
+$("chk-raw").addEventListener("change", (e) => {
+  terminal.rawMode = e.target.checked;
+  $("term-raw").hidden = !e.target.checked;
+});
+$("btn-term-clear").addEventListener("click", () => {
+  terminal.clear();
+  $("term-raw").textContent = "";
+});
+
+/* record / replay */
+$("btn-record").addEventListener("click", () => {
+  const on = recorder.toggle();
+  $("btn-record").textContent = on ? "Stop Record" : "Start Record";
+  $("btn-record").classList.toggle("active", on);
+  const st = $("record-status");
+  st.textContent = on ? "RECORDING" : `SAVED ${recorder.count}`;
+  st.className = `status-pill ${on ? "err" : "ok"}`;
+  recordLog(on ? "record start" : `record stop count=${recorder.count}`);
+});
+
+$("btn-mark").addEventListener("click", () => {
+  const m = recorder.mark($("mark-text").value.trim() || undefined);
+  if (m) recordLog(`mark @ ${m.sampleIndex}: ${m.text}`);
+  else recordLog("mark ignored (not recording or empty)");
+});
+
+$("btn-save-csv").addEventListener("click", () => {
+  if (!recorder.count) {
+    alert("无录制数据");
+    return;
+  }
+  downloadText(`foc-session-${Date.now()}.csv`, recorder.toCsv(state.channels), "text/csv");
+  recordLog(`export CSV ${recorder.count} frames`);
+});
+
+$("btn-save-json").addEventListener("click", () => {
+  if (!recorder.count) {
+    alert("无录制数据");
+    return;
+  }
+  downloadText(`foc-session-${Date.now()}.json`, recorder.toJson(state.channels), "application/json");
+  recordLog(`export JSON ${recorder.count} frames marks=${recorder.marks.length}`);
+});
+
+$("btn-load-csv").addEventListener("click", () => $("file-csv").click());
+$("file-csv").addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const text = await file.text();
+  const parsed = parseCsv(text);
+  replaySession = {
+    sampleRate: state.sampleRate,
+    frames: parsed.frames.map((f) => ({ t: Math.round(f.t * state.sampleRate), v: f.v })),
+  };
+  recordLog(`loaded CSV frames=${replaySession.frames.length}`);
+  e.target.value = "";
+});
+
+$("btn-replay").addEventListener("click", async () => {
+  if (!replaySession || !replaySession.frames.length) {
+    alert("先 Load CSV");
+    return;
+  }
+  await switchMode("replay");
+  store.clear();
+  replay = new ReplaySource(replaySession, onSample);
+  replay.start();
+  recordLog("replay started");
+});
+
+$("btn-replay-stop").addEventListener("click", () => {
+  if (replay) replay.stop();
+  recordLog("replay stopped");
+});
+
+/* nav */
+document.querySelectorAll(".nav-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-btn").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+    $(`panel-${btn.dataset.panel}`).classList.add("active");
+    if (btn.dataset.panel === "scope") scope._resize();
+    if (btn.dataset.panel === "console") renderConsole();
+  });
+});
+
+/* stats */
+setInterval(() => {
+  const now = performance.now();
+  const dt = (now - state.lastStats) / 1000;
+  if (dt < 0.25) return;
+  $("stat-rx").textContent = `${(state.bytesWindow / dt / 1000).toFixed(1)} kB/s`;
+  $("stat-fps").textContent = `${(state.framesWindow / dt).toFixed(0)} fps`;
+  $("stat-frames").textContent = `${store.framesTotal}`;
+  $("stat-desync").textContent = `${decoder.desync}`;
+  $("stat-mode").textContent = state.mode.toUpperCase();
+  state.framesWindow = 0;
+  state.bytesWindow = 0;
+  state.lastStats = now;
+  if ($("chk-raw").checked) $("term-raw").textContent = terminal.renderRaw().slice(-2000);
+  if ($("panel-scope").classList.contains("active")) updateMeasures();
+}, 400);
+
+/* boot */
+scope.setSampleRate(state.sampleRate);
+scope.setWindowSec(state.windowSec);
+renderChannelList();
+fillChannelSelects();
+renderMathList();
+renderConsole();
+scope.start();
+dashboard.start();
+applyModeUI();
+setConnStatus("DISCONNECTED", "off");
+
+if (!SerialTransport.supported()) {
+  terminal.appendText("[sys] 无 Web Serial。请 Chrome/Edge，或用 Simulation/Replay。\n", "err");
+} else {
+  terminal.appendText("[sys] FOC Studio v0.2 — Scope 触发/游标/数学 · Console · Record\n", "sys");
+}
+
+$("mode-sim").checked = true;
+switchMode("sim");

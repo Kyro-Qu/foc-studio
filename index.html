@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FOC Studio</title>
+    <link rel="stylesheet" href="css/app.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <div class="brand">FOC <span>Studio</span> <small style="color: var(--text-dim); font-weight: 400">v0.2</small></div>
+
+        <div class="mode-group" title="数据源">
+          <label><input type="radio" name="data-mode" id="mode-serial" value="serial" /> JustFloat / UART</label>
+          <label><input type="radio" name="data-mode" id="mode-sim" value="sim" /> Simulation</label>
+          <label><input type="radio" name="data-mode" id="mode-replay" value="replay" /> Replay</label>
+        </div>
+
+        <div class="field">
+          <label for="baud">Baud</label>
+          <select id="baud">
+            <option value="115200">115200</option>
+            <option value="921600">921600</option>
+            <option value="2000000">2000000</option>
+            <option value="6500000" selected>6500000</option>
+          </select>
+        </div>
+
+        <button id="btn-connect">Connect</button>
+        <button id="btn-disconnect" disabled>Disconnect</button>
+        <button id="btn-estop" class="danger">E-STOP</button>
+
+        <div id="conn-status" class="status-pill off">DISCONNECTED</div>
+      </header>
+
+      <div class="body">
+        <nav>
+          <button class="nav-btn" data-panel="dashboard">Dashboard</button>
+          <button class="nav-btn active" data-panel="scope">Scope</button>
+          <button class="nav-btn" data-panel="console">Console</button>
+          <button class="nav-btn" data-panel="terminal">Terminal</button>
+          <button class="nav-btn" data-panel="record">Record</button>
+        </nav>
+
+        <main>
+          <section class="panel" id="panel-dashboard">
+            <div class="panel-title">实时状态（与 Scope 同一帧源）</div>
+            <div id="dashboard"></div>
+          </section>
+
+          <section class="panel active" id="panel-scope">
+            <div class="panel-title">实时示波器 — JustFloat 16ch · 点击设 t1/t2 · Shift/Alt 微调 · 滚轮缩放</div>
+            <div class="scope-layout">
+              <aside class="scope-side">
+                <div class="panel-title" style="font-size: 11px">通道</div>
+                <div id="channel-list"></div>
+                <div class="panel-title" style="font-size: 11px; margin-top: 8px">数学</div>
+                <div class="math-add">
+                  <select id="math-op">
+                    <option value="sub">a − b</option>
+                    <option value="add">a + b</option>
+                    <option value="abs">|a|</option>
+                    <option value="dt">d a/dt</option>
+                  </select>
+                  <select id="math-a"></select>
+                  <select id="math-b"></select>
+                  <button id="btn-math-add" class="small">Add</button>
+                </div>
+                <div id="math-list"></div>
+              </aside>
+              <div class="scope-main">
+                <div class="scope-toolbar">
+                  <label class="field">
+                    窗口
+                    <select id="window-select">
+                      <option value="0.5">0.5s</option>
+                      <option value="1">1 s</option>
+                      <option value="5" selected>5 s</option>
+                      <option value="10">10 s</option>
+                      <option value="30">30 s</option>
+                    </select>
+                  </label>
+                  <button id="btn-pause">Pause</button>
+                  <button id="btn-clear">Clear</button>
+                  <button id="btn-clear-cursors">Clear cursors</button>
+                  <button id="btn-png">PNG</button>
+                  <button id="btn-csv">CSV</button>
+                  <label class="field">
+                    <input type="checkbox" id="chk-autoscale" checked /> Auto
+                  </label>
+                  <label class="field">
+                    Y
+                    <input type="number" id="y-min" value="-2" step="0.1" disabled style="width: 64px" />
+                    …
+                    <input type="number" id="y-max" value="2" step="0.1" disabled style="width: 64px" />
+                  </label>
+                </div>
+                <div class="scope-toolbar">
+                  <label class="field">Trig
+                    <select id="trig-mode">
+                      <option value="off">Off</option>
+                      <option value="auto">Auto</option>
+                      <option value="normal">Normal</option>
+                    </select>
+                  </label>
+                  <label class="field">Src
+                    <select id="trig-src"></select>
+                  </label>
+                  <label class="field">
+                    <select id="trig-edge">
+                      <option value="rising">Rise</option>
+                      <option value="falling">Fall</option>
+                    </select>
+                  </label>
+                  <label class="field">Level
+                    <input type="number" id="trig-level" value="0" step="0.1" style="width: 72px" />
+                  </label>
+                  <button id="btn-trig-arm">Arm</button>
+                  <button id="btn-trig-release">Release</button>
+                </div>
+                <div class="scope-canvas-wrap">
+                  <canvas id="scope-canvas"></canvas>
+                </div>
+                <div id="cursor-readout" class="readout">鼠标移到波形可读值 · 点击设 t1/t2</div>
+                <div id="measure-bar" class="measure-bar"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel" id="panel-console">
+            <div class="panel-title">控制台 — 映射到现有 CLI（不改固件）</div>
+            <div id="console-root"></div>
+          </section>
+
+          <section class="panel" id="panel-terminal">
+            <div class="panel-title">ASCII CLI（与遥测同一串口，自动解复用）</div>
+            <div class="term-wrap">
+              <div class="term-opts">
+                <label><input type="checkbox" id="chk-autoscroll" checked /> Auto Scroll</label>
+                <label><input type="checkbox" id="chk-raw" /> Raw RX</label>
+                <button id="btn-term-clear">Clear</button>
+              </div>
+              <div id="term-log"></div>
+              <div class="term-input-row">
+                <input id="term-input" type="text" placeholder="help / status / target 500 / log 1 …" spellcheck="false" />
+                <button id="term-send">Send</button>
+              </div>
+              <div id="term-raw" hidden></div>
+            </div>
+          </section>
+
+          <section class="panel" id="panel-record">
+            <div class="panel-title">录制 / 回放 / 标记</div>
+            <div class="record-wrap">
+              <div class="scope-toolbar">
+                <button id="btn-record">Start Record</button>
+                <button id="btn-mark">Mark</button>
+                <input id="mark-text" type="text" placeholder="标记说明" style="flex: 1" />
+                <span id="record-status" class="status-pill off">IDLE</span>
+              </div>
+              <div class="scope-toolbar">
+                <button id="btn-save-csv">Export CSV</button>
+                <button id="btn-save-json">Export JSON</button>
+                <button id="btn-load-csv">Load CSV…</button>
+                <button id="btn-replay">Replay</button>
+                <button id="btn-replay-stop">Stop Replay</button>
+                <input type="file" id="file-csv" accept=".csv,text/csv" hidden />
+              </div>
+              <pre id="record-log" class="record-log"></pre>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <footer>
+        <span>RX<strong id="stat-rx">0 kB/s</strong></span>
+        <span>Frames<strong id="stat-fps">0 fps</strong></span>
+        <span>OK<strong id="stat-frames">0</strong></span>
+        <span>Desync<strong id="stat-desync">0</strong></span>
+        <span>Mode<strong id="stat-mode">—</strong></span>
+        <span style="margin-left: auto; opacity: 0.7">JustFloat · 不改固件 · v0.2</span>
+      </footer>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
