@@ -51,7 +51,7 @@ $t = Cmd "log 0"; Expect "A1 log off" $t @("telem=0")
 
 # --- Terminal / Console presets ---
 $t = Cmd "help"; Expect "T1 help" $t @("FOC CLI", "blackbox", "conf")
-$t = Cmd "version"; Expect "T2 version" $t @("v0.3.11", "pole_pairs")
+$t = Cmd "version"; Expect "T2 version" $t @("0.3.11", "pole_pairs")
 $t = Cmd "status"; Expect "T3 status" $t @("calib=", "cpu=")
 $t = Cmd "enable"; Expect "C1 enable" $t @("enabled")
 $t = Cmd "disable"; Expect "C2 disable" $t @("IDLE")
@@ -59,9 +59,11 @@ $t = Cmd "fault"; Expect "C3 fault" $t @("fault=")
 $t = Cmd "fault clear"; Expect "C4 fault clear" $t @("cleared")
 $t = Cmd "log 1"; Expect "C5 log on" $t @("telem=1")
 $t = Cmd "log 0"; Expect "C6 log off" $t @("telem=0")
-$t = Cmd "calib"; Expect "C7 calib query/busy" $t @()
+# 不发裸 calib — 会进入校准状态机
+$t = Cmd "status"; Expect "C7 idle after tests" $t @("IDLE")
 
-# --- Console mode/target ---
+# --- Console mode/target：必须 IDLE ---
+$t = Cmd "disable" 400
 $t = Cmd "mode iq"; Expect "M1 mode iq" $t @("mode=iq")
 $t = Cmd "target 0"; Expect "M2 target iq 0" $t @("target")
 $t = Cmd "mode vel"; Expect "M3 mode vel" $t @("mode=vel")

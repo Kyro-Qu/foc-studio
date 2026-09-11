@@ -33,7 +33,23 @@
 | JustFloat 流 | PASS（181 tail / 12317 B） |
 | 遥测中发 status | PASS（CLI 仍可用） |
 
-未测（需机械安全/更长准备）：完整 `calib`、`ident`、高速 `target`、`conf write/erase`。
+## 全功能矩阵复测（demux 修复后）
+
+**35 PASS / 0 FAIL** · `tools/test-hw-full.ps1` · COM44 空闲时
+
+| 组 | 覆盖 |
+|----|------|
+| Terminal | help / version / status / log 0·1·query |
+| Console | enable / disable / fault / fault clear |
+| 模式 | iq / vel / pos / vf + target 0（IDLE） |
+| Dashboard | rpm 0 / vq |
+| Tuning | limit / current bw / vel kp·ki·ramp·filter / pos kp / vf slope |
+| JustFloat | 密度校验 + 遥测中 status 混流 |
+| 存储 | conf read；测后恢复 RAM 参数 |
+
+**教训**：不要发裸 `calib`（会进校准态）；切 mode 前必须 IDLE。
+
+未测（需机械安全）：完整 calib、ident、高速 target、conf write/erase。
 
 ## 注意
 
