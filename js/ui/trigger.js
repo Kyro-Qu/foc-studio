@@ -23,6 +23,7 @@ export class TriggerEngine {
     this.triggerIndex = -1;
     this._lastValue = null;
     this._armedAt = 0;
+    this._frozenAt = 0;
     this._windowPoints = 5000;
   }
 
@@ -40,6 +41,7 @@ export class TriggerEngine {
     this.triggerIndex = -1;
     this._lastValue = null;
     this._armedAt = Date.now();
+    this._frozenAt = 0;
   }
 
   disarm() {
@@ -49,13 +51,21 @@ export class TriggerEngine {
   }
 
   /**
-   * 送入最新样本；返回是否刚刚触发
-   * @param {Float32Array} values
-   * @param {number} sampleIndex
+   * @returns {boolean|string} true=刚触发, 'auto-rearm'=AUTO超时重臂
    */
   push(values, sampleIndex) {
     if (this.mode === TriggerMode.OFF) return false;
-    if (this.frozen) return false;
+    if (this.frozen) {
+      if (this.mode === TriggerMode.AUTO && Date.now() - this._frozenAt > this.autoTimeoutMs) {
+        this.frozen = false;
+        this.triggerIndex = -1;
+        this.armed = true;
+        this._lastValue = null;
+        this._armedAt = Date.now();
+        return "auto-rearm";
+      }
+      return false;
+    }
 
     const v = values[this.source];
     if (!Number.isFinite(v)) return false;
@@ -72,13 +82,8 @@ export class TriggerEngine {
       this.triggerIndex = sampleIndex;
       this.frozen = true;
       this.armed = false;
+      this._frozenAt = Date.now();
       return true;
-    }
-
-    // NORMAL 无超时；AUTO 超时后强制刷新（不冻结）
-    if (this.mode === TriggerMode.AUTO && Date.now() - this._armedAt > this.autoTimeoutMs) {
-      this._armedAt = Date.now();
-      // 保持 armed，但不 freeze —— 交给 UI 继续滚动
     }
     return false;
   }

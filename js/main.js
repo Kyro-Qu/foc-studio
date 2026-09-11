@@ -55,10 +55,13 @@ function onSample(values, sampleIndex) {
   store.push(values, sampleIndex);
   recorder.push(values, sampleIndex);
   if (trigger.mode !== TriggerMode.OFF) {
-    const fired = trigger.push(values, sampleIndex);
-    if (fired) {
+    const r = trigger.push(values, sampleIndex);
+    if (r === true) {
       scope.invalidate();
       recordLog(`TRIG fire @ ${sampleIndex} src=ch${trigger.source} level=${trigger.level}`);
+    } else if (r === "auto-rearm") {
+      scope.invalidate();
+      recordLog("TRIG auto-rearm");
     }
   }
   state.framesWindow += 1;
@@ -567,6 +570,30 @@ $("btn-math-add").addEventListener("click", () => {
   scope.invalidate();
 });
 
+/* channel presets — FOC 调试常用组合 */
+const CHANNEL_PRESETS = {
+  current: [1, 5, 6, 4], // iq_raw, iq_filt, iq_ref, id_filt
+  velocity: [2, 3], // velocity, vel_ref
+  voltage: [7, 8, 15], // vd, vq, vbus
+  all: state.channels.map((c) => c.id),
+  none: [],
+};
+
+function applyChannelPreset(key) {
+  const set = new Set(CHANNEL_PRESETS[key] || []);
+  for (const ch of state.channels) ch.visible = set.has(ch.id);
+  saveChannels(state.channels);
+  scope.setChannels(state.channels);
+  dashboard.setChannels(state.channels);
+  renderChannelList();
+  fillChannelSelects();
+  scope.invalidate();
+}
+
+document.querySelectorAll("[data-preset]").forEach((btn) => {
+  btn.addEventListener("click", () => applyChannelPreset(btn.dataset.preset));
+});
+
 /* cursor readout */
 scope.onCursor = (info) => {
   const el = $("cursor-readout");
@@ -662,6 +689,30 @@ $("btn-replay").addEventListener("click", async () => {
 $("btn-replay-stop").addEventListener("click", () => {
   if (replay) replay.stop();
   recordLog("replay stopped");
+});
+
+/* keyboard */
+window.addEventListener("keydown", (e) => {
+  const tag = (e.target && e.target.tagName) || "";
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target?.isContentEditable) return;
+  if (e.code === "Space") {
+    e.preventDefault();
+    $("btn-pause").click();
+  } else if (e.key === "r" || e.key === "R") {
+    $("btn-clear").click();
+  } else if (e.key === "1") {
+    document.querySelector('[data-panel="dashboard"]')?.click();
+  } else if (e.key === "2") {
+    document.querySelector('[data-panel="scope"]')?.click();
+  } else if (e.key === "3") {
+    document.querySelector('[data-panel="console"]')?.click();
+  } else if (e.key === "4") {
+    document.querySelector('[data-panel="terminal"]')?.click();
+  } else if (e.key === "5") {
+    document.querySelector('[data-panel="record"]')?.click();
+  } else if (e.key === "e" || e.key === "E") {
+    $("btn-estop").click();
+  }
 });
 
 /* nav */

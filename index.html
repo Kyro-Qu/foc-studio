@@ -9,7 +9,7 @@
   <body>
     <div id="app">
       <header>
-        <div class="brand">FOC <span>Studio</span> <small>v0.2</small></div>
+        <div class="brand">FOC <span>Studio</span> <small>v0.2.2</small></div>
 
         <div class="mode-group" title="数据源">
           <label title="JustFloat / UART"><input type="radio" name="data-mode" id="mode-serial" value="serial" /> UART</label>
@@ -53,6 +53,14 @@
             <div class="panel-title">实时示波器 — JustFloat 16ch · 点击设 t1/t2 · Shift/Alt 微调 · 滚轮缩放</div>
             <div class="scope-layout">
               <aside class="scope-side">
+                <div class="panel-title" style="font-size: 11px">通道预设</div>
+                <div class="preset-row">
+                  <button class="small" data-preset="current">电流环</button>
+                  <button class="small" data-preset="velocity">速度环</button>
+                  <button class="small" data-preset="voltage">电压/母线</button>
+                  <button class="small" data-preset="all">全开</button>
+                  <button class="small" data-preset="none">全关</button>
+                </div>
                 <div class="panel-title" style="font-size: 11px">通道</div>
                 <div id="channel-list"></div>
                 <div class="panel-title" style="font-size: 11px; margin-top: 8px">数学</div>
@@ -179,7 +187,7 @@
         <span>OK<strong id="stat-frames">0</strong></span>
         <span>Desync<strong id="stat-desync">0</strong></span>
         <span>Mode<strong id="stat-mode">—</strong></span>
-        <span style="margin-left: auto; opacity: 0.7">JustFloat · 不改固件 · v0.2</span>
+        <span class="kbd-hint" style="margin-left: auto; opacity: 0.65">Space 暂停 · R 清屏 · E 急停 · 1–5 面板</span>
       </footer>
     </div>
 

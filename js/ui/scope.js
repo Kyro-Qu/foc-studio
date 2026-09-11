@@ -224,17 +224,18 @@ export class Scope {
     if (this.math) {
       for (const m of this.math.items) {
         if (!m.visible) continue;
-        const ya = this._series(m.a);
-        const yb = m.arity !== 1 && this._series(m.b);
-        if (!ya) continue;
-        // 简化：用当前点原始值估算数学量（非全序列）
         const va = s.values[m.a];
         const vb = s.values[m.b];
         let mv = NaN;
         if (m.op === "sub") mv = va - vb;
         else if (m.op === "add") mv = va + vb;
         else if (m.op === "abs") mv = Math.abs(va);
-        samples.push({ name: m.name, unit: "", color: m.color, value: mv });
+        else if (m.op === "dt") {
+          const off = this.store.offsetOf(s.sampleIndex);
+          const prev = off > 0 ? this.store.sampleAt(off - 1) : null;
+          if (prev) mv = (va - prev.values[m.a]) * this.sampleRate;
+        }
+        samples.push({ name: m.name, unit: m.op === "dt" ? "1/s" : "", color: m.color, value: mv });
       }
     }
 

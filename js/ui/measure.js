@@ -30,6 +30,13 @@ export function measureSeries(y) {
   }
   const mean = sum / cnt;
   const rms = Math.sqrt(sumSq / cnt);
+  let last = NaN;
+  for (let i = n - 1; i >= 0; i--) {
+    if (Number.isFinite(y[i])) {
+      last = y[i];
+      break;
+    }
+  }
   return {
     n: cnt,
     min,
@@ -37,7 +44,7 @@ export function measureSeries(y) {
     mean,
     rms,
     p2p: max - min,
-    last: y[n - 1],
+    last,
   };
 }
 
