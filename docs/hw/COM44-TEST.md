@@ -49,7 +49,21 @@
 
 **教训**：不要发裸 `calib`（会进校准态）；切 mode 前必须 IDLE。
 
-未测（需机械安全）：完整 calib、ident、高速 target、conf write/erase。
+未测：高速 target、conf write/erase。
+
+## 电机控制套件（机械安全确认后）
+
+| 项 | 结果 |
+|----|------|
+| `calib full` | PASS，`calib=1`，回 IDLE |
+| VF 开环 180 rpm | PASS（实测 184） |
+| Iq 0.2A | PASS（无 fault） |
+| Position 0.5 rad | PASS |
+| **Velocity 闭环** | **FAIL — 超调/振荡（目标 100~150，实测冲到 300~900）** |
+
+**结论**：Host 的 CLI/JustFloat/使能链路正常；速度环不稳是 **固件 PID/斜坡** 问题，不是 FOC Studio 上位机 bug。需在 Tuning 里降 `vel kp/ki` 或调 `vel ramp`。
+
+顺序注意：**必须先 `calib full`**，否则闭环报 `fault=6 NOT_CALIBRATED`。
 
 ## 注意
 
