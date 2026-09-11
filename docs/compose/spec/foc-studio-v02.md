@@ -12,14 +12,14 @@ commits: root..cc99ccd
 
 **What was built** — 网页版 FOC Studio v0.2：在不改 G431 固件前提下，兼容现有 JustFloat + ASCII CLI。Scope 增加双游标（Δt/Δy）、显示触发（Auto/Normal、边沿/电平、Arm）、滚轮缩放、PNG/CSV、数学通道（a±b、|a|、da/dt）与测量条（min/max/avg/rms/p2p）。Console 将 Enable/E-STOP/mode/target/rpm/vq/自定义命令映射到 CLI。Record 支持录制、标记、CSV/JSON 导出与 CSV 回放。已推送 `https://github.com/Kyro-Qu/foc-studio` 并开启 GitHub Pages。
 
-**Verification** — `npm test`：28 unit + 5 integration + 21 v02 + check-links 全部 PASS。解码吞吐约 46 万帧/秒。
+**Verification** — `npm test`：28 unit + 5 integration + 21 v02 + 9 trigger-freeze + check-links 全部 PASS。解码约 47 万帧/秒。Review 后已修：触发冻结改为锁定数据窗（getSeriesPeaksByRange）。
 
 **Journey log**
-1. CLI 与 JustFloat 混流必须常驻解复用 + 帧锁定，不能“发命令时暂停解析”。
-2. JustFloat 的 +Inf 字节与 tail 相同，需 locked 对齐避免误切。
-3. Scope 用 min/max 保峰下采样才能撑 30s 窗。
+1. CLI 与 JustFloat 混流必须常驻解复用 + 帧锁定。
+2. JustFloat 的 +Inf 字节与 tail 相同，需 locked 对齐。
+3. 显示触发必须冻结**数据切片**，只改坐标轴轨迹会继续滚动。
 4. 不改固件是硬约束：触发/数学/回放全在前端。
-5. GitHub Pages 自定义域名 kyroqu.xyz；Web Serial 需 HTTPS。
+5. GitHub Pages 域名 kyroqu.xyz/foc-studio/；Web Serial 需 HTTPS。
 
 ## [S1] Problem
 
