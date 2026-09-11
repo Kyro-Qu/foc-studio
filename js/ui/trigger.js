@@ -84,17 +84,20 @@ export class TriggerEngine {
   }
 
   /**
-   * 显示窗口：以触发点为中心 pre/post
-   * @returns {{startIdx:number,endIdx:number}|null} 触发后应显示的 sampleIndex 范围
+   * 显示窗口：以触发点为中心 pre/post；末尾不超过 latest。
+   * @returns {{startIdx:number,endIdx:number,triggerIndex:number}|null}
    */
   viewWindow(totalPoints, latestIndex) {
     if (!this.frozen || this.triggerIndex < 0) return null;
     const pre = Math.floor(this._windowPoints * this.preRatio);
     const post = this._windowPoints - pre;
-    return {
-      startIdx: this.triggerIndex - pre,
-      endIdx: this.triggerIndex + post,
-      triggerIndex: this.triggerIndex,
-    };
+    let startIdx = this.triggerIndex - pre;
+    let endIdx = this.triggerIndex + post;
+    if (Number.isFinite(latestIndex) && endIdx > latestIndex) {
+      const shift = endIdx - latestIndex;
+      endIdx = latestIndex;
+      startIdx = startIdx - shift;
+    }
+    return { startIdx, endIdx, triggerIndex: this.triggerIndex };
   }
 }

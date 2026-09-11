@@ -118,6 +118,79 @@ export class TelemetryStore {
     return { n: col, minY, maxY, minIdx, maxIdx, cols: col };
   }
 
+  /**
+   * 按 sampleIndex 区间取保峰（触发冻结窗用；与 last-n 绘制对齐）。
+   * 区间与环形缓冲求交，超出部分忽略。
+   * @returns {{n:number,minY:Float32Array,maxY:Float32Array,minIdx:Float32Array,maxIdx:Float32Array,range:{startIdx:number,endIdx:number}}}
+   */
+  getSeriesPeaksByRange(channel, startIdx, endIdx, columns, out = null) {
+    const cols = Math.max(1, columns | 0);
+    const minY = out?.minY && out.minY.length >= cols ? out.minY : new Float32Array(cols);
+    const maxY = out?.maxY && out.maxY.length >= cols ? out.maxY : new Float32Array(cols);
+    const minIdx = out?.minIdx && out.minIdx.length >= cols ? out.minIdx : new Float32Array(cols);
+    const maxIdx = out?.maxIdx && out.maxIdx.length >= cols ? out.maxIdx : new Float32Array(cols);
+    const empty = { n: 0, minY, maxY, minIdx, maxIdx, cols: 0, range: { startIdx, endIdx } };
+    if (this.count < 1) return empty;
+
+    const oldest = this.latestIndex - this.count + 1;
+    const lo = Math.max(startIdx, oldest);
+    const hi = Math.min(endIdx, this.latestIndex);
+    if (hi < lo) return empty;
+
+    const take = hi - lo + 1;
+    const bucket = Math.max(1, Math.ceil(take / cols));
+    const { numChannels, capacity, data, indices } = this;
+    // lo 对应的窗口内偏移
+    const baseOffset = lo - oldest;
+    const startSlot = (this.head - this.count + baseOffset + capacity) % capacity;
+
+    let col = 0;
+    let i = 0;
+    while (i < take && col < cols) {
+      const end = Math.min(take, i + bucket);
+      let loV = Infinity;
+      let hiV = -Infinity;
+      let loI = 0;
+      let hiI = 0;
+      for (let k = i; k < end; k++) {
+        const slot = (startSlot + k) % capacity;
+        const v = data[slot * numChannels + channel];
+        if (!Number.isFinite(v)) continue;
+        if (v < loV) {
+          loV = v;
+          loI = indices[slot];
+        }
+        if (v > hiV) {
+          hiV = v;
+          hiI = indices[slot];
+        }
+      }
+      if (!Number.isFinite(loV)) {
+        loV = 0;
+        hiV = 0;
+        loI = indices[(startSlot + i) % capacity];
+        hiI = loI;
+      }
+      minY[col] = loV;
+      maxY[col] = hiV;
+      minIdx[col] = loI;
+      maxIdx[col] = hiI;
+      col += 1;
+      i = end;
+    }
+    return { n: col, minY, maxY, minIdx, maxIdx, cols: col, range: { startIdx: lo, endIdx: hi } };
+  }
+
+  /**
+   * sampleIndex → 环形缓冲内偏移；不在窗口返回 -1
+   */
+  offsetOf(sampleIndex) {
+    if (this.count < 1) return -1;
+    const oldest = this.latestIndex - this.count + 1;
+    if (sampleIndex < oldest || sampleIndex > this.latestIndex) return -1;
+    return sampleIndex - oldest;
+  }
+
   /** @returns {{values:Float32Array, sampleIndex:number}|null} */
   sampleAt(i) {
     const take = this.count;

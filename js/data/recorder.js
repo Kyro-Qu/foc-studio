@@ -132,7 +132,7 @@ export function parseCsv(text) {
 }
 
 /**
- * 回放器：把 frames 按 rateHz 推给 onFrame
+ * 回放器：追赶式发帧，避免 setInterval 被浏览器夹到 ~4ms 变慢动作。
  */
 export class ReplaySource {
   /**
@@ -145,14 +145,26 @@ export class ReplaySource {
     this.onFrame = onFrame;
     this.i = 0;
     this._timer = null;
+    this._period = 1;
+    this._nextDue = 0;
     this.loop = false;
+    this._running = false;
   }
 
   start(rateHz = 0) {
     this.stop();
     const rate = rateHz || this.sampleRate;
-    const period = Math.max(1, 1000 / rate);
-    this._timer = setInterval(() => {
+    this._period = 1000 / rate;
+    this._nextDue = performance.now();
+    this._running = true;
+    this._timer = setInterval(() => this._pump(), 2);
+  }
+
+  _pump() {
+    if (!this._running) return;
+    const now = performance.now();
+    let n = 0;
+    while (now >= this._nextDue && n < 16 && this._running) {
       if (this.i >= this.frames.length) {
         if (this.loop) this.i = 0;
         else {
@@ -162,10 +174,14 @@ export class ReplaySource {
       }
       const f = this.frames[this.i++];
       this.onFrame(Float32Array.from(f.v), f.t);
-    }, period);
+      this._nextDue += this._period;
+      n += 1;
+    }
+    if (this._nextDue < now - 50) this._nextDue = now;
   }
 
   stop() {
+    this._running = false;
     if (this._timer) {
       clearInterval(this._timer);
       this._timer = null;

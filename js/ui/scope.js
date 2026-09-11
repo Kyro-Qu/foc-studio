@@ -59,7 +59,7 @@ export class Scope {
   }
 
   setWindowSec(s) {
-    this.windowSec = Math.min(30, Math.max(0.05, s));
+    this.windowSec = Math.min(30, Math.max(0.1, s));
     this._needsDraw = true;
   }
 
@@ -267,19 +267,10 @@ export class Scope {
     return ch ? ch.id : -1;
   }
 
-  _series(channelId) {
-    const n = this._windowPoints();
-    if (n < 1) return null;
-    const s = this.store.getSeries(channelId, n);
-    return s.n ? s.y.subarray(0, s.n) : null;
-  }
-
   _sampleNear(sampleIndex) {
-    const n = this.store.length;
-    if (n < 1) return null;
-    const oldest = this.store.latestIndex - n + 1;
-    const idxInWindow = Math.round(sampleIndex - oldest);
-    return this.store.sampleAt(Math.max(0, Math.min(n - 1, idxInWindow)));
+    const off = this.store.offsetOf(Math.round(sampleIndex));
+    if (off < 0) return null;
+    return this.store.sampleAt(off);
   }
 
   /** 导出 PNG */
@@ -293,7 +284,6 @@ export class Scope {
     let mn = Infinity;
     let mx = -Infinity;
     for (const s of seriesList) {
-      const src = s.peaks || s.y;
       if (s.peaks) {
         for (let i = 0; i < s.peaks.n; i++) {
           if (Number.isFinite(s.peaks.minY[i]) && s.peaks.minY[i] < mn) mn = s.peaks.minY[i];
@@ -317,6 +307,30 @@ export class Scope {
     this.yMax = mx + pad;
   }
 
+  /** 冻结时按 sampleIndex 区间取序列；否则 last-n */
+  _series(channelId) {
+    const range = this._viewRange();
+    const frozen = !!(this.trigger && this.trigger.frozen && range);
+    const n = this._windowPoints();
+    if (n < 1) return null;
+    if (frozen) {
+      const off0 = this.store.offsetOf(range.startIdx);
+      const off1 = this.store.offsetOf(range.endIdx);
+      if (off0 < 0 || off1 < 0 || off1 < off0) return null;
+      const take = off1 - off0 + 1;
+      const s = this.store.getSeries(channelId, this.store.length);
+      // getSeries 返回 last-n；改用 sampleAt 逐点
+      const y = new Float32Array(take);
+      for (let i = 0; i < take; i++) {
+        const sm = this.store.sampleAt(off0 + i);
+        y[i] = sm ? sm.values[channelId] : NaN;
+      }
+      return y;
+    }
+    const s = this.store.getSeries(channelId, n);
+    return s.n ? s.y.subarray(0, s.n) : null;
+  }
+
   draw() {
     if (!this.cssW || !this.cssH) this._resize();
     const ctx = this.ctx;
@@ -329,6 +343,12 @@ export class Scope {
     const nWant = this._windowPoints();
     const cols = Math.max(2, Math.floor(area.w));
     const seriesList = [];
+    const range = this._viewRange() || {
+      startIdx: this.store.latestIndex - Math.max(0, nWant - 1),
+      endIdx: this.store.latestIndex,
+      triggerIndex: -1,
+    };
+    const frozen = !!(this.trigger && this.trigger.frozen && this.trigger.triggerIndex >= 0);
 
     for (const ch of vis) {
       let peaks = this._peakCache.get(ch.id);
@@ -336,11 +356,14 @@ export class Scope {
         peaks = {};
         this._peakCache.set(ch.id, peaks);
       }
-      const p = this.store.getSeriesPeaks(ch.id, nWant, cols, peaks);
+      // 冻结：只画触发窗内数据，避免 live 轨迹继续滚动
+      const p = frozen
+        ? this.store.getSeriesPeaksByRange(ch.id, range.startIdx, range.endIdx, cols, peaks)
+        : this.store.getSeriesPeaks(ch.id, nWant, cols, peaks);
       seriesList.push({ ch: { ...ch, color: ch.color }, peaks: p, n: nWant, y: null });
     }
 
-    // 数学通道：整段序列下采样（简化：用 getSeries 再 minmax）
+    // 数学通道
     if (this.math) {
       for (const m of this.math.items) {
         if (!m.visible) continue;
@@ -348,7 +371,6 @@ export class Scope {
         const yb = m.op === "sub" || m.op === "add" ? this._series(m.b) : null;
         if (!ya || ya.length < 1) continue;
         const out = this.math.compute(m, ya, yb || ya);
-        // 下采样到 cols
         const minY = new Float32Array(cols);
         const maxY = new Float32Array(cols);
         const minIdx = new Float32Array(cols);
