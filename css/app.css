@@ -30,8 +30,9 @@ body {
 
 #app {
   display: grid;
-  grid-template-rows: 48px 1fr 28px;
+  grid-template-rows: auto 1fr 28px;
   height: 100%;
+  min-height: 100%;
 }
 
 /* ---------- header ---------- */
@@ -39,21 +40,31 @@ body {
 header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 14px;
+  gap: 8px 10px;
+  padding: 6px 12px;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
+  min-height: 44px;
+  row-gap: 6px;
 }
 
 .brand {
   font-weight: 700;
   font-size: 14px;
   letter-spacing: 0.02em;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .brand span {
   color: var(--accent);
+}
+
+.brand small {
+  color: var(--text-dim);
+  font-weight: 400;
+  font-size: 11px;
 }
 
 .field {
@@ -61,6 +72,7 @@ header {
   align-items: center;
   gap: 6px;
   color: var(--text-dim);
+  flex-shrink: 0;
 }
 
 .field label {
@@ -86,11 +98,12 @@ input:focus {
 
 .mode-group {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
-  padding: 0 6px;
+  padding: 0 8px;
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 
 .mode-group label {
@@ -100,6 +113,40 @@ input:focus {
   color: var(--text);
   cursor: pointer;
   font-size: 12px;
+  white-space: nowrap;
+}
+
+header button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+#btn-estop {
+  min-width: 72px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.status-pill {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .status-pill {
+    margin-left: 0;
+  }
+  header {
+    padding: 8px 10px;
+  }
 }
 
 button {
@@ -125,17 +172,6 @@ button:disabled {
 button.active {
   border-color: var(--warn);
   color: var(--warn);
-}
-
-.status-pill {
-  margin-left: auto;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  border: 1px solid var(--border);
-  color: var(--text-dim);
 }
 
 .status-pill.ok {
