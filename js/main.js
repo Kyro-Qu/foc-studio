@@ -454,6 +454,13 @@ $("btn-connect").addEventListener("click", async () => {
     resetPipeline();
     terminal.appendText(`[sys] connected @ ${baud}\n`, "sys");
     applyModeUI();
+    // 板上电打印与半帧残留：短暂静默后重置解复用
+    setTimeout(() => {
+      if (serial.state === SerialState.READING || serial.state === SerialState.CONNECTED) {
+        decoder.reset();
+        adapter.reset();
+      }
+    }, 150);
   } catch (e) {
     setConnStatus(t("status.error"), "err");
     terminal.appendText(`[sys] connect failed: ${e.message || e}\n`, "err");
@@ -468,6 +475,12 @@ $("btn-reconnect")?.addEventListener("click", async () => {
     resetPipeline();
     terminal.appendText(`[sys] reconnected @ ${serial.lastBaud}\n`, "sys");
     applyModeUI();
+    setTimeout(() => {
+      if (serial.state === SerialState.READING || serial.state === SerialState.CONNECTED) {
+        decoder.reset();
+        adapter.reset();
+      }
+    }, 150);
   } catch (e) {
     setConnStatus(t("status.error"), "err");
     terminal.appendText(`[sys] reconnect failed: ${e.message || e}\n`, "err");

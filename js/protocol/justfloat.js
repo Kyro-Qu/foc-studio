@@ -115,18 +115,26 @@ export class JustFloatDecoder {
   _emitText(start, end) {
     if (end <= start || !this.onText) return;
     const slice = this.buf.subarray(start, end);
+    // 只接受可打印 ASCII + CR/LF；过短碎片多半是二进制误切，丢弃
     let s = "";
-    let batch = "";
+    let run = "";
+    const flushRun = (force) => {
+      if (!run) return;
+      const hasNl = run.includes("\n") || run.includes("\r");
+      if (hasNl || run.length >= 6 || force) {
+        s += run;
+      }
+      run = "";
+    };
     for (let i = 0; i < slice.length; i++) {
       const b = slice[i];
       if (b === 0x0a || b === 0x0d || (b >= 0x20 && b < 0x7f)) {
-        batch += String.fromCharCode(b);
-      } else if (batch) {
-        s += batch;
-        batch = "";
+        run += String.fromCharCode(b);
+      } else {
+        flushRun(false);
       }
     }
-    if (batch) s += batch;
+    flushRun(true);
     if (s) {
       this.textOut += s.length;
       this.onText(s);
