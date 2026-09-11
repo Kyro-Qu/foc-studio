@@ -409,7 +409,7 @@ export class Scope {
     const ctx = this.ctx;
     const area = this._plotArea();
 
-    ctx.fillStyle = "#0d1117";
+    ctx.fillStyle = "#0a0e13";
     ctx.fillRect(0, 0, this.cssW, this.cssH);
 
     const vis = this.channels.filter((c) => c.visible);
