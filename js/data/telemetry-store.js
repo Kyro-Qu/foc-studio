@@ -33,9 +33,42 @@ export class TelemetryStore {
   push(values, sampleIndex) {
     const { numChannels, capacity, data, indices } = this;
     const base = this.head * numChannels;
-    for (let c = 0; c < numChannels; c++) {
+    const len = Math.min(numChannels, values.length);
+    for (let c = 0; c < len; c++) {
       data[base + c] = values[c];
       this.latest[c] = values[c];
+    }
+    for (let c = len; c < numChannels; c++) {
+      data[base + c] = NaN;
+      this.latest[c] = NaN;
+    }
+    indices[this.head] = sampleIndex;
+    this.latestIndex = sampleIndex;
+    this.head = (this.head + 1) % capacity;
+    if (this.count < capacity) this.count += 1;
+    this.framesTotal += 1;
+  }
+
+  /**
+   * 按 32-bit 自解释掩码推入稀疏数据（未订阅通道写 NaN 防假零）
+   * @param {number} mask
+   * @param {Float32Array|number[]} values
+   * @param {number} sampleIndex
+   */
+  pushSparse(mask, values, sampleIndex) {
+    const { numChannels, capacity, data, indices } = this;
+    const base = this.head * numChannels;
+    let valIdx = 0;
+    for (let c = 0; c < numChannels; c++) {
+      if ((mask & (1 << c)) !== 0 && valIdx < values.length) {
+        const v = values[valIdx++];
+        data[base + c] = v;
+        this.latest[c] = v;
+      } else {
+        data[base + c] = NaN;
+        // 未订阅的通道在 latest 中保持 NaN
+        this.latest[c] = NaN;
+      }
     }
     indices[this.head] = sampleIndex;
     this.latestIndex = sampleIndex;
@@ -104,8 +137,8 @@ export class TelemetryStore {
         }
       }
       if (!Number.isFinite(lo)) {
-        lo = 0;
-        hi = 0;
+        lo = NaN;
+        hi = NaN;
         loIdx = indices[(startSlot + i) % capacity];
         hiIdx = loIdx;
       }
@@ -167,8 +200,8 @@ export class TelemetryStore {
         }
       }
       if (!Number.isFinite(loV)) {
-        loV = 0;
-        hiV = 0;
+        loV = NaN;
+        hiV = NaN;
         loI = indices[(startSlot + i) % capacity];
         hiI = loI;
       }

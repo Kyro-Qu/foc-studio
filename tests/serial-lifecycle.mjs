@@ -140,10 +140,13 @@ console.log("\n[E-STOP priority]");
   // 稍等 first 已开写
   await new Promise((r) => setTimeout(r, 1));
   const estop = t.writePriority("disable\r\n");
-  await Promise.all([first, normal2, estop]);
+  const normal2Res = await normal2.then(() => "ok", (e) => e.message);
+  await Promise.all([first, estop]);
   const texts = port.writerLog.map((a) => String.fromCharCode(...a));
   assert(texts[0] === "first\r\n", "first completed");
-  assert(texts.indexOf("disable\r\n") < texts.indexOf("normal2\r\n"), `estop before queued: ${texts.join("|")}`);
+  assert(texts.includes("disable\r\n"), "estop sent");
+  assert(!texts.includes("normal2\r\n"), `queued command cancelled: ${texts.join("|")}`);
+  assert(normal2Res.includes("E-STOP"), `normal2 rejected with estop notice: ${normal2Res}`);
   await t.disconnect();
 }
 

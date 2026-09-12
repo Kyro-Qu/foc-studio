@@ -519,28 +519,64 @@ export class Scope {
     for (const s of seriesList) {
       const p = s.peaks;
       if (!p || p.n < 1) continue;
+
+      let hasValid = false;
+      for (let i = 0; i < p.n; i++) {
+        if (Number.isFinite(p.maxY[i])) {
+          hasValid = true;
+          break;
+        }
+      }
+      if (!hasValid) continue;
+
       ctx.strokeStyle = s.ch.color;
       ctx.lineWidth = 1.2;
+
+      // 半透明包络线（跳过 NaN 缺口）
+      ctx.globalAlpha = 0.25;
       ctx.beginPath();
+      let envActive = false;
       for (let i = 0; i < p.n; i++) {
+        if (!Number.isFinite(p.maxY[i])) {
+          envActive = false;
+          continue;
+        }
         const x = area.x + (area.w * i) / Math.max(1, p.n - 1);
         const y = yToPx(p.maxY[i]);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+        if (!envActive) {
+          ctx.moveTo(x, y);
+          envActive = true;
+        } else {
+          ctx.lineTo(x, y);
+        }
       }
       for (let i = p.n - 1; i >= 0; i--) {
+        if (!Number.isFinite(p.minY[i])) {
+          continue;
+        }
         const x = area.x + (area.w * i) / Math.max(1, p.n - 1);
         ctx.lineTo(x, yToPx(p.minY[i]));
       }
-      ctx.globalAlpha = 0.3;
       ctx.stroke();
-      ctx.globalAlpha = 1;
+
+      // 中心折线（遇到 NaN 断线跳过）
+      ctx.globalAlpha = 1.0;
       ctx.beginPath();
+      let active = false;
       for (let i = 0; i < p.n; i++) {
+        const val = (p.maxY[i] + p.minY[i]) * 0.5;
+        if (!Number.isFinite(val)) {
+          active = false;
+          continue;
+        }
         const x = area.x + (area.w * i) / Math.max(1, p.n - 1);
-        const y = yToPx((p.maxY[i] + p.minY[i]) * 0.5);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+        const y = yToPx(val);
+        if (!active) {
+          ctx.moveTo(x, y);
+          active = true;
+        } else {
+          ctx.lineTo(x, y);
+        }
       }
       ctx.stroke();
     }

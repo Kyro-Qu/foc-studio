@@ -116,16 +116,23 @@ console.log("\n[recorder]");
 {
   const frames = [];
   const session = {
-    frames: [0, 1, 2, 3, 4].map((i) => ({ t: i, v: new Float32Array(16).fill(i) })),
+    frames: [0, 1, 2, 3, 4].map((i) => ({ t: i, v: new Float32Array(16).fill(i), timeMs: i * 1 })),
     sampleRate: 1000,
   };
   // fix v to arrays
-  session.frames = session.frames.map((f) => ({ t: f.t, v: Array.from(f.v) }));
+  session.frames = session.frames.map((f) => ({ t: f.t, v: Array.from(f.v), timeMs: f.timeMs }));
   const rp = new ReplaySource(session, (v, t) => frames.push({ v: v[0], t }));
   // tick manually via internal - call interval is heavy; test parse only already done
   // simulate first frame path
   const f0 = session.frames[0];
   assert(f0.v[0] === 0, "replay session shape");
+
+  // 测试 parseCsv 采样率自适应推导
+  const testCsv = "time_s,a,b\n0.000,1,2\n0.002,3,4\n0.004,5,6\n";
+  const parsed = parseCsv(testCsv);
+  assert(parsed.sampleRate === 500, `parseCsv detected sampleRate: ${parsed.sampleRate} === 500`);
+  assert(parsed.frames.length === 3, "parseCsv frame count");
+  assert(Math.abs(parsed.frames[1].timeMs - 2) < 1e-4, "parseCsv timeMs calculation");
 }
 
 console.log(`\nResult: ${passed} passed, ${failed} failed\n`);

@@ -171,8 +171,8 @@ console.log("\n[TelemetryStore]");
 console.log("\n[channels]");
 
 {
-  assert(DEFAULT_CHANNELS.length === CHANNEL_COUNT, "16 default channels");
-  assert(DEFAULT_CHANNELS[15].name === "vbus", "ch15 default name");
+  assert(DEFAULT_CHANNELS.length === CHANNEL_COUNT, `${CHANNEL_COUNT} default channels`);
+  assert(DEFAULT_CHANNELS[26].name === "vbus_fast", "ch26 default name");
   assert(DEFAULT_CHANNELS.filter((c) => c.visible).length >= 3, "some channels visible by default");
 }
 

@@ -46,6 +46,14 @@ export class SerialTransport {
     return typeof navigator !== "undefined" && "serial" in navigator;
   }
 
+  get generation() {
+    return this._gen;
+  }
+
+  isConnected() {
+    return this.state === SerialState.CONNECTED || this.state === SerialState.READING;
+  }
+
   _setState(s, err = null) {
     this.state = s;
     this.error = err;
@@ -191,6 +199,13 @@ export class SerialTransport {
       if (!this.port || !this.port.writable || this.state === SerialState.DISCONNECTED) {
         reject(new Error("串口未连接"));
         return;
+      }
+      if (priority) {
+        // 急停/最高优先级写入：清除并拒绝队列中积压的普通写入任务，防止急停后又发出排队中的启动/控制命令
+        const dropped = this._writeQueue.splice(0, this._writeQueue.length);
+        for (const j of dropped) {
+          j.reject(new Error("E-STOP 取消排队写入"));
+        }
       }
       const job = { bytes, resolve, reject, priority };
       if (priority) this._writeQueue.unshift(job);

@@ -13,12 +13,12 @@ function assert(cond, msg) {
 }
 
 console.log("\n[channel labels]");
-assert(channelLabel(15, "zh") === "母线电压", `zh vbus=${channelLabel(15, "zh")}`);
-assert(channelLabel(15, "en") === "VBUS", `en vbus=${channelLabel(15, "en")}`);
-assert(channelLabel(2, "zh") === "转速", "zh rpm");
-assert(channelLabel(2, "en") === "RPM", "en rpm");
-assert(CHANNEL_LABELS[13].zh === "故障码", "fault zh");
-assert(DEFAULT_CHANNELS.length === 16, "16 ch");
+assert(channelLabel(26, "zh") === "实时母线电压", `zh vbus_fast=${channelLabel(26, "zh")}`);
+assert(channelLabel(26, "en") === "VBUS_FAST", `en vbus_fast=${channelLabel(26, "en")}`);
+assert(channelLabel(2, "zh") === "控制转速", "zh rpm");
+assert(channelLabel(2, "en") === "VEL_CTRL", "en rpm");
+assert(channelLabel(1, "zh") === "Iq 原始", "iq raw zh");
+assert(DEFAULT_CHANNELS.length === 32, "32 ch");
 
 console.log(`\nResult: ${passed} passed, ${failed} failed\n`);
 process.exit(failed ? 1 : 0);

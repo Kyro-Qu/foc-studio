@@ -125,33 +125,68 @@ export class SessionRecorder {
 
 /**
  * 解析 v0.1/v0.2 CSV
+ * 严格校验时间戳单调性，过滤重复与异常帧，并自动推导采样率。
  * @param {string} text
- * @returns {{channels:string[], frames:{t:number,v:number[]}[]}}
+ * @returns {{channels:string[], frames:{t:number,v:number[],timeMs:number}[], sampleRate:number}}
  */
 export function parseCsv(text) {
   const lines = text.trim().split(/\r?\n/);
-  if (!lines.length) return { channels: [], frames: [] };
+  if (!lines.length) return { channels: [], frames: [], sampleRate: 1000 };
   const header = lines[0].split(",").map((s) => s.trim());
   // time_s + ch names
   const channels = header.slice(1);
-  const frames = [];
+  const rawFrames = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(",");
     if (cols.length < 2) continue;
     const t = Number(cols[0]);
     const v = cols.slice(1).map(Number);
     if (!Number.isFinite(t)) continue;
-    frames.push({ t, v });
+    rawFrames.push({ t, v });
   }
-  return { channels, frames };
+
+  // 校验时间戳单调性，过滤重复与倒流
+  const frames = [];
+  const dts = [];
+  let lastT = -Infinity;
+  const t0 = rawFrames.length ? rawFrames[0].t : 0;
+  for (let i = 0; i < rawFrames.length; i++) {
+    const f = rawFrames[i];
+    if (f.t > lastT) {
+      if (lastT !== -Infinity) {
+        const dt = f.t - lastT;
+        if (dt > 1e-7) dts.push(dt);
+      }
+      frames.push({
+        t: f.t,
+        v: f.v,
+        timeMs: (f.t - t0) * 1000,
+      });
+      lastT = f.t;
+    }
+  }
+
+  let sampleRate = 1000;
+  if (dts.length > 0) {
+    dts.sort((a, b) => a - b);
+    const medianDt = dts[Math.floor(dts.length / 2)];
+    if (medianDt > 1e-7) {
+      const estHz = Math.round(1 / medianDt);
+      if (estHz >= 1 && estHz <= 100000) {
+        sampleRate = estHz;
+      }
+    }
+  }
+
+  return { channels, frames, sampleRate };
 }
 
 /**
- * 回放器：追赶式发帧，避免 setInterval 被浏览器夹到 ~4ms 变慢动作。
+ * 回放器：追赶式发帧，按 CSV 真实时间戳或固定采样周期调度。
  */
 export class ReplaySource {
   /**
-   * @param {{frames:{t:number,v:number[]}[], sampleRate?:number}} session
+   * @param {{frames:{t:number,v:number[],timeMs?:number}[], sampleRate?:number}} session
    * @param {(values:Float32Array, sampleIndex:number)=>void} onFrame
    */
   constructor(session, onFrame) {
@@ -160,8 +195,9 @@ export class ReplaySource {
     this.onFrame = onFrame;
     this.i = 0;
     this._timer = null;
-    this._period = 1;
+    this._period = 1000 / this.sampleRate;
     this._nextDue = 0;
+    this._startTime = 0;
     this.loop = false;
     this._running = false;
   }
@@ -169,8 +205,11 @@ export class ReplaySource {
   start(rateHz = 0) {
     this.stop();
     const rate = rateHz || this.sampleRate;
+    this.sampleRate = rate;
     this._period = 1000 / rate;
-    this._nextDue = performance.now();
+    this.i = 0;
+    this._startTime = performance.now();
+    this._nextDue = this._startTime;
     this._running = true;
     this._timer = setInterval(() => this._pump(), 2);
   }
@@ -181,16 +220,33 @@ export class ReplaySource {
     let n = 0;
     while (now >= this._nextDue && n < 16 && this._running) {
       if (this.i >= this.frames.length) {
-        if (this.loop) this.i = 0;
-        else {
+        if (this.loop) {
+          this.i = 0;
+          this._startTime = now;
+          this._nextDue = now;
+        } else {
           this.stop();
           return;
         }
       }
-      const f = this.frames[this.i++];
+      const f = this.frames[this.i];
       this.onFrame(Float32Array.from(f.v), f.t);
-      this._nextDue += this._period;
+      this.i += 1;
       n += 1;
+
+      if (this.i < this.frames.length) {
+        const nextF = this.frames[this.i];
+        if (typeof nextF.timeMs === "number") {
+          if (this._startTime === 0 && this._nextDue > 0) {
+            this._startTime = this._nextDue;
+          }
+          this._nextDue = this._startTime + nextF.timeMs;
+        } else {
+          this._nextDue += this._period;
+        }
+      } else {
+        this._nextDue += this._period;
+      }
     }
     if (this._nextDue < now - 50) this._nextDue = now;
   }

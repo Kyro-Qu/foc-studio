@@ -37,6 +37,8 @@ console.log("\n[fault decode — real enums]");
 console.log("\n[tuning]");
 {
   assert(TUNING_PARAMS.every((p) => p.cmdPrefix && p.min < p.max), "params valid");
+  const bw = TUNING_PARAMS.find((p) => p.id === "current_bw");
+  assert(bw.min === 100 && bw.max === 3000, "current bw matches firmware guardrail");
   assert(TUNING_PARAMS.some((p) => p.id === "pos_vkp"), "pos_vkp present");
   assert(TUNING_PARAMS.some((p) => p.id === "fb_if_curr"), "fb_if_curr present");
 }

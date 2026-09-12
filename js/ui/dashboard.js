@@ -19,11 +19,11 @@ const ROW_GROUPS = [
   },
   {
     titleKey: "dash.grp.voltage",
-    items: [15, 8, 7, 12],
+    items: [26, 8, 7, 12],
   },
   {
     titleKey: "dash.grp.angle",
-    items: [0, 14, 13],
+    items: [0, 20, 22],
   },
 ];
 
@@ -42,6 +42,8 @@ export class Dashboard {
     this._timer = null;
     this.gauges = {};
     this._cells = new Map();
+    this._lastStatus = null;
+    this._lastStatusTime = 0;
     this._build();
   }
 
@@ -247,6 +249,17 @@ export class Dashboard {
     if (dis) dis.addEventListener("click", () => this.send && Promise.resolve(this.send("disable")).catch(() => {}));
   }
 
+  /**
+   * 接收 10 Hz STATUS 心跳帧独立更新仪表盘
+   * 即使波形流关闭，仪表盘与状态指示灯也能持续刷新
+   * @param {{timestampMs:number, vbus:number, motorFault:number, shuntFault:number, state:number, mode:number, tempC:number, rpmEst:number, iqEst:number}} s
+   */
+  handleStatusUpdate(s) {
+    this._lastStatus = s;
+    this._lastStatusTime = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+    this.refresh();
+  }
+
   start(intervalMs = 100) {
     this.stop();
     this._timer = setInterval(() => this.refresh(), intervalMs);
@@ -262,33 +275,47 @@ export class Dashboard {
 
   refresh() {
     const latest = this.store.latest;
-    const raw = (id, d = 2) => {
-      const v = latest[id];
-      return Number.isFinite(v) ? v.toFixed(d) : "—";
-    };
+    const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+    const isStatusFresh = !!(this._lastStatus && ((now - this._lastStatusTime) < 3000));
+
     const setStrip = (id, text, bad) => {
       const el = this.root.querySelector(`[data-strip="${id}"]`);
       if (!el) return;
       el.textContent = text;
       el.classList.toggle("bad", !!bad);
     };
-    const fd = decodeFault(latest[13]);
-    setStrip("fault", fd.ok ? "OK" : faultText(latest[13]), !fd.ok);
-    setStrip("rpm", raw(2, 1));
-    setStrip("iq", raw(5, 3));
-    setStrip("vbus", raw(15, 2));
+
+    // 1. 故障展示：严格由 STATUS 帧驱动
+    if (isStatusFresh) {
+      const s = this._lastStatus;
+      const hasFault = (s.motorFault !== 0) || (s.shuntFault !== 0);
+      const faultDesc = hasFault ? `M:${s.motorFault} S:${s.shuntFault}` : "OK";
+      setStrip("fault", faultDesc, hasFault);
+    } else {
+      setStrip("fault", "—", false);
+    }
+
+    // 2. 转速与电流：优先使用高频波形，若未订阅波形则平滑回退到 STATUS 低频估计值
+    let rpmVal = Number.isFinite(latest[2]) ? latest[2] : (isStatusFresh ? this._lastStatus.rpmEst : NaN);
+    let iqVal = Number.isFinite(latest[5]) ? latest[5] : (isStatusFresh ? this._lastStatus.iqEst : NaN);
+    // 3. 母线电压：优先使用实时波形 ch26，若未订阅则使用 STATUS 中的 vbus
+    let vbusVal = Number.isFinite(latest[26]) ? latest[26] : (isStatusFresh ? this._lastStatus.vbus : NaN);
+
+    setStrip("rpm", Number.isFinite(rpmVal) ? rpmVal.toFixed(1) : "—");
+    setStrip("iq", Number.isFinite(iqVal) ? iqVal.toFixed(2) : "—");
+    setStrip("vbus", Number.isFinite(vbusVal) ? vbusVal.toFixed(2) : "—");
+
     const track = latest[2] - latest[3];
     setStrip("track", Number.isFinite(track) ? track.toFixed(1) : "—");
 
-    if (this.gauges.rpm) this.gauges.rpm.setValue(latest[2]);
-    if (this.gauges.iq) this.gauges.iq.setValue(latest[5]);
-    if (this.gauges.vbus) this.gauges.vbus.setValue(latest[15]);
-    if (this.gauges.duty) this.gauges.duty.setValue(latest[12]);
+    if (this.gauges.rpm && Number.isFinite(rpmVal)) this.gauges.rpm.setValue(rpmVal);
+    if (this.gauges.iq && Number.isFinite(iqVal)) this.gauges.iq.setValue(iqVal);
+    if (this.gauges.vbus && Number.isFinite(vbusVal)) this.gauges.vbus.setValue(vbusVal);
+    if (this.gauges.duty && Number.isFinite(latest[12])) this.gauges.duty.setValue(latest[12]);
 
     for (const [id, el] of this._cells) {
       const ch = this.channels.find((c) => c.id === id);
       el.textContent = formatValue(latest[id], ch ? ch.unit : "");
-      if (id === 13) el.classList.toggle("bad", !decodeFault(latest[13]).ok);
     }
   }
 }

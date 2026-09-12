@@ -811,6 +811,11 @@ main {
   background: rgba(11, 15, 20, 0.55);
 }
 
+.scope-empty[hidden],
+[hidden] {
+  display: none !important;
+}
+
 #scope-canvas {
   display: block;
   width: 100%;

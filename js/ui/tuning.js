@@ -8,8 +8,9 @@
  * 发送时：`${cmdPrefix} ${value}`
  */
 export const TUNING_PARAMS = [
-  { id: "limit", label: "电流软限", group: "安全", cmdPrefix: "limit", min: 0.1, max: 40, step: 0.1, unit: "A" },
-  { id: "current_bw", label: "电流环带宽", group: "电流", cmdPrefix: "current bw", min: 100, max: 5000, step: 50, unit: "rad/s" },
+  { id: "limit", label: "电流软限", group: "安全", cmdPrefix: "limit", min: 0.1, max: 12.0, step: 0.1, unit: "A" },
+  // Firmware guardrail: FOC_CURRENT_BW_MIN_RADS..MAX_RADS = 100..3000.
+  { id: "current_bw", label: "电流环带宽", group: "电流", cmdPrefix: "current bw", min: 100, max: 3000, step: 50, unit: "rad/s" },
   { id: "vel_kp", label: "速度 Kp", group: "速度", cmdPrefix: "vel kp", min: 0, max: 2, step: 0.01, unit: "" },
   { id: "vel_ki", label: "速度 Ki", group: "速度", cmdPrefix: "vel ki", min: 0, max: 5, step: 0.01, unit: "" },
   { id: "vel_ramp", label: "速度斜坡", group: "速度", cmdPrefix: "vel ramp", min: 0, max: 20000, step: 100, unit: "RPM/s" },
@@ -92,17 +93,29 @@ export class TuningPanel {
 
     this.root.querySelectorAll('input[type="range"]').forEach((el) => {
       el.addEventListener("input", () => {
+        const p = TUNING_PARAMS.find((x) => x.id === el.dataset.id);
+        let val = Number(el.value);
+        if (p) {
+          val = Math.max(p.min, Math.min(p.max, val));
+        }
         const num = this.root.querySelector(`input.tune-num[data-id="${el.dataset.id}"]`);
-        if (num) num.value = el.value;
-        this.values[el.dataset.id] = Number(el.value);
+        if (num) num.value = val;
+        this.values[el.dataset.id] = val;
         this._save();
       });
     });
     this.root.querySelectorAll("input.tune-num").forEach((el) => {
       el.addEventListener("change", () => {
+        const p = TUNING_PARAMS.find((x) => x.id === el.dataset.id);
+        let val = Number(el.value);
+        if (!Number.isFinite(val)) val = p ? p.min : 0;
+        if (p) {
+          val = Math.max(p.min, Math.min(p.max, val));
+          el.value = val;
+        }
         const rng = this.root.querySelector(`input[type="range"][data-id="${el.dataset.id}"]`);
-        if (rng) rng.value = el.value;
-        this.values[el.dataset.id] = Number(el.value);
+        if (rng) rng.value = val;
+        this.values[el.dataset.id] = val;
         this._save();
       });
     });
@@ -110,8 +123,15 @@ export class TuningPanel {
       btn.addEventListener("click", async () => {
         const p = TUNING_PARAMS.find((x) => x.id === btn.dataset.send);
         if (!p) return;
-        const v = this.values[p.id];
+        let v = this.values[p.id];
         if (!Number.isFinite(v)) return;
+        // 发送前严格钳位在 [min, max] 范围内，杜绝越界值发送
+        v = Math.max(p.min, Math.min(p.max, v));
+        this.values[p.id] = v;
+        const num = this.root.querySelector(`input.tune-num[data-id="${p.id}"]`);
+        if (num) num.value = v;
+        const rng = this.root.querySelector(`input[type="range"][data-id="${p.id}"]`);
+        if (rng) rng.value = v;
         const cmd = `${p.cmdPrefix} ${v}`;
         try {
           await this.send(cmd);

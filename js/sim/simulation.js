@@ -14,7 +14,7 @@ export class SimulationSource {
     this._timer = null;
     this.t = 0;
     this.sampleIndex = 0;
-    this.values = new Float32Array(16);
+    this.values = new Float32Array(32);
     this._nextDue = 0;
     this._maxCatchUp = 16;
   }

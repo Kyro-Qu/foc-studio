@@ -1,4 +1,4 @@
-# FOC Studio v0.3.3
+# FOC Studio v0.3.6
 
 网页版 FOC 上位机：兼容 G431B-FOC 的 **JustFloat 遥测 + ASCII CLI**，不依赖 VOFA+。
 
@@ -8,7 +8,7 @@
 
 | 有 | 没有 |
 |----|------|
-| JustFloat 16 通道波形 | Binary Protocol |
+| JustFloat 16 通道波形（真板 500 Hz） | Binary Protocol |
 | ASCII CLI 终端 / 控制台 / 调参 | CAN |
 | 仪表盘表盘 + 快捷控制滑条 | MCU 参数回读 |
 | 录制 / CSV 回放 | Blackbox / 校准向导 |

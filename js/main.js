@@ -1,6 +1,6 @@
 import { loadChannels, saveChannels, CHANNEL_COUNT, channelLabel } from "./channels.js";
 import { SerialTransport, SerialState } from "./transport/serial.js";
-import { JustFloatDecoder } from "./protocol/justfloat.js";
+import { StpDecoder } from "./protocol/stp.js";
 import { TelemetryAdapter } from "./protocol/protocol.js";
 import { TelemetryStore } from "./data/telemetry-store.js";
 import { SimulationSource } from "./sim/simulation.js";
@@ -21,7 +21,8 @@ const $ = (id) => document.getElementById(id);
 const state = {
   mode: "serial", // serial | sim | replay
   channels: loadChannels(),
-  sampleRate: 1000,
+  // Firmware: 16 kHz / FOC_TELEMETRY_DIV(32) = 500 frames/s.
+  sampleRate: 500,
   windowSec: 5,
   bytesWindow: 0,
   framesWindow: 0,
@@ -32,7 +33,7 @@ const state = {
 
 const store = new TelemetryStore(CHANNEL_COUNT, 40000);
 const serial = new SerialTransport();
-const decoder = new JustFloatDecoder({ channels: CHANNEL_COUNT });
+const decoder = new StpDecoder();
 const recorder = new SessionRecorder(CHANNEL_COUNT, 60000);
 const math = new MathChannels();
 const trigger = new TriggerEngine();
@@ -54,11 +55,31 @@ function flushText() {
   }
 }
 
-function onSample(values, sampleIndex) {
-  store.push(values, sampleIndex);
-  recorder.push(values, sampleIndex);
+function onSample(values, sampleIndex, mask = null, tick = null) {
+  // 统一展开为全局 32 通道标准空间，未选通道填入 NaN
+  const fullValues = new Float32Array(CHANNEL_COUNT);
+  fullValues.fill(NaN);
+
+  if (mask !== null && mask !== undefined) {
+    let vIdx = 0;
+    for (let bit = 0; bit < CHANNEL_COUNT; bit++) {
+      if ((mask & (1 << bit)) !== 0) {
+        if (vIdx < values.length) {
+          fullValues[bit] = values[vIdx++];
+        }
+      }
+    }
+  } else {
+    for (let i = 0; i < Math.min(values.length, CHANNEL_COUNT); i++) {
+      fullValues[i] = values[i];
+    }
+  }
+
+  store.push(fullValues, sampleIndex);
+  recorder.push(fullValues, sampleIndex);
+
   if (trigger.mode !== TriggerMode.OFF) {
-    const r = trigger.push(values, sampleIndex);
+    const r = trigger.push(fullValues, sampleIndex);
     if (r === true) {
       scope.invalidate();
       recordLog(`TRIG fire @ ${sampleIndex} src=ch${trigger.source} level=${trigger.level}`);
@@ -71,8 +92,21 @@ function onSample(values, sampleIndex) {
 }
 
 const adapter = new TelemetryAdapter({
-  onSample: ({ values, sampleIndex }) => onSample(values, sampleIndex),
+  onSample: ({ values, sampleIndex, mask, tick }) => onSample(values, sampleIndex, mask, tick),
   onText: queueText,
+  onStatus: (status) => {
+    dashboard.handleStatusUpdate(status);
+  },
+  onEvent: (event) => {
+    const desc = `[EVENT] ID=${event.eventId} M_Fault=${event.motorFault} S_Fault=${event.shuntFault} Detail=${event.detail}`;
+    recordLog(desc);
+    terminal.appendText(desc + "\r\n", "rx");
+  },
+  onAck: (ack) => {
+    const statusStr = ack.status === 0 ? "OK" : (ack.status === 2 ? "LIMITED" : "REJECTED");
+    const msg = `[ACK] Cmd=${ack.cmdCode} Status=${statusStr} EffectiveMask=0x${(ack.effectiveMask >>> 0).toString(16).toUpperCase()} Rate=${ack.effectiveRateHz}Hz`;
+    recordLog(msg);
+  },
 });
 adapter.attach(decoder);
 
@@ -402,6 +436,7 @@ function renderChannelList() {
     dashboard.setChannels(state.channels);
     legend.setChannels(state.channels);
     fillChannelSelects();
+    syncChannelMaskToDevice();
   };
   box.querySelectorAll('input[type="checkbox"]').forEach((el) => {
     el.addEventListener("change", () => {
@@ -476,14 +511,23 @@ async function switchMode(next) {
     const rate = Number($("sim-rate")?.value) || 1000;
     state.sampleRate = rate;
     scope.setSampleRate(rate);
+    recorder.sampleRate = rate;
     sim = new SimulationSource({ rateHz: rate, onFrame: onSample });
     sim.start(rate);
     setStatusKey(rate >= 5000 ? "status.stress" : "status.sim", "sim");
     terminal.appendText(t("sys.sim", { rate }), "sys");
   } else if (state.mode === "replay") {
+    if (replaySession?.sampleRate) {
+      state.sampleRate = replaySession.sampleRate;
+      scope.setSampleRate(replaySession.sampleRate);
+      recorder.sampleRate = replaySession.sampleRate;
+    }
     setStatusKey("status.replay", "sim");
     terminal.appendText(t("sys.replay"), "sys");
   } else {
+    state.sampleRate = 500;
+    scope.setSampleRate(state.sampleRate);
+    recorder.sampleRate = state.sampleRate;
     setStatusKey("status.off", "off");
     terminal.appendText(t("sys.serial"), "sys");
   }
@@ -504,6 +548,10 @@ $("btn-connect").addEventListener("click", async () => {
     setConnStatus(t("status.connecting"), "busy");
     await serial.connect(baud);
     resetPipeline();
+    // The firmware emits 16 kHz / 32 = 500 JustFloat frames per second.
+    state.sampleRate = 500;
+    scope.setSampleRate(state.sampleRate);
+    recorder.sampleRate = state.sampleRate;
     terminal.appendText(`[sys] connected @ ${baud}\n`, "sys");
     applyModeUI();
     // 板上电打印与半帧残留：短暂静默后重置解复用
@@ -525,6 +573,9 @@ $("btn-reconnect")?.addEventListener("click", async () => {
     setConnStatus(t("status.connecting"), "busy");
     await serial.reconnect(Number($("baud").value) || 0);
     resetPipeline();
+    state.sampleRate = 500;
+    scope.setSampleRate(state.sampleRate);
+    recorder.sampleRate = state.sampleRate;
     terminal.appendText(`[sys] reconnected @ ${serial.lastBaud}\n`, "sys");
     applyModeUI();
     setTimeout(() => {
@@ -573,6 +624,10 @@ serial.onState = (s) => {
   const [key, cls] = map[s] || ["status.off", "off"];
   setStatusKey(key, cls);
   applyModeUI();
+
+  if (s === SerialState.CONNECTED || s === SerialState.READING) {
+    syncChannelMaskToDevice();
+  }
 };
 
 serial.onData = (bytes) => {
@@ -692,14 +747,38 @@ $("btn-math-add").addEventListener("click", () => {
   scope.invalidate();
 });
 
-/* channel presets — FOC 调试常用组合 */
+/* channel presets — FOC-STP 32 通道常用组合 (硬件单帧最大 16 通道) */
 const CHANNEL_PRESETS = {
-  current: [1, 5, 6, 4], // iq_raw, iq_filt, iq_ref, id_filt
-  velocity: [2, 3], // velocity, vel_ref
-  voltage: [7, 8, 15], // vd, vq, vbus
-  all: state.channels.map((c) => c.id),
+  current: [1, 4, 5, 6, 13, 14], // iq_raw, id_filt, iq_filt, iq_ref, id_raw, id_ref
+  velocity: [2, 3, 15, 30], // vel_ctrl, vel_ref, vel_raw, vel_err
+  voltage: [7, 8, 12, 18, 19, 26], // vd, vq, duty_a, duty_b, duty_c, vbus_fast
+  sensorless: [20, 21, 22, 23, 24], // obs_theta, obs_speed, obs_err, obs_conf, obs_flux
+  all: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], // 核心前 16 通道
   none: [],
 };
+
+let maskSyncTimer = null;
+function syncChannelMaskToDevice() {
+  if (state.mode !== "serial" || !serial.isConnected()) return;
+  const curGen = serial.generation;
+  if (maskSyncTimer) clearTimeout(maskSyncTimer);
+  maskSyncTimer = setTimeout(() => {
+    if (state.mode !== "serial" || !serial.isConnected() || serial.generation !== curGen) return;
+    let mask = 0;
+    let count = 0;
+    for (const ch of state.channels) {
+      if (ch.visible) {
+        mask |= (1 << ch.id);
+        count++;
+      }
+    }
+    if (count > 16) {
+      terminal.appendText("[warn] 勾选通道数超过 16 路上限，单片机将仅保留前 16 路\r\n", "rx");
+    }
+    const hexMask = "0x" + (mask >>> 0).toString(16).toUpperCase();
+    consoleCtl.run(`telem mask ${hexMask}`).catch(() => {});
+  }, 150);
+}
 
 function applyChannelPreset(key) {
   const set = new Set(CHANNEL_PRESETS[key] || []);
@@ -711,6 +790,7 @@ function applyChannelPreset(key) {
   renderChannelList();
   fillChannelSelects();
   scope.invalidate();
+  syncChannelMaskToDevice();
 }
 
 document.querySelectorAll("[data-preset]").forEach((btn) => {
@@ -750,6 +830,7 @@ $("btn-term-clear").addEventListener("click", () => {
 
 /* record / replay */
 $("btn-record").addEventListener("click", () => {
+  recorder.sampleRate = state.sampleRate;
   const on = recorder.toggle();
   $("btn-record").textContent = on ? t("rec.stop") : t("rec.start");
   $("btn-record").classList.toggle("active", on);
@@ -789,11 +870,16 @@ $("file-csv").addEventListener("change", async (e) => {
   if (!file) return;
   const text = await file.text();
   const parsed = parseCsv(text);
+  const detectedRate = parsed.sampleRate || state.sampleRate || 1000;
   replaySession = {
-    sampleRate: state.sampleRate,
-    frames: parsed.frames.map((f) => ({ t: Math.round(f.t * state.sampleRate), v: f.v })),
+    sampleRate: detectedRate,
+    frames: parsed.frames.map((f) => ({
+      t: Math.round(f.t * detectedRate),
+      v: f.v,
+      timeMs: f.timeMs,
+    })),
   };
-  recordLog(`loaded CSV frames=${replaySession.frames.length}`);
+  recordLog(`loaded CSV frames=${replaySession.frames.length} detectedRate=${detectedRate}Hz`);
   e.target.value = "";
 });
 
@@ -805,8 +891,8 @@ $("btn-replay").addEventListener("click", async () => {
   await switchMode("replay");
   store.clear();
   replay = new ReplaySource(replaySession, onSample);
-  replay.start();
-  recordLog("replay started");
+  replay.start(replaySession.sampleRate);
+  recordLog(`replay started @ ${replaySession.sampleRate}Hz`);
 });
 
 $("btn-replay-stop").addEventListener("click", () => {
@@ -819,6 +905,7 @@ $("sim-rate")?.addEventListener("change", () => {
   const rate = Number($("sim-rate").value) || 1000;
   state.sampleRate = rate;
   scope.setSampleRate(rate);
+  recorder.sampleRate = rate;
   sim.stop();
   sim.start(rate);
   setConnStatus(rate >= 5000 ? "SIM STRESS" : "SIMULATION", "sim");
