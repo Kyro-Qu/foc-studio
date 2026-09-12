@@ -200,8 +200,12 @@ function applyModeUI() {
 
 function resetPipeline() {
   adapter.reset();
-  decoder.reset();
-  decoder.resetSampleIndex();
+  if (typeof decoder.reset === "function") {
+    decoder.reset();
+  }
+  if (typeof decoder.resetSampleIndex === "function") {
+    decoder.resetSampleIndex();
+  }
   store.clear();
   trigger.disarm();
   state.textBuf = "";
@@ -657,7 +661,9 @@ $("btn-pause").addEventListener("click", () => {
 $("btn-clear").addEventListener("click", () => {
   store.clear();
   if (sim) sim.reset();
-  decoder.resetSampleIndex();
+  if (typeof decoder.resetSampleIndex === "function") {
+    decoder.resetSampleIndex();
+  }
   trigger.disarm();
   scope.invalidate();
 });

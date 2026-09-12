@@ -75,6 +75,10 @@ export class StpDecoder {
     this.desync = 0;
   }
 
+  resetSampleIndex() {
+    // 兼容接口：重置样本序列计数
+  }
+
   /**
    * 推送字节片断进行流式解包
    * @param {Uint8Array} chunk
