@@ -24,6 +24,16 @@ export const FEEDBACK_COMMANDS = [
   { id: "fb-if-def", key: "fb.if_def", cmd: "feedback if 0.6 500 300", danger: false },
 ];
 
+/** 无感观测器在线 — 映射固件 obs [0|1|2 [off]] / angle enc|ol */
+export const OBS_COMMANDS = [
+  { id: "obs-q", key: "obs.query", cmd: "obs", danger: false },
+  { id: "obs-off", key: "obs.off", cmd: "obs 0", danger: false },
+  { id: "obs-on", key: "obs.on", cmd: "obs 1", danger: false },
+  { id: "obs-switch", key: "obs.switch", cmd: "obs 2", danger: true },
+  { id: "ang-enc", key: "obs.enc", cmd: "angle enc", danger: false },
+  { id: "ang-ol", key: "obs.ol", cmd: "angle ol", danger: false },
+];
+
 /** 参数辨识 — 映射固件 ident [full|rs|ldq|pp|flux|show|apply] */
 export const IDENT_COMMANDS = [
   { id: "ident-rs", key: "ident.rs", cmd: "ident rs", danger: false },

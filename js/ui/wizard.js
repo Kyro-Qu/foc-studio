@@ -4,7 +4,7 @@
  */
 
 import { t } from "../i18n.js";
-import { MODES, MODE_CONTROLS, IDENT_COMMANDS } from "./console.js";
+import { MODES, MODE_CONTROLS, IDENT_COMMANDS, OBS_COMMANDS } from "./console.js";
 
 const STEPS = [
   { id: "device", key: "wf.device" },
@@ -237,6 +237,10 @@ export class WorkflowWizard {
 
   _htmlRun() {
     const modes = MODES.map((m) => `<option value="${m.id}">${t(m.key)}</option>`).join("");
+    const obs = OBS_COMMANDS.map((c) => {
+      const cls = c.danger ? "danger" : "";
+      return `<button class="${cls}" data-cmd="${c.cmd}" title="${c.cmd}">${t(c.key)}</button>`;
+    }).join(" ");
     return `
       <h3 class="wf-h">${t("wf.run.h")}</h3>
       <p class="wf-p">${t("wf.run.p")}</p>
@@ -262,6 +266,10 @@ export class WorkflowWizard {
           <button data-cmd="disable">${t("dash.ctrl.disable")}</button>
           <button data-cmd="fault">${t("wf.safety.fault")}</button>
         </div>
+        <div class="wf-sep"></div>
+        <div class="wf-h" style="font-size:13px">${t("obs.title")}</div>
+        <div class="wf-row">${obs}</div>
+        <p class="wf-note">${t("obs.note")}</p>
         <p class="wf-note">${t("wf.run.note")}</p>
       </div>`;
   }
