@@ -65,13 +65,12 @@ export class WorkflowWizard {
 
   /** 读取 version+status 并解析板卡信息 */
   async _readBoardInfo() {
-    const out = this.root.querySelector("#wf-device-out");
     const box = this.root.querySelector("#wf-board-info");
-    if (out) out.textContent = t("wf.wait");
+    if (box) box.classList.add("loading");
     if (!this.sendCapture) {
       await this._cli("version");
       await this._cli("status");
-      if (out) out.textContent = t("wf.device.see_terminal");
+      if (box) box.classList.remove("loading");
       return;
     }
     let text = "";
@@ -81,8 +80,8 @@ export class WorkflowWizard {
     } catch {
       /* ignore */
     }
-    if (out) out.textContent = text || t("wf.device.see_terminal");
     this._renderBoardInfo(text);
+    if (box) box.classList.remove("loading");
   }
 
   _renderBoardInfo(text) {
@@ -93,20 +92,23 @@ export class WorkflowWizard {
       return m ? m[1] : "—";
     };
     const rows = [
+      [t("wf.device.mcu"), pick(/board=(\S+)/)],
       [t("wf.device.fw"), pick(/firmware=(\S+)/)],
       ["version", pick(/version=(\S+)/)],
-      [t("wf.device.board"), pick(/board=(\S+)/)],
+      ["cli", pick(/cli=(\S+)/)],
+      ["build", pick(/build=([^\r\n]+)/).trim()],
       [t("wf.motor.pp"), pick(/pole_pairs=([0-9.]+)/)],
+      ["encoder_cpr", pick(/encoder_cpr=([0-9]+)/)],
+      ["max_rpm", pick(/max_rpm=([0-9.]+)/)],
       ["udc / Vbus", pick(/udc=([0-9.]+)/) + " / " + pick(/vbus=([0-9.]+)/)],
-      ["calib / fault", pick(/calib=([0-9]+)/) + " / " + pick(/fault=([0-9]+)/)],
+      ["calib", pick(/calib=([0-9]+)/)],
+      ["fault", pick(/fault=([0-9]+)/)],
       ["CPU %", pick(/cpu=([0-9.]+)/)],
       ["state / mode", pick(/M0 ([A-Z]+)/) + " / " + pick(/mode=(\S+)/)],
+      ["rst_flags", pick(/rst_flags=(0x[0-9A-Fa-f]+)/)],
     ];
     box.innerHTML = rows
-      .map(
-        ([k, v]) =>
-          `<div class="wf-kv"><span>${k}</span><strong>${v}</strong></div>`
-      )
+      .map(([k, v]) => `<div class="wf-kv"><span>${k}</span><strong>${v}</strong></div>`)
       .join("");
   }
 
@@ -139,17 +141,21 @@ export class WorkflowWizard {
     return `
       <h3 class="wf-h">${t("wf.device.h")}</h3>
       <p class="wf-p">${t("wf.device.p")}</p>
-      <div class="wf-card">
+
+      <section class="wf-card">
+        <h4 class="wf-section">${t("wf.device.info")}</h4>
         <div class="wf-row">
           <button class="ok" id="wf-read-info">${t("wf.device.read")}</button>
-          <button data-cmd="status">${t("wf.device.status")}</button>
           <button data-cmd="log 0">log 0</button>
           <button data-cmd="log 1">log 1</button>
         </div>
-        <div id="wf-board-info" class="wf-board"></div>
-        <pre id="wf-device-out" class="wf-out">${t("wf.wait")}</pre>
-        <p class="wf-note">${t("wf.device.note")}</p>
-        <div class="wf-sep"></div>
+        <div id="wf-board-info" class="wf-board">
+          ${this._emptyBoardHtml()}
+        </div>
+      </section>
+
+      <section class="wf-card">
+        <h4 class="wf-section">${t("wf.safety.h")}</h4>
         <div class="wf-row">
           <label>${t("wf.safety.limit")} (A)</label>
           <input type="number" id="wf-limit" step="0.1" min="0.1" max="40" value="5.2" style="width:90px" />
@@ -158,16 +164,35 @@ export class WorkflowWizard {
           <button data-cmd="fault clear">${t("wf.safety.clear")}</button>
         </div>
         <div class="wf-row">
-          <label>${t("wf.safety.trip")}</label>
+          <label>${t("wf.safety.trip")} (A)</label>
           <input type="number" id="wf-trip" step="0.1" min="0.1" max="50" value="6.6" style="width:90px" />
-          <label>${t("wf.safety.uv")}</label>
+          <span class="wf-badge">${t("wf.needs_fw")}</span>
+        </div>
+        <div class="wf-row">
+          <label>${t("wf.safety.uv")} (V)</label>
           <input type="number" id="wf-uv" step="0.1" min="0" max="50" value="10" style="width:70px" />
-          <label>${t("wf.safety.ov")}</label>
+          <label>${t("wf.safety.ov")} (V)</label>
           <input type="number" id="wf-ov" step="0.1" min="0" max="60" value="30" style="width:70px" />
           <span class="wf-badge">${t("wf.needs_fw")}</span>
         </div>
         <p class="wf-note">${t("wf.safety.note")}</p>
-      </div>`;
+      </section>`;
+  }
+
+  _emptyBoardHtml() {
+    const keys = [
+      t("wf.device.mcu"),
+      t("wf.device.fw"),
+      "version",
+      t("wf.motor.pp"),
+      "udc / Vbus",
+      "calib",
+      "fault",
+      "state / mode",
+    ];
+    return keys
+      .map((k) => `<div class="wf-kv"><span>${k}</span><strong>—</strong></div>`)
+      .join("");
   }
 
   _htmlMotor() {
