@@ -10,7 +10,6 @@ const STEPS = [
   { id: "device", key: "wf.device" },
   { id: "safety", key: "wf.safety" },
   { id: "motor", key: "wf.motor" },
-  { id: "calib", key: "wf.calib" },
   { id: "pid", key: "wf.pid" },
   { id: "run", key: "wf.run" },
 ];
@@ -89,8 +88,6 @@ export class WorkflowWizard {
         return this._htmlSafety();
       case "motor":
         return this._htmlMotor();
-      case "calib":
-        return this._htmlCalib();
       case "pid":
         return this._htmlPid();
       case "run":
@@ -145,6 +142,10 @@ export class WorkflowWizard {
   }
 
   _htmlMotor() {
+    const ids = IDENT_COMMANDS.map((c) => {
+      const cls = c.danger ? "danger" : "";
+      return `<button class="${cls}" data-cmd="${c.cmd}" title="${c.cmd}">${t(c.key)}</button>`;
+    }).join(" ");
     return `
       <h3 class="wf-h">${t("wf.motor.h")}</h3>
       <p class="wf-p">${t("wf.motor.p")}</p>
@@ -161,24 +162,12 @@ export class WorkflowWizard {
           <span class="wf-badge danger">${t("wf.motor.flash")}</span>
         </div>
         <p class="wf-note">${t("wf.motor.note")}</p>
-      </div>`;
-  }
-
-  _htmlCalib() {
-    const ids = IDENT_COMMANDS.map((c) => {
-      const cls = c.danger ? "danger" : "";
-      return `<button class="${cls}" data-cmd="${c.cmd}" title="${c.cmd}">${t(c.key)}</button>`;
-    }).join(" ");
-    return `
-      <h3 class="wf-h">${t("wf.calib.h")}</h3>
-      <p class="wf-p">${t("wf.calib.p")}</p>
-      <div class="wf-card">
+        <div class="wf-sep"></div>
         <div class="wf-row">
           <button class="danger" data-cmd="calib full" data-confirm="calib full">${t("wf.calib.full")}</button>
           <button data-cmd="disable">${t("dash.ctrl.disable")}</button>
           <button data-cmd="fault clear">${t("wf.safety.clear")}</button>
         </div>
-        <div class="wf-sep"></div>
         <div class="wf-row">${ids}</div>
         <p class="wf-note">${t("wf.calib.note")}</p>
       </div>`;
