@@ -595,8 +595,9 @@ $("btn-connect").addEventListener("click", async () => {
       if (serial.state === SerialState.READING || serial.state === SerialState.CONNECTED) {
         decoder.reset();
         adapter.reset();
+        if (wizard?.step === "device") wizard._readBoardInfo?.();
       }
-    }, 150);
+    }, 250);
   } catch (e) {
     setConnStatus(t("status.error"), "err");
     terminal.appendText(`[sys] connect failed: ${e.message || e}\n`, "err");
