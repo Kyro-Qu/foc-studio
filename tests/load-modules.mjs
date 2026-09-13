@@ -22,6 +22,7 @@ const mods = [
   "../js/ui/fault.js",
   "../js/ui/legend.js",
   "../js/ui/tuning.js",
+  "../js/ui/expert.js",
   "../js/i18n.js",
 ];
 

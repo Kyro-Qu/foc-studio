@@ -26,6 +26,8 @@ export class WorkflowWizard {
     this.sendCapture = opts.sendCapture;
     this.isConnected = opts.isConnected || (() => true);
     this.step = "device";
+    /** @type {Record<string, string>} 调参基准值，用于脏状态感知 */
+    this.pidBaseline = {};
     this.render();
   }
 
@@ -359,10 +361,12 @@ export class WorkflowWizard {
           <label>${t("wf.pid.pos_kp")}</label>
           <input type="number" id="wf-pkp" step="0.5" value="10" style="width:80px" />
         </div>
-        <div class="wf-row">
+        <div class="wf-row" style="align-items: center; gap: 8px;">
           <button class="ok" id="wf-pid-apply">${t("wf.apply")}</button>
           <button id="wf-pid-read">${t("wf.pid.read")}</button>
-          <span class="wf-badge">${t("wf.pid.watch_scope")}</span>
+          <button class="danger" id="wf-pid-save" data-confirm="conf write">${t("wf.pid.save_flash")}</button>
+          <span id="wf-pid-dirty-badge" class="dirty-notice" style="display:none;">${t("wf.pid.dirty")}</span>
+          <span class="wf-badge" style="margin-left: auto;">${t("wf.pid.watch_scope")}</span>
         </div>
         <p class="wf-note">${t("wf.pid.note")}</p>
       </div>`;
@@ -436,6 +440,26 @@ export class WorkflowWizard {
       if (Number.isFinite(pkp)) await this._cli(`pos kp ${pkp}`);
     });
     this.root.querySelector("#wf-pid-read")?.addEventListener("click", () => this._readPid());
+    this.root.querySelector("#wf-pid-save")?.addEventListener("click", async () => {
+      const conf = this.root.querySelector("#wf-pid-save")?.getAttribute("data-confirm");
+      if (conf && !confirm(conf)) return;
+      await this._cli("conf write");
+      // 固化后更新基准并触发同步动画
+      this._markPidClean();
+    });
+
+    // 监听调参输入脏状态
+    ["wf-bw", "wf-vkp", "wf-vki", "wf-pkp"].forEach((id) => {
+      const input = this.root.querySelector(`#${id}`);
+      if (input) {
+        // 若基准尚未建立，初始化当前值为基准
+        if (this.pidBaseline[id] === undefined) {
+          this.pidBaseline[id] = input.value;
+        }
+        input.addEventListener("input", () => this._checkPidDirty());
+      }
+    });
+
     this.root.querySelector("#wf-run-mode-set")?.addEventListener("click", () => {
       const m = this.root.querySelector("#wf-run-mode")?.value;
       if (m) {
@@ -495,6 +519,41 @@ export class WorkflowWizard {
     // conf 里 vp/vi 对应电流环；速度 kp/ki 可能不在 conf 行 — 仅填存在的
     set("wf-vkp", pick(/vp=([0-9.]+)/));
     set("wf-vki", pick(/vi=([0-9.]+)/));
+
+    // 读取成功后，建立新的基准并清除 dirty 标记
+    this._markPidClean();
+  }
+
+  _checkPidDirty() {
+    let dirtyCount = 0;
+    ["wf-bw", "wf-vkp", "wf-vki", "wf-pkp"].forEach((id) => {
+      const input = this.root.querySelector(`#${id}`);
+      if (!input) return;
+      const base = this.pidBaseline[id];
+      const isDirty = base !== undefined && input.value.trim() !== String(base).trim();
+      input.classList.toggle("is-dirty", isDirty);
+      if (isDirty) dirtyCount++;
+    });
+
+    const badge = this.root.querySelector("#wf-pid-dirty-badge");
+    if (badge) {
+      badge.style.display = dirtyCount > 0 ? "inline-flex" : "none";
+    }
+  }
+
+  _markPidClean() {
+    ["wf-bw", "wf-vkp", "wf-vki", "wf-pkp"].forEach((id) => {
+      const input = this.root.querySelector(`#${id}`);
+      if (!input) return;
+      this.pidBaseline[id] = input.value;
+      input.classList.remove("is-dirty");
+      input.classList.add("is-synced");
+      setTimeout(() => input.classList.remove("is-synced"), 1200);
+    });
+    const badge = this.root.querySelector("#wf-pid-dirty-badge");
+    if (badge) {
+      badge.style.display = "none";
+    }
   }
 
   _applyRunMeta(mode) {

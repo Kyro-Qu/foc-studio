@@ -776,6 +776,85 @@ main {
   flex: 1;
 }
 
+/* Scope 常驻 Mini HUD 状态条 */
+.scope-mini-hud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  padding: 6px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.hud-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-label {
+  color: var(--text-faint);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.hud-item strong {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-item strong.hud-vbus-ok {
+  color: var(--ok);
+}
+
+.hud-item strong.hud-vbus-warn {
+  color: var(--warn);
+}
+
+.hud-item strong.hud-vbus-bad {
+  color: var(--err);
+}
+
+.hud-fault-ok {
+  color: var(--ok);
+}
+
+.hud-fault-bad {
+  color: var(--err);
+  animation: pulse 1s infinite alternate;
+}
+
+/* 调参参数脏状态高亮 */
+.wf-param input.is-dirty,
+.wf-row input.is-dirty {
+  border-color: var(--warn) !important;
+  background: rgba(234, 179, 8, 0.08) !important;
+  box-shadow: 0 0 0 1px var(--warn);
+}
+
+.wf-param input.is-synced,
+.wf-row input.is-synced {
+  border-color: var(--ok) !important;
+  background: rgba(34, 197, 94, 0.08) !important;
+  transition: all 0.5s ease;
+}
+
+.dirty-notice {
+  font-size: 11px;
+  color: var(--warn);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+}
+
 .scope-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -1317,6 +1396,145 @@ footer strong {
   font-weight: 600;
   margin-left: 4px;
 }
+
+/* ---------- expert layout & controls ---------- */
+.expert-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.expert-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.expert-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sl-fsm-bar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.sl-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.sl-step .step-idx {
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--text-faint);
+}
+
+.sl-step .step-name {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 2px 0;
+  color: var(--text-dim);
+}
+
+.sl-step small {
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.sl-step.active {
+  border-color: var(--accent);
+  background: rgba(59, 130, 246, 0.12);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+}
+
+.sl-step.active .step-name {
+  color: var(--accent);
+}
+
+.sl-step.success {
+  border-color: var(--ok);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.sl-step.success .step-name {
+  color: var(--ok);
+}
+
+.expert-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.expert-metric {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-lbl {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.metric-val {
+  font-size: 16px;
+  font-family: var(--mono);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-bar-wrap {
+  width: 100%;
+  height: 6px;
+  background: var(--border-soft);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--ok);
+  transition: width 0.2s ease;
+}
+
+.bb-canvas-wrap,
+.acog-canvas-wrap {
+  position: relative;
+  background: #070a0e;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.bb-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text-dim);
+}
+
 
 /* scrollbars */
 ::-webkit-scrollbar {

@@ -15,6 +15,7 @@ import { TriggerEngine, TriggerMode } from "./ui/trigger.js";
 import { measureChannel } from "./ui/measure.js";
 import { ScopeLegend } from "./ui/legend.js";
 import { TuningPanel } from "./ui/tuning.js";
+import { ExpertPanel } from "./ui/expert.js";
 import { t, getLang, setLang, applyI18n } from "./i18n.js";
 
 const $ = (id) => document.getElementById(id);
@@ -41,6 +42,7 @@ const trigger = new TriggerEngine();
 let sim = null;
 let replay = null;
 let replaySession = null;
+let expertPanel = null;
 
 function queueText(text) {
   state.textBuf += text;
@@ -79,6 +81,9 @@ function onSample(values, sampleIndex, mask = null, tick = null) {
 
   store.push(fullValues, sampleIndex);
   recorder.push(fullValues, sampleIndex);
+  if (expertPanel) {
+    expertPanel.updateSensorlessFromTelemetry(fullValues);
+  }
 
   if (trigger.mode !== TriggerMode.OFF) {
     const r = trigger.push(fullValues, sampleIndex);
@@ -98,11 +103,21 @@ const adapter = new TelemetryAdapter({
   onText: queueText,
   onStatus: (status) => {
     dashboard.handleStatusUpdate(status);
+    scope.updateMiniHud(status);
   },
   onEvent: (event) => {
     const desc = `[EVENT] ID=${event.eventId} M_Fault=${event.motorFault} S_Fault=${event.shuntFault} Detail=${event.detail}`;
     recordLog(desc);
     terminal.appendText(desc + "\r\n", "rx");
+    // 捕获跳闸事件：高亮提醒可拉取黑匣子
+    if (event.eventId === 1) {
+      terminal.appendText("[EVENT] 检测到跳闸！可前往「高级算法」面板一键拉取 512 拍故障黑匣子。\r\n", "err");
+      const bbBadge = document.getElementById("bb-status-badge");
+      if (bbBadge) {
+        bbBadge.textContent = "已捕获跳闸 · 待拉取";
+        bbBadge.className = "wf-badge danger";
+      }
+    }
   },
   onAck: (ack) => {
     const statusStr = ack.status === 0 ? "OK" : (ack.status === 2 ? "LIMITED" : "REJECTED");
@@ -184,6 +199,25 @@ const wizard = new WorkflowWizard($("panel-wf"), {
     return buf;
   },
 });
+
+const expertRoot = $("panel-expert");
+if (expertRoot) {
+  expertPanel = new ExpertPanel(expertRoot, {
+    send: (cmd) => consoleCtl.run(cmd),
+    sendCapture: async (cmd, ms = 400) => {
+      let buf = "";
+      const prev = state.capture;
+      state.capture = (s) => {
+        buf += s;
+        if (prev) prev(s);
+      };
+      await consoleCtl.run(cmd);
+      await new Promise((r) => setTimeout(r, ms));
+      state.capture = prev;
+      return buf;
+    },
+  });
+}
 
 // 控制台页挂载仪表盘（表盘+状态）
 wizard.onAfterRender = (step) => {
@@ -866,8 +900,22 @@ scope.onCursor = (info) => {
   );
   let text = `t=${info.t.toFixed(3)}s  ${parts.join("  ")}`;
   if (info.delta) {
-    const d = info.delta.deltas.map((x) => `Δ${x.name}=${x.delta.toFixed(3)}`).join(" ");
-    text += `  |  Δt=${info.delta.dt.toFixed(4)}s ${d}`;
+    const d = info.delta.deltas
+      .map((x) => {
+        let s = `Δ${x.name}=${x.delta >= 0 ? "+" : ""}${x.delta.toFixed(3)}${x.unit ? x.unit : ""}`;
+        if (x.overshoot !== undefined) {
+          s += ` [超调 ${x.overshoot.toFixed(1)}%]`;
+        }
+        return s;
+      })
+      .join(" ");
+
+    const freqStr =
+      info.delta.freqHz >= 1000
+        ? `${(info.delta.freqHz / 1000).toFixed(2)} kHz`
+        : `${info.delta.freqHz.toFixed(1)} Hz`;
+
+    text += `  |  Δt=${(info.delta.absDt * 1000).toFixed(2)}ms (f=${freqStr})  ${d}`;
   }
   el.textContent = text;
 };
@@ -1006,6 +1054,9 @@ document.querySelectorAll(".nav-btn").forEach((btn) => {
     if (panel) panel.classList.add("active");
     if (btn.dataset.panel === "scope") scope._resize();
     if (btn.dataset.panel === "console") renderConsole();
+    if (btn.dataset.panel === "expert" && expertPanel) {
+      expertPanel.querySensorlessStatus();
+    }
     if (btn.dataset.panel === "wf") {
       const step = btn.dataset.step;
       if (step) {

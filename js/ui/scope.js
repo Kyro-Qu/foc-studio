@@ -306,16 +306,56 @@ export class Scope {
       const s2 = this._sampleNear(i2);
       if (s1 && s2) {
         const dt = (s2.sampleIndex - s1.sampleIndex) / this.sampleRate;
+        const absDt = Math.abs(dt);
+        const freqHz = absDt > 1e-6 ? 1 / absDt : 0;
+        const minIdx = Math.min(s1.sampleIndex, s2.sampleIndex);
+        const maxIdx = Math.max(s1.sampleIndex, s2.sampleIndex);
+
         const deltas = [];
         for (const ch of this.channels) {
           if (!ch.visible) continue;
+          const v1 = s1.values[ch.id];
+          const v2 = s2.values[ch.id];
+          const deltaY = v2 - v1;
+          let overshoot = null;
+
+          // 若区间样本数适中，计算区间的峰值超调量（常见于速度/电流阶跃）
+          if (maxIdx - minIdx >= 2 && Math.abs(deltaY) > 1e-4) {
+            let peakVal = v1;
+            const startOff = this.store.offsetOf(minIdx);
+            const endOff = this.store.offsetOf(maxIdx);
+            if (startOff >= 0 && endOff >= startOff) {
+              const step = Math.max(1, Math.floor((endOff - startOff) / 100));
+              for (let off = startOff; off <= endOff; off += step) {
+                const samp = this.store.sampleAt(off);
+                if (!samp) continue;
+                const val = samp.values[ch.id];
+                if (!Number.isFinite(val)) continue;
+                if (deltaY > 0) {
+                  if (val > peakVal) peakVal = val;
+                } else {
+                  if (val < peakVal) peakVal = val;
+                }
+              }
+              if (deltaY > 0 && peakVal > v2) {
+                overshoot = ((peakVal - v2) / deltaY) * 100;
+              } else if (deltaY < 0 && peakVal < v2) {
+                overshoot = ((v2 - peakVal) / Math.abs(deltaY)) * 100;
+              }
+            }
+          }
+
           deltas.push({
+            id: ch.id,
             name: channelLabel(ch.id, getLang()),
             unit: ch.unit,
-            delta: s2.values[ch.id] - s1.values[ch.id],
+            v1,
+            v2,
+            delta: deltaY,
+            overshoot: overshoot !== null ? overshoot : undefined,
           });
         }
-        cursorDelta = { dt, deltas };
+        cursorDelta = { dt, absDt, freqHz, deltas };
       }
     }
 
@@ -324,6 +364,69 @@ export class Scope {
       samples,
       delta: cursorDelta,
     });
+  }
+
+  /**
+   * 刷新示波器常驻 Mini HUD
+   * @param {{vbus:number, motorFault:number, shuntFault:number, state:number, mode:number, rpmEst:number, iqEst:number}} status
+   */
+  updateMiniHud(status) {
+    if (!status) return;
+    const vbusEl = document.getElementById("hud-vbus");
+    const rpmEl = document.getElementById("hud-rpm");
+    const iqEl = document.getElementById("hud-iq");
+    const stateEl = document.getElementById("hud-state");
+    const modeEl = document.getElementById("hud-mode");
+    const faultEl = document.getElementById("hud-fault");
+
+    // 优先使用高频最新样本，若未激活波形则平滑回退到 STATUS 帧
+    const latest = this.store.latest;
+    const vbus = Number.isFinite(latest[26]) ? latest[26] : status.vbus;
+    const rpm = Number.isFinite(latest[2]) ? latest[2] : status.rpmEst;
+    const iq = Number.isFinite(latest[5]) ? latest[5] : status.iqEst;
+
+    if (vbusEl && Number.isFinite(vbus)) {
+      vbusEl.textContent = `${vbus.toFixed(2)} V`;
+      vbusEl.className = "";
+      if (vbus < 10.0 || vbus > 28.0) {
+        vbusEl.classList.add("hud-vbus-bad");
+      } else if (vbus < 11.5) {
+        vbusEl.classList.add("hud-vbus-warn");
+      } else {
+        vbusEl.classList.add("hud-vbus-ok");
+      }
+    }
+
+    if (rpmEl) {
+      rpmEl.textContent = Number.isFinite(rpm) ? `${Math.round(rpm)} RPM` : "— RPM";
+    }
+
+    if (iqEl) {
+      iqEl.textContent = Number.isFinite(iq) ? `${iq.toFixed(2)} A` : "— A";
+    }
+
+    if (stateEl) {
+      const STATE_NAMES = ["IDLE", "RUN", "CALIB", "FAULT"];
+      const sName = STATE_NAMES[status.state] || "UNKNOWN";
+      stateEl.textContent = sName;
+      stateEl.className = `state-pill state-${sName.toLowerCase()}`;
+    }
+
+    if (modeEl) {
+      const MODE_NAMES = ["VF", "CURRENT", "VELOCITY", "POSITION"];
+      modeEl.textContent = MODE_NAMES[status.mode] || "—";
+    }
+
+    if (faultEl) {
+      const hasFault = (status.motorFault !== 0) || (status.shuntFault !== 0);
+      if (hasFault) {
+        faultEl.textContent = `M:${status.motorFault} S:${status.shuntFault}`;
+        faultEl.className = "hud-fault-bad";
+      } else {
+        faultEl.textContent = "OK";
+        faultEl.className = "hud-fault-ok";
+      }
+    }
   }
 
   _chIdByName(name) {

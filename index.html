@@ -58,6 +58,7 @@
           <button class="nav-btn" data-panel="wf" data-step="pid"><span class="ico">⚙</span><span data-i18n="wf.pid">调参</span></button>
           <button class="nav-btn" data-panel="wf" data-step="run"><span class="ico">▶</span><span data-i18n="wf.run">控制台</span></button>
           <button class="nav-btn" data-panel="scope"><span class="ico">〜</span><span data-i18n="nav.scope">示波器</span></button>
+          <button class="nav-btn" data-panel="expert"><span class="ico">⚡</span><span data-i18n="nav.expert">高级算法</span></button>
           <button class="nav-btn" data-panel="terminal"><span class="ico">›_</span><span data-i18n="nav.terminal">终端</span></button>
         </nav>
 
@@ -99,6 +100,14 @@
                 <div id="scope-legend" class="scope-legend"></div>
               </aside>
               <div class="scope-main">
+                <div id="scope-mini-hud" class="scope-mini-hud">
+                  <div class="hud-item"><span class="hud-label">Vbus</span><strong id="hud-vbus">— V</strong></div>
+                  <div class="hud-item"><span class="hud-label">Speed</span><strong id="hud-rpm">— RPM</strong></div>
+                  <div class="hud-item"><span class="hud-label">Iq</span><strong id="hud-iq">— A</strong></div>
+                  <div class="hud-item"><span class="hud-label">State</span><strong id="hud-state" class="state-pill state-idle">—</strong></div>
+                  <div class="hud-item"><span class="hud-label">Mode</span><strong id="hud-mode">—</strong></div>
+                  <div class="hud-item"><span class="hud-label">Fault</span><strong id="hud-fault" class="hud-fault-ok">OK</strong></div>
+                </div>
                 <div class="scope-toolbar">
                   <label class="field">
                     <span data-i18n="window">窗口</span>
@@ -155,6 +164,94 @@
                 <div id="cursor-readout" class="readout" data-i18n="cursor.hint">鼠标移到波形可读值 · 点击设 t1/t2</div>
                 <div id="measure-bar" class="measure-bar"></div>
               </div>
+            </div>
+          </section>
+
+          <section class="panel" id="panel-expert">
+            <div class="panel-title" data-i18n="panel.expert.title">高级算法与新特性看板 — 纯无感 7 状态机 · 故障黑匣子 · 抗齿槽力矩前馈</div>
+            <div class="expert-layout">
+              <!-- 1. 纯无感 7 状态机监控 -->
+              <section class="wf-card expert-card">
+                <div class="expert-card-header">
+                  <h4 class="wf-section" style="margin:0" data-i18n="expert.sensorless.h">纯无感主控（Sensorless Primary）看板</h4>
+                  <div class="wf-row" style="margin:0">
+                    <button id="btn-sl-query" class="small">查询状态 (feedback)</button>
+                    <button id="btn-sl-mode" class="small ok">切为纯无感 (feedback sensorless)</button>
+                    <button id="btn-sl-auto" class="small">切为自动降级 (feedback auto)</button>
+                  </div>
+                </div>
+
+                <div class="sl-fsm-bar" id="sl-fsm-steps">
+                  <div class="sl-step" data-step="if_start"><span class="step-idx">1</span><span class="step-name">IF_START</span><small>对齐 0.5A</small></div>
+                  <div class="sl-step" data-step="if_accel"><span class="step-idx">2</span><span class="step-name">IF_ACCEL</span><small>拖动爬坡</small></div>
+                  <div class="sl-step" data-step="obs_locking"><span class="step-idx">3</span><span class="step-name">LOCKING</span><small>置信度门禁</small></div>
+                  <div class="sl-step" data-step="blend"><span class="step-idx">4</span><span class="step-name">BLEND</span><small>动基准过渡</small></div>
+                  <div class="sl-step" data-step="run"><span class="step-idx">5</span><span class="step-name">RUN</span><small>纯无感闭环</small></div>
+                </div>
+
+                <div class="expert-metrics-grid">
+                  <div class="expert-metric">
+                    <span class="metric-lbl">观测器锁定 (obs_lock)</span>
+                    <strong id="sl-val-lock" class="metric-val">—</strong>
+                  </div>
+                  <div class="expert-metric">
+                    <span class="metric-lbl">置信度 (conf_window)</span>
+                    <strong id="sl-val-conf" class="metric-val">— %</strong>
+                    <div class="progress-bar-wrap"><div id="sl-bar-conf" class="progress-bar-fill" style="width:0%"></div></div>
+                  </div>
+                  <div class="expert-metric">
+                    <span class="metric-lbl">动基准角差 (|delta|)</span>
+                    <strong id="sl-val-delta" class="metric-val">— °</strong>
+                  </div>
+                  <div class="expert-metric">
+                    <span class="metric-lbl">开环拖动 / 观测转速</span>
+                    <strong id="sl-val-speeds" class="metric-val">— / — RPM</strong>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 2. 故障黑匣子拉取与波形复盘 -->
+              <section class="wf-card expert-card">
+                <div class="expert-card-header">
+                  <h4 class="wf-section" style="margin:0" data-i18n="expert.blackbox.h">故障黑匣子（Blackbox）快速拉取与波形复盘</h4>
+                  <div class="wf-row" style="margin:0">
+                    <button id="btn-bb-dump" class="danger">拉取 512 拍黑匣子 (blackbox)</button>
+                    <button id="btn-bb-clear" class="small">清空视图</button>
+                    <span id="bb-status-badge" class="wf-badge">就绪</span>
+                  </div>
+                </div>
+                <div class="bb-canvas-wrap">
+                  <canvas id="bb-canvas" width="800" height="220"></canvas>
+                  <div id="bb-empty" class="scope-empty">暂无黑匣子数据 · 点击上方按钮拉取跳闸瞬间 512 拍记录</div>
+                </div>
+                <div class="bb-legend">
+                  <span><strong style="color:#ef4444">■</strong> Ia (A)</span>
+                  <span><strong style="color:#3b82f6">■</strong> Ib (A)</span>
+                  <span><strong style="color:#eab308">■</strong> Theta_e (rad)</span>
+                  <span><strong style="color:#10b981">■</strong> Iq (A)</span>
+                  <span><strong style="color:#a855f7">■</strong> Id (A)</span>
+                </div>
+              </section>
+
+              <!-- 3. 抗齿槽力矩 (Anti-cogging) 标定与分布可视化 -->
+              <section class="wf-card expert-card">
+                <div class="expert-card-header">
+                  <h4 class="wf-section" style="margin:0" data-i18n="expert.acog.h">抗齿槽力矩（Anti-cogging）144 点前馈标定</h4>
+                  <div class="wf-row" style="margin:0">
+                    <button id="btn-acog-read" class="small">读取补偿表 (acog dump)</button>
+                    <button id="btn-acog-start" class="small">开始自学习 (acog start)</button>
+                    <button id="btn-acog-finish" class="small ok">结束标定 (acog finish)</button>
+                    <button id="btn-acog-toggle" class="small">使能开关 (acog enable)</button>
+                    <span id="acog-status-badge" class="wf-badge">—</span>
+                  </div>
+                </div>
+                <div class="acog-canvas-wrap">
+                  <canvas id="acog-canvas" width="800" height="200"></canvas>
+                </div>
+                <p class="wf-note" style="margin-top:6px">
+                  标定指南：在速度模式下维持 20~30 RPM 恒速转动 ≥3 圈，点击「开始自学习」并在转动完成后点击「结束标定」。144 槽对应 360° 机械角前馈补偿。
+                </p>
+              </section>
             </div>
           </section>
 
