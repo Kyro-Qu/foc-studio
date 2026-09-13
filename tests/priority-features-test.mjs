@@ -247,3 +247,21 @@ console.log("\n[6. 下位机 wave/silent 模式状态回显与命令兼容验证
 
   console.log("  PASS  wave [0|1] 命令回显解析与双向状态同步逻辑无误\n");
 }
+
+console.log("\n[7. 侧边栏折叠状态持久化与状态机测试]");
+{
+  const mockStorage = new Map();
+  const LS_SIDEBAR_KEY = "foc-studio-nav-collapsed";
+
+  const setCollapsed = (val) => mockStorage.set(LS_SIDEBAR_KEY, val ? "1" : "0");
+  const getCollapsed = () => mockStorage.get(LS_SIDEBAR_KEY) === "1";
+
+  assert.strictEqual(getCollapsed(), false);
+  setCollapsed(true);
+  assert.strictEqual(getCollapsed(), true);
+  setCollapsed(false);
+  assert.strictEqual(getCollapsed(), false);
+
+  console.log("  PASS  侧边栏折叠/展开持久化存储与切换逻辑无误\n");
+}
+

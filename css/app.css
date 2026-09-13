@@ -106,6 +106,17 @@ header {
   box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
 }
 
+.sidebar-toggle-btn.active {
+  color: var(--accent);
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.35);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.18);
+}
+
+.sidebar-toggle-btn.active svg rect {
+  fill: rgba(56, 189, 248, 0.1);
+}
+
 .sidebar-toggle-btn:active {
   transform: scale(0.94);
 }
@@ -496,6 +507,10 @@ nav {
 .body.nav-collapsed .nav-btn {
   padding: 8px 11px;
   justify-content: center;
+}
+
+.body.nav-collapsed .nav-btn.active {
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.4), 0 0 12px rgba(56, 189, 248, 0.25);
 }
 
 .body.nav-collapsed .nav-btn > span[data-i18n] {
