@@ -192,6 +192,8 @@ function applyModeUI() {
   $("btn-connect").disabled = state.mode !== "serial";
   $("btn-disconnect").disabled = state.mode !== "serial" || serial.state === SerialState.DISCONNECTED;
   $("baud").disabled = state.mode !== "serial";
+  const baudC = $("baud-custom");
+  if (baudC) baudC.disabled = state.mode !== "serial" || $("baud").value !== "custom";
   const canRe =
     state.mode === "serial" &&
     serial.state !== SerialState.CONNECTED &&
@@ -553,8 +555,29 @@ document.querySelectorAll('input[name="data-mode"]').forEach((r) => {
   });
 });
 
+function getBaudRate() {
+  const sel = $("baud");
+  if (sel && sel.value === "custom") {
+    const v = Number($("baud-custom")?.value);
+    return Number.isFinite(v) && v >= 300 && v <= 12000000 ? Math.round(v) : 6500000;
+  }
+  return Number(sel?.value) || 6500000;
+}
+
+$("baud")?.addEventListener("change", () => {
+  const custom = $("baud").value === "custom";
+  const inp = $("baud-custom");
+  if (inp) {
+    inp.hidden = !custom;
+    if (custom) {
+      inp.disabled = $("btn-connect").disabled;
+      inp.focus();
+    }
+  }
+});
+
 $("btn-connect").addEventListener("click", async () => {
-  const baud = Number($("baud").value) || 6500000;
+  const baud = getBaudRate();
   try {
     setConnStatus(t("status.connecting"), "busy");
     await serial.connect(baud);
@@ -582,7 +605,7 @@ $("btn-connect").addEventListener("click", async () => {
 $("btn-reconnect")?.addEventListener("click", async () => {
   try {
     setConnStatus(t("status.connecting"), "busy");
-    await serial.reconnect(Number($("baud").value) || 0);
+    await serial.reconnect(getBaudRate() || 0);
     resetPipeline();
     state.sampleRate = 500;
     scope.setSampleRate(state.sampleRate);
