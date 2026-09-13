@@ -31,6 +31,7 @@ const state = {
   lastStats: performance.now(),
   textBuf: "",
   textFlush: 0,
+  waveActive: false,
 };
 
 const store = new TelemetryStore(CHANNEL_COUNT, 40000);
@@ -142,6 +143,24 @@ const legend = new ScopeLegend($("scope-legend"), store, state.channels, { math 
 
 function sendCli(line) {
   return consoleCtl.run(line);
+}
+
+/**
+ * 集中管理下位机波形流（wave 模式）：
+ * 示波器激活时下发 wave 1 开启 500 Hz 波形流且静默 CLI 回显；
+ * 切出示波器时下发 wave 0 停止波形流，恢复普通命令行交互。
+ */
+function setWaveStream(enable) {
+  state.waveActive = !!enable;
+  const btn = $("btn-wave-toggle");
+  if (btn) {
+    btn.classList.toggle("is-on", state.waveActive);
+    btn.classList.toggle("is-off", !state.waveActive);
+    btn.textContent = state.waveActive ? "🌊 Wave: ON" : "Wave: OFF";
+  }
+  if (state.mode === "serial" && serial.isConnected()) {
+    sendCli(state.waveActive ? "wave 1" : "wave 0");
+  }
 }
 
 const consoleCtl = new ControlConsole({
@@ -698,6 +717,18 @@ serial.onState = (s) => {
 
   if (s === SerialState.CONNECTED || s === SerialState.READING) {
     syncChannelMaskToDevice();
+    const isScopeActive = $("panel-scope")?.classList.contains("active");
+    if (isScopeActive) {
+      setWaveStream(true);
+    }
+  } else if (s === SerialState.DISCONNECTED || s === SerialState.ERROR) {
+    const btn = $("btn-wave-toggle");
+    state.waveActive = false;
+    if (btn) {
+      btn.classList.remove("is-on");
+      btn.classList.add("is-off");
+      btn.textContent = "Wave: OFF";
+    }
   }
 };
 
@@ -1047,17 +1078,27 @@ window.addEventListener("keydown", (e) => {
 /* nav */
 document.querySelectorAll(".nav-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
+    const prevPanel = document.querySelector(".panel.active")?.id?.replace("panel-", "");
+    const targetPanel = btn.dataset.panel;
+
     document.querySelectorAll(".nav-btn").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
-    const panel = $(`panel-${btn.dataset.panel}`);
+    const panel = $(`panel-${targetPanel}`);
     if (panel) panel.classList.add("active");
-    if (btn.dataset.panel === "scope") scope._resize();
-    if (btn.dataset.panel === "console") renderConsole();
-    if (btn.dataset.panel === "expert" && expertPanel) {
+
+    if (targetPanel === "scope") {
+      scope._resize();
+      setWaveStream(true);
+    } else if (prevPanel === "scope") {
+      setWaveStream(false);
+    }
+
+    if (targetPanel === "console") renderConsole();
+    if (targetPanel === "expert" && expertPanel) {
       expertPanel.querySensorlessStatus();
     }
-    if (btn.dataset.panel === "wf") {
+    if (targetPanel === "wf") {
       const step = btn.dataset.step;
       if (step) {
         wizard.setStep(step);
@@ -1068,6 +1109,11 @@ document.querySelectorAll(".nav-btn").forEach((btn) => {
       }
     }
   });
+});
+
+/* 波形流手动开关按钮 */
+$("btn-wave-toggle")?.addEventListener("click", () => {
+  setWaveStream(!state.waveActive);
 });
 
 /* stats */

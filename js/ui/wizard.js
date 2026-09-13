@@ -585,11 +585,18 @@ export class WorkflowWizard {
       <section class="wf-card">
         <h4 class="wf-section">${t("wf.device.info")}</h4>
         <div class="wf-row">
-          <button class="ok" id="wf-read-info">${t("wf.device.read")}</button>
-          <button class="ok" id="wf-health-check" style="background:#0284c7;border-color:#0369a1">${t("wf.device.self_check")}</button>
-          <button id="wf-copy-report">${t("wf.device.copy_report")}</button>
-          <button data-cmd="log 0">${t("log.off")}</button>
-          <button data-cmd="log 1">${t("log.on")}</button>
+          <button class="ok" id="wf-read-info">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>${t("wf.device.read")}</span>
+          </button>
+          <button class="btn-primary" id="wf-health-check">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8.5l3.5 3.5L14 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>${t("wf.device.self_check")}</span>
+          </button>
+          <button id="wf-copy-report">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="8" height="10" rx="1.5"/><path d="M4 2.5h6.5a1.5 1.5 0 0 1 1.5 1.5v6" stroke-linecap="round"/></svg>
+            <span>${t("wf.device.copy_report")}</span>
+          </button>
         </div>
         <div id="wf-board-info" class="wf-board">
           ${this._emptyBoardHtml()}
@@ -661,9 +668,18 @@ export class WorkflowWizard {
           ${field("wf-limit2", t("wf.motor.limit"), "A", "0.1", "5.2")}
         </div>
         <div class="wf-row">
-          <button class="ok" id="wf-read-params">${t("wf.motor.read_params")}</button>
-          <button class="ok" data-cmd="ident apply">${t("wf.apply")}</button>
-          <button class="danger" data-cmd="conf write" data-confirm="conf write">${t("wf.motor.conf_write")}</button>
+          <button class="ok" id="wf-read-params">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>${t("wf.motor.read_params")}</span>
+          </button>
+          <button class="ok" data-cmd="ident apply">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>${t("wf.apply")}</span>
+          </button>
+          <button class="danger" data-cmd="conf write" data-confirm="conf write">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h8l2 2v8H3V3zM5 3v4h6V3M5 13v-4h6v4" stroke-linejoin="round"/></svg>
+            <span>${t("wf.motor.conf_write")}</span>
+          </button>
           <span class="wf-badge" id="wf-param-src">${t("wf.motor.manual")}</span>
         </div>
         <p class="wf-note">${t("wf.motor.params_note")}</p>
@@ -784,6 +800,7 @@ export class WorkflowWizard {
       <h3 class="wf-h">${t("wf.pid.h")}</h3>
       <p class="wf-p">${t("wf.pid.p")}</p>
       <div class="wf-card">
+        <h4 class="wf-section">闭环与电流环带宽整定</h4>
         <div class="wf-row">
           <label>${t("wf.pid.current_bw")}</label>
           <input type="number" id="wf-bw" min="100" max="5000" step="50" value="2000" style="width:90px" />
@@ -799,10 +816,22 @@ export class WorkflowWizard {
           <input type="number" id="wf-pkp" step="0.5" value="10" style="width:80px" />
         </div>
         <div class="wf-row" style="align-items: center; gap: 8px;">
-          <button class="ok" id="wf-pid-apply">${t("wf.apply")}</button>
-          <button id="wf-pid-read">${t("wf.pid.read")}</button>
-          <button class="danger" id="wf-pid-save" data-confirm="conf write">${t("wf.pid.save_flash")}</button>
-          <span id="wf-pid-dirty-badge" class="dirty-notice" style="display:none;">${t("wf.pid.dirty")}</span>
+          <button class="ok" id="wf-pid-apply">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>${t("wf.apply")}</span>
+          </button>
+          <button id="wf-pid-read">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>${t("wf.pid.read")}</span>
+          </button>
+          <button class="danger" id="wf-pid-save" data-confirm="conf write">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h8l2 2v8H3V3zM5 3v4h6V3M5 13v-4h6v4" stroke-linejoin="round"/></svg>
+            <span>${t("wf.pid.save_flash")}</span>
+          </button>
+          <span id="wf-pid-dirty-badge" class="dirty-notice" style="display:none;">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><circle cx="8" cy="8" r="7" opacity="0.2"/><circle cx="8" cy="8" r="4"/></svg>
+            <span>${t("wf.pid.dirty")}</span>
+          </span>
           <span class="wf-badge" style="margin-left: auto;">${t("wf.pid.watch_scope")}</span>
         </div>
         <p class="wf-note">${t("wf.pid.note")}</p>
@@ -819,6 +848,7 @@ export class WorkflowWizard {
       <h3 class="wf-h">${t("wf.run.h")}</h3>
       <p class="wf-p">${t("wf.run.p")}</p>
       <div class="wf-card">
+        <h4 class="wf-section">实时运动模式与给定</h4>
         <div class="wf-row">
           <label>${t("dash.ctrl.mode")}</label>
           <select id="wf-run-mode">${modes}</select>
@@ -828,7 +858,10 @@ export class WorkflowWizard {
           <label>${t("dash.ctrl.target")} <span class="dash-unit-tag" id="wf-run-unit">RPM</span></label>
           <input type="range" id="wf-run-range" min="-8000" max="8000" step="10" value="0" style="flex:1;min-width:120px" />
           <input type="number" id="wf-run-num" step="10" value="0" style="width:90px" />
-          <button class="ok" id="wf-run-send">${t("dash.ctrl.send")}</button>
+          <button class="ok" id="wf-run-send">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="3,2 14,8 3,14" fill="currentColor"/></svg>
+            <span>${t("dash.ctrl.send")}</span>
+          </button>
         </div>
         <div class="wf-row" id="wf-run-vf-row" hidden>
           <label>Vq (V)</label>
@@ -836,8 +869,14 @@ export class WorkflowWizard {
           <button class="ok" id="wf-run-vq-send">${t("dash.ctrl.send")}</button>
         </div>
         <div class="wf-row">
-          <button class="ok" data-cmd="enable">${t("dash.ctrl.enable")}</button>
-          <button data-cmd="disable">${t("dash.ctrl.disable")}</button>
+          <button class="ok" data-cmd="enable">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><polygon points="4,3 13,8 4,13"/></svg>
+            <span>${t("dash.ctrl.enable")}</span>
+          </button>
+          <button class="danger" data-cmd="disable">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="1.5"/></svg>
+            <span>${t("dash.ctrl.disable")}</span>
+          </button>
           <button data-cmd="fault">${t("wf.safety.fault")}</button>
         </div>
         <div id="wf-dashboard-host" class="wf-dash-host"></div>

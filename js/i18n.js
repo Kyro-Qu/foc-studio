@@ -123,8 +123,10 @@ const STRINGS = {
     "ident.show": "显示结果",
     "ident.apply": "应用到 RAM",
     "ident.busy": "辨识进行中…",
-    "log.on": "遥测开",
-    "log.off": "遥测关",
+    "wave.on": "波形开 (wave 1)",
+    "wave.off": "波形关 (wave 0)",
+    "log.on": "波形开",
+    "log.off": "波形关",
     "send": "发送",
     "board.version": "版本号",
     "board.udc": "母线电压",
@@ -355,8 +357,10 @@ const STRINGS = {
     "ident.show": "Show result",
     "ident.apply": "Apply (RAM)",
     "ident.busy": "Ident running…",
-    "log.on": "Telem on",
-    "log.off": "Telem off",
+    "wave.on": "Wave ON",
+    "wave.off": "Wave OFF",
+    "log.on": "Wave ON",
+    "log.off": "Wave OFF",
     "send": "Send",
     "board.version": "Version",
     "board.udc": "Vbus",
@@ -511,7 +515,13 @@ export function t(key, vars) {
 /** 应用到 [data-i18n] / [data-i18n-ph] / [data-i18n-title] */
 export function applyI18n(root = document) {
   root.querySelectorAll("[data-i18n]").forEach((el) => {
-    el.textContent = t(el.getAttribute("data-i18n"));
+    const key = el.getAttribute("data-i18n");
+    const span = el.querySelector("span");
+    if (span) {
+      span.textContent = t(key);
+    } else {
+      el.textContent = t(key);
+    }
   });
   root.querySelectorAll("[data-i18n-ph]").forEach((el) => {
     el.placeholder = t(el.getAttribute("data-i18n-ph"));

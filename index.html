@@ -9,57 +9,163 @@
   <body>
     <div id="app">
       <header>
-        <div class="brand">FOC <span>Studio</span> <small>v0.4</small></div>
-
-        <div class="field">
-          <label for="baud" data-i18n="baud">波特率</label>
-          <select id="baud">
-            <option value="9600">9600</option>
-            <option value="19200">19200</option>
-            <option value="38400">38400</option>
-            <option value="57600">57600</option>
-            <option value="115200">115200</option>
-            <option value="230400">230400</option>
-            <option value="460800">460800</option>
-            <option value="921600">921600</option>
-            <option value="1000000">1000000</option>
-            <option value="1500000">1500000</option>
-            <option value="2000000">2000000</option>
-            <option value="3000000">3000000</option>
-            <option value="4000000">4000000</option>
-            <option value="6000000">6000000</option>
-            <option value="6500000" selected>6500000</option>
-            <option value="custom" data-i18n="baud.custom">自定义…</option>
-          </select>
-          <input type="number" id="baud-custom" min="300" max="12000000" step="1" placeholder="e.g. 921600" style="width: 100px" hidden />
+        <div class="brand">
+          <svg class="brand-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9" stroke="url(#brand-grad)" stroke-width="2.2" stroke-dasharray="4 2"/>
+            <path d="M12 7v5l3 3" stroke="#3d9cf0" stroke-linecap="round"/>
+            <circle cx="12" cy="12" r="2.5" fill="#5eead4"/>
+            <defs>
+              <linearGradient id="brand-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3d9cf0"/>
+                <stop offset="100%" stop-color="#5eead4"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <span class="brand-name">FOC <span>Studio</span></span>
+          <small>v0.4</small>
         </div>
 
-        <button id="btn-connect" data-i18n="connect">连接</button>
-        <button id="btn-reconnect" data-i18n="reconnect" title="复用上次端口" hidden>重连</button>
-        <button id="btn-disconnect" disabled data-i18n="disconnect">断开</button>
-        <button id="btn-estop" class="danger" title="立即 disable" data-i18n="estop">急停</button>
+        <div class="header-controls">
+          <div class="field field-baud">
+            <label for="baud" data-i18n="baud">波特率</label>
+            <select id="baud">
+              <option value="9600">9600</option>
+              <option value="19200">19200</option>
+              <option value="38400">38400</option>
+              <option value="57600">57600</option>
+              <option value="115200">115200</option>
+              <option value="230400">230400</option>
+              <option value="460800">460800</option>
+              <option value="921600">921600</option>
+              <option value="1000000">1000000</option>
+              <option value="1500000">1500000</option>
+              <option value="2000000">2000000</option>
+              <option value="3000000">3000000</option>
+              <option value="4000000">4000000</option>
+              <option value="6000000">6000000</option>
+              <option value="6500000" selected>6500000</option>
+              <option value="custom" data-i18n="baud.custom">自定义…</option>
+            </select>
+            <input type="number" id="baud-custom" min="300" max="12000000" step="1" placeholder="e.g. 921600" style="width: 100px" hidden />
+          </div>
 
-        <div class="field">
-          <label for="lang-select" data-i18n="lang">语言</label>
-          <select id="lang-select" title="Language">
-            <option value="zh" selected>中文</option>
-            <option value="en">English</option>
-          </select>
+          <div class="btn-group">
+            <button id="btn-connect" class="btn-primary" data-i18n="connect">
+              <svg class="btn-ico" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M4 8h8M9 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>连接</span>
+            </button>
+            <button id="btn-reconnect" data-i18n="reconnect" title="复用上次端口" hidden>
+              <svg class="btn-ico" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M2.5 8a5.5 5.5 0 1 0 1.2-3.4M2.5 3v3h3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>重连</span>
+            </button>
+            <button id="btn-disconnect" disabled data-i18n="disconnect">
+              <svg class="btn-ico" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M3 3l10 10M13 3L3 13" stroke-linecap="round"/>
+              </svg>
+              <span>断开</span>
+            </button>
+            <button id="btn-estop" class="danger" title="立即 disable" data-i18n="estop">
+              <svg class="btn-ico" viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
+                <polygon points="8,1 15,8 8,15 1,8"/>
+                <path d="M8 5v4M8 11h.01" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              <span>急停</span>
+            </button>
+          </div>
+
+          <div class="field field-lang">
+            <label for="lang-select" data-i18n="lang">语言</label>
+            <select id="lang-select" title="Language">
+              <option value="zh" selected>中文</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+
+          <div id="conn-status" class="status-pill off" data-i18n="status.off">未连接</div>
         </div>
-
-        <div id="conn-status" class="status-pill off" data-i18n="status.off">未连接</div>
       </header>
 
       <div class="body">
         <nav>
-          <button class="nav-btn active" data-panel="wf" data-step="device"><span class="ico">⌁</span><span data-i18n="wf.device">设备</span></button>
-          <button class="nav-btn" data-panel="wf" data-step="motor"><span class="ico">⚙</span><span data-i18n="wf.motor">电机</span></button>
-          <button class="nav-btn" data-panel="wf" data-step="encoder"><span class="ico">◎</span><span data-i18n="wf.encoder">编码器</span></button>
-          <button class="nav-btn" data-panel="wf" data-step="pid"><span class="ico">⚙</span><span data-i18n="wf.pid">调参</span></button>
-          <button class="nav-btn" data-panel="wf" data-step="run"><span class="ico">▶</span><span data-i18n="wf.run">控制台</span></button>
-          <button class="nav-btn" data-panel="scope"><span class="ico">〜</span><span data-i18n="nav.scope">示波器</span></button>
-          <button class="nav-btn" data-panel="expert"><span class="ico">⚡</span><span data-i18n="nav.expert">高级算法</span></button>
-          <button class="nav-btn" data-panel="terminal"><span class="ico">›_</span><span data-i18n="nav.terminal">终端</span></button>
+          <div class="nav-section-title">向导调试</div>
+          <button class="nav-btn active" data-panel="wf" data-step="device">
+            <span class="ico">
+              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
+                <rect x="3" y="3" width="10" height="10" rx="2"/>
+                <circle cx="8" cy="8" r="2.2"/>
+                <path d="M1 5h2M1 8h2M1 11h2M13 5h2M13 8h2M13 11h2M5 1v2M8 1v2M11 1v2M5 13v2M8 13v2M11 13v2"/>
+              </svg>
+            </span>
+            <span data-i18n="wf.device">设备</span>
+          </button>
+          <button class="nav-btn" data-panel="wf" data-step="motor">
+            <span class="ico">
+              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
+                <circle cx="8" cy="8" r="6"/>
+                <circle cx="8" cy="8" r="2.5"/>
+                <path d="M8 2v2M8 12v2M2 8h2M12 8h2"/>
+              </svg>
+            </span>
+            <span data-i18n="wf.motor">电机</span>
+          </button>
+          <button class="nav-btn" data-panel="wf" data-step="encoder">
+            <span class="ico">
+              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
+                <circle cx="8" cy="8" r="6"/>
+                <circle cx="8" cy="8" r="4" stroke-dasharray="2 2"/>
+                <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+              </svg>
+            </span>
+            <span data-i18n="wf.encoder">编码器</span>
+          </button>
+          <button class="nav-btn" data-panel="wf" data-step="pid">
+            <span class="ico">
+              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M2 13h12M4 10l3-6 3 4 3-5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span data-i18n="wf.pid">调参</span>
+          </button>
+          <button class="nav-btn" data-panel="wf" data-step="run">
+            <span class="ico">
+              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
+                <polygon points="4,3 13,8 4,13" fill="currentColor" opacity="0.8"/>
+              </svg>
+            </span>
+            <span data-i18n="wf.run">控制台</span>
+          </button>
+
+          <div class="nav-section-title">实时观测</div>
+          <button class="nav-btn" data-panel="scope">
+            <span class="ico">
+              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
+                <rect x="2" y="2" width="12" height="12" rx="2"/>
+                <path d="M3 9c1.5 0 2-3 3-3s1.5 6 3 6 1.5-3 4-3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span data-i18n="nav.scope">示波器</span>
+          </button>
+          <button class="nav-btn" data-panel="expert">
+            <span class="ico">
+              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
+                <polygon points="9,1 3,9 8,9 7,15 13,7 8,7" fill="currentColor" opacity="0.85"/>
+              </svg>
+            </span>
+            <span data-i18n="nav.expert">高级算法</span>
+          </button>
+          <button class="nav-btn" data-panel="terminal">
+            <span class="ico">
+              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
+                <rect x="2" y="3" width="12" height="10" rx="1.5"/>
+                <path d="M5 6l2.5 2L5 10M9 10h2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span data-i18n="nav.terminal">终端</span>
+          </button>
         </nav>
 
         <main>
@@ -107,6 +213,10 @@
                   <div class="hud-item"><span class="hud-label">State</span><strong id="hud-state" class="state-pill state-idle">—</strong></div>
                   <div class="hud-item"><span class="hud-label">Mode</span><strong id="hud-mode">—</strong></div>
                   <div class="hud-item"><span class="hud-label">Fault</span><strong id="hud-fault" class="hud-fault-ok">OK</strong></div>
+                  <button id="btn-wave-toggle" class="btn-wave-toggle is-off" title="下位机高速波形流控制 (wave 1/0)">
+                    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 8c2-4 3-4 5 0s3 4 5 0 3-4 4 0" stroke-linecap="round"/></svg>
+                    <span>Wave: OFF</span>
+                  </button>
                 </div>
                 <div class="scope-toolbar">
                   <label class="field">

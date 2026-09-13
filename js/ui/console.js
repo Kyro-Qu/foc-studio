@@ -11,8 +11,6 @@ export const PRESET_COMMANDS = [
   { id: "fault", label: "Fault?", cmd: "fault", kind: "normal" },
   { id: "faultclear", label: "Fault Clear", cmd: "fault clear", kind: "warn" },
   { id: "calib", label: "Calib full", cmd: "calib full", kind: "normal" },
-  { id: "logon", label: "Log ON", cmd: "log 1", kind: "normal" },
-  { id: "logoff", label: "Log OFF", cmd: "log 0", kind: "normal" },
 ];
 
 /** 无感闭环控制 — 映射固件 feedback [sensored|sensorless|auto|if|speed|blend] */

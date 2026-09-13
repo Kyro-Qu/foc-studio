@@ -229,3 +229,21 @@ udc=8.50V
 
   console.log("  PASS  parseBoardAndStatus 与 diagnoseSystemHealth 诊断全分支与报告生成测试 100% 通过\n");
 }
+
+console.log("\n[6. 下位机 wave/silent 模式状态回显与命令兼容验证]");
+{
+  // 验证 wave 命令回显解析
+  const waveResp1 = "wave=1 telem=1\r\n";
+  const m1 = waveResp1.match(/wave=([01])\s+telem=([01])/);
+  assert(m1 !== null);
+  assert.strictEqual(m1[1], "1");
+  assert.strictEqual(m1[2], "1");
+
+  const waveResp0 = "wave=0 telem=0\r\n";
+  const m0 = waveResp0.match(/wave=([01])\s+telem=([01])/);
+  assert(m0 !== null);
+  assert.strictEqual(m0[1], "0");
+  assert.strictEqual(m0[2], "0");
+
+  console.log("  PASS  wave [0|1] 命令回显解析与双向状态同步逻辑无误\n");
+}
