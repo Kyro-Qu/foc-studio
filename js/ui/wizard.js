@@ -200,31 +200,98 @@ export class WorkflowWizard {
       const cls = c.danger ? "danger" : "";
       return `<button class="${cls}" data-cmd="${c.cmd}" title="${c.cmd}">${t(c.key)}</button>`;
     }).join(" ");
+    const field = (id, label, unit, step, val) => `
+      <div class="wf-param">
+        <label for="${id}">${label}${unit ? ` <span class="tune-unit">${unit}</span>` : ""}</label>
+        <input type="number" id="${id}" step="${step}" value="${val}" />
+      </div>`;
     return `
       <h3 class="wf-h">${t("wf.motor.h")}</h3>
       <p class="wf-p">${t("wf.motor.p")}</p>
-      <div class="wf-card">
-        <div class="wf-row">
-          <label>${t("wf.motor.pp")}</label>
-          <input type="number" id="wf-pp" step="1" min="1" max="32" value="7" style="width:70px" />
-          <button id="wf-pp-set">${t("wf.apply")}</button>
-          <span class="wf-badge">${t("wf.needs_fw")}</span>
+
+      <section class="wf-card">
+        <h4 class="wf-section">${t("wf.motor.params")}</h4>
+        <div class="wf-params">
+          ${field("wf-pp", t("wf.motor.pp"), "", "1", "7")}
+          ${field("wf-rs", "Rs", "Ω", "0.0001", "0.1")}
+          ${field("wf-ls", "Ls", "µH", "0.01", "20")}
+          ${field("wf-ld", "Ld", "µH", "0.01", "")}
+          ${field("wf-lq", "Lq", "µH", "0.01", "")}
+          ${field("wf-flux", "Flux", "Wb", "0.0001", "")}
+          ${field("wf-maxrpm", "max_rpm", "rpm", "1", "12000")}
+          ${field("wf-limit2", "limit", "A", "0.1", "5.2")}
         </div>
         <div class="wf-row">
-          <button data-cmd="conf read">${t("wf.motor.conf_read")}</button>
-          <button data-cmd="conf write">${t("wf.motor.conf_write")}</button>
-          <span class="wf-badge danger">${t("wf.motor.flash")}</span>
+          <button class="ok" id="wf-read-params">${t("wf.motor.read_params")}</button>
+          <span class="wf-badge" id="wf-param-src">${t("wf.motor.manual")}</span>
         </div>
-        <p class="wf-note">${t("wf.motor.note")}</p>
-        <div class="wf-sep"></div>
+        <p class="wf-note">${t("wf.motor.params_note")}</p>
+      </section>
+
+      <section class="wf-card">
+        <h4 class="wf-section">${t("wf.motor.auto")}</h4>
+        <div class="wf-row">${ids}</div>
         <div class="wf-row">
           <button class="danger" data-cmd="calib full" data-confirm="calib full">${t("wf.calib.full")}</button>
           <button data-cmd="disable">${t("dash.ctrl.disable")}</button>
           <button data-cmd="fault clear">${t("wf.safety.clear")}</button>
         </div>
-        <div class="wf-row">${ids}</div>
         <p class="wf-note">${t("wf.calib.note")}</p>
-      </div>`;
+      </section>
+
+      <section class="wf-card">
+        <h4 class="wf-section">${t("wf.motor.flash")}</h4>
+        <div class="wf-row">
+          <button data-cmd="conf read">${t("wf.motor.conf_read")}</button>
+          <button class="danger" data-cmd="conf write" data-confirm="conf write">${t("wf.motor.conf_write")}</button>
+        </div>
+        <p class="wf-note">${t("wf.motor.note")}</p>
+      </section>`;
+  }
+
+  /** 读取 conf read + ident show，填入参数表 */
+  async _readMotorParams() {
+    const badge = this.root.querySelector("#wf-param-src");
+    if (!this.sendCapture) {
+      await this._cli("conf read");
+      await this._cli("ident show");
+      return;
+    }
+    let text = "";
+    try {
+      text += await this.sendCapture("conf read", 450);
+      text += "\n" + (await this.sendCapture("ident show", 350));
+    } catch {
+      /* ignore */
+    }
+    const pick = (re) => {
+      const m = text.match(re);
+      return m ? m[1] : null;
+    };
+    const set = (id, v, scale = 1) => {
+      const el = this.root.querySelector(`#${id}`);
+      if (el && v != null) el.value = (Number(v) * scale).toFixed(scale === 1 ? 0 : 4);
+    };
+    set("wf-pp", pick(/pp=([0-9.]+)/));
+    // conf: Rs ohm, Ls uH
+    const rsConf = pick(/Rs=([0-9.]+)/);
+    const lsConf = pick(/Ls=([0-9.]+)/);
+    set("wf-rs", rsConf);
+    set("wf-ls", lsConf);
+    set("wf-maxrpm", pick(/max_rpm=([0-9.]+)/));
+    set("wf-limit2", pick(/limit=([0-9.]+)/));
+    // ident show 优先覆盖 Rs/Ls
+    const rsId = pick(/Rs=([0-9.]+)\s*ohm/i) || pick(/Rs=([0-9.]+)/);
+    const lsId = pick(/Ls=([0-9.]+)\s*uH/i) || pick(/Ls=([0-9.]+)/i);
+    const ld = pick(/Ld=([0-9.]+)/i);
+    const lq = pick(/Lq=([0-9.]+)/i);
+    const flux = pick(/flux[^\n=]*=([0-9.]+)/i) || pick(/Ke=([0-9.]+)/i);
+    if (rsId) set("wf-rs", rsId);
+    if (lsId) set("wf-ls", lsId);
+    if (ld) set("wf-ld", ld);
+    if (lq) set("wf-lq", lq);
+    if (flux) set("wf-flux", flux);
+    if (badge) badge.textContent = t("wf.motor.from_device");
   }
 
   _htmlPid() {
@@ -309,6 +376,7 @@ export class WorkflowWizard {
       });
     });
     this.root.querySelector("#wf-read-info")?.addEventListener("click", () => this._readBoardInfo());
+    this.root.querySelector("#wf-read-params")?.addEventListener("click", () => this._readMotorParams());
 
     this.root.querySelector("#wf-limit-set")?.addEventListener("click", () => {
       const v = Number(this.root.querySelector("#wf-limit")?.value);

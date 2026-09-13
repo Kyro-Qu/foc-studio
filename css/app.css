@@ -1047,6 +1047,27 @@ main {
   opacity: 0.5;
 }
 
+.wf-params {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px 12px;
+}
+
+.wf-param {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wf-param label {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.wf-param input {
+  width: 100%;
+}
+
 .wf-row {
   display: flex;
   flex-wrap: wrap;
