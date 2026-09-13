@@ -1,4 +1,4 @@
-import { loadChannels, saveChannels, CHANNEL_COUNT, channelLabel } from "./channels.js";
+import { loadChannels, saveChannels, CHANNEL_COUNT, channelLabel, formatValueCompact } from "./channels.js";
 import { SerialTransport, SerialState } from "./transport/serial.js";
 import { StpDecoder } from "./protocol/stp.js";
 import { TelemetryAdapter } from "./protocol/protocol.js";
@@ -29,6 +29,7 @@ const state = {
   bytesWindow: 0,
   framesWindow: 0,
   lastStats: performance.now(),
+  lastChValUpdate: 0,
   textBuf: "",
   textFlush: 0,
   waveActive: false,
@@ -84,6 +85,15 @@ function onSample(values, sampleIndex, mask = null, tick = null) {
   recorder.push(fullValues, sampleIndex);
   if (expertPanel) {
     expertPanel.updateSensorlessFromTelemetry(fullValues);
+  }
+
+  // 限制通道侧边栏实时数值刷新率在 10 Hz 左右（100ms），丝滑且极省 CPU
+  const now = performance.now();
+  if (now - state.lastChValUpdate >= 100) {
+    state.lastChValUpdate = now;
+    if ($("panel-scope")?.classList.contains("active")) {
+      updateChannelValues();
+    }
   }
 
   if (trigger.mode !== TriggerMode.OFF) {
@@ -499,6 +509,7 @@ function renderChannelList() {
       <input type="checkbox" ${ch.visible ? "checked" : ""} data-id="${ch.id}" />
       <span class="swatch" style="background:${ch.color}"></span>
       <span class="ch-label" title="ch${ch.id} ${ch.name}">${label}</span>
+      <span class="ch-val-live is-empty" data-ch-val="${ch.id}">—</span>
       <span class="ch-unit-static">${ch.unit || ""}</span>
     `;
     box.appendChild(row);
@@ -518,6 +529,28 @@ function renderChannelList() {
       sync();
     });
   });
+  updateChannelValues();
+}
+
+/**
+ * 高效批量刷新通道列表中的实时数值
+ */
+function updateChannelValues() {
+  const box = $("channel-list");
+  if (!box) return;
+  const valSpans = box.querySelectorAll(".ch-val-live");
+  for (let i = 0; i < valSpans.length; i++) {
+    const span = valSpans[i];
+    const chId = Number(span.dataset.chVal);
+    const v = store.latest ? store.latest[chId] : NaN;
+    if (Number.isFinite(v)) {
+      span.textContent = formatValueCompact(v);
+      span.classList.remove("is-empty");
+    } else {
+      span.textContent = "—";
+      span.classList.add("is-empty");
+    }
+  }
 }
 
 function updateMeasures() {
@@ -1174,7 +1207,10 @@ setInterval(() => {
   state.bytesWindow = 0;
   state.lastStats = now;
   if ($("chk-raw").checked) $("term-raw").textContent = terminal.renderRaw().slice(-2000);
-  if ($("panel-scope").classList.contains("active")) updateMeasures();
+  if ($("panel-scope").classList.contains("active")) {
+    updateMeasures();
+    updateChannelValues();
+  }
   const empty = $("scope-empty");
   if (empty) empty.hidden = store.length > 2;
 }, 400);

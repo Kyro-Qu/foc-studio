@@ -123,3 +123,18 @@ export function formatValue(v, unit) {
   else s = v.toFixed(4);
   return unit ? `${s} ${unit}` : s;
 }
+
+/**
+ * 格式化精简纯数值，用于通道侧边栏紧凑列显示
+ * @param {number} v
+ */
+export function formatValueCompact(v) {
+  if (!Number.isFinite(v)) return "—";
+  const abs = Math.abs(v);
+  if (abs === 0) return "0";
+  if (abs >= 10000) return v.toFixed(0);
+  if (abs >= 100) return v.toFixed(1);
+  if (abs >= 10) return v.toFixed(2);
+  if (abs >= 1) return v.toFixed(3);
+  return v.toFixed(3);
+}

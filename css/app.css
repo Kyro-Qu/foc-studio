@@ -963,7 +963,7 @@ main {
 /* ---------- scope ---------- */
 .scope-layout {
   display: grid;
-  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
   gap: 12px;
   flex: 1;
   min-height: 0;
@@ -991,7 +991,7 @@ main {
 
 .ch-row {
   display: grid;
-  grid-template-columns: 18px 10px 1fr 42px;
+  grid-template-columns: 18px 10px 1fr auto auto;
   gap: 6px;
   align-items: center;
 }
@@ -1024,11 +1024,27 @@ main {
   white-space: nowrap;
 }
 
+.ch-val-live {
+  font-size: 11px;
+  font-weight: 600;
+  color: #38bdf8;
+  font-family: var(--mono);
+  text-align: right;
+  min-width: 44px;
+  padding-right: 2px;
+}
+
+.ch-val-live.is-empty {
+  color: var(--text-faint);
+  font-weight: normal;
+}
+
 .ch-unit-static {
   font-size: 10px;
   color: var(--text-faint);
   text-align: right;
   font-family: var(--mono);
+  min-width: 24px;
 }
 
 .ch-name,
