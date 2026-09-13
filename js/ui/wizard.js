@@ -66,7 +66,7 @@ export class WorkflowWizard {
   render() {
     const idx = STEPS.findIndex((s) => s.id === this.step);
     this.root.innerHTML = "";
-    this.root.appendChild(this._stepsBar(idx));
+    // 步骤导航在左侧栏，页内不重复显示步骤条
     const body = document.createElement("div");
     body.className = "wf-body";
     body.innerHTML = this._pageHtml(this.step);
@@ -79,19 +79,6 @@ export class WorkflowWizard {
     `;
     this.root.appendChild(nav);
     this._wire();
-  }
-
-  _stepsBar(idx) {
-    const el = document.createElement("div");
-    el.className = "wf-steps";
-    STEPS.forEach((s, i) => {
-      const b = document.createElement("button");
-      b.className = `wf-step${i === idx ? " active" : ""}${i < idx ? " done" : ""}`;
-      b.innerHTML = `<span class="wf-num">${i + 1}</span> ${t(s.key)}`;
-      b.addEventListener("click", () => this.setStep(s.id));
-      el.appendChild(b);
-    });
-    return el;
   }
 
   _pageHtml(id) {
