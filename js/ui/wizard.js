@@ -213,13 +213,13 @@ export class WorkflowWizard {
         <h4 class="wf-section">${t("wf.motor.params")}</h4>
         <div class="wf-params">
           ${field("wf-pp", t("wf.motor.pp"), "", "1", "7")}
-          ${field("wf-rs", "Rs", "Ω", "0.0001", "0.1")}
-          ${field("wf-ls", "Ls", "µH", "0.01", "20")}
-          ${field("wf-ld", "Ld", "µH", "0.01", "")}
-          ${field("wf-lq", "Lq", "µH", "0.01", "")}
-          ${field("wf-flux", "Flux", "Wb", "0.0001", "")}
-          ${field("wf-maxrpm", "max_rpm", "rpm", "1", "12000")}
-          ${field("wf-limit2", "limit", "A", "0.1", "5.2")}
+          ${field("wf-rs", t("wf.motor.rs"), "Ω", "0.0001", "0.1")}
+          ${field("wf-ls", t("wf.motor.ls"), "µH", "0.01", "20")}
+          ${field("wf-ld", t("wf.motor.ld"), "µH", "0.01", "")}
+          ${field("wf-lq", t("wf.motor.lq"), "µH", "0.01", "")}
+          ${field("wf-flux", t("wf.motor.flux"), "Wb", "0.0001", "")}
+          ${field("wf-maxrpm", t("wf.motor.maxrpm"), "rpm", "1", "12000")}
+          ${field("wf-limit2", t("wf.motor.limit"), "A", "0.1", "5.2")}
         </div>
         <div class="wf-row">
           <button class="ok" id="wf-read-params">${t("wf.motor.read_params")}</button>
