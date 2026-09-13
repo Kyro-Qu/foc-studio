@@ -4,7 +4,7 @@
  */
 
 import { t } from "../i18n.js";
-import { MODES, MODE_CONTROLS, IDENT_COMMANDS, OBS_COMMANDS } from "./console.js";
+import { MODES, MODE_CONTROLS, OBS_COMMANDS } from "./console.js";
 
 const STEPS = [
   { id: "device", key: "wf.device" },
@@ -196,10 +196,6 @@ export class WorkflowWizard {
   }
 
   _htmlMotor() {
-    const ids = IDENT_COMMANDS.map((c) => {
-      const cls = c.danger ? "danger" : "";
-      return `<button class="${cls}" data-cmd="${c.cmd}" title="${c.cmd}">${t(c.key)}</button>`;
-    }).join(" ");
     const field = (id, label, unit, step, val) => `
       <div class="wf-param">
         <label for="${id}">${label}${unit ? ` <span class="tune-unit">${unit}</span>` : ""}</label>
@@ -223,6 +219,8 @@ export class WorkflowWizard {
         </div>
         <div class="wf-row">
           <button class="ok" id="wf-read-params">${t("wf.motor.read_params")}</button>
+          <button class="ok" data-cmd="ident apply">${t("wf.apply")}</button>
+          <button class="danger" data-cmd="conf write" data-confirm="conf write">${t("wf.motor.conf_write")}</button>
           <span class="wf-badge" id="wf-param-src">${t("wf.motor.manual")}</span>
         </div>
         <p class="wf-note">${t("wf.motor.params_note")}</p>
@@ -230,22 +228,14 @@ export class WorkflowWizard {
 
       <section class="wf-card">
         <h4 class="wf-section">${t("wf.motor.auto")}</h4>
-        <div class="wf-row">${ids}</div>
         <div class="wf-row">
+          <button data-cmd="ident rs">${t("ident.rs")}</button>
+          <button class="danger" data-cmd="ident full" data-confirm="ident full">${t("ident.full")}</button>
+          <button data-cmd="ident show">${t("ident.show")}</button>
           <button class="danger" data-cmd="calib full" data-confirm="calib full">${t("wf.calib.full")}</button>
           <button data-cmd="disable">${t("dash.ctrl.disable")}</button>
-          <button data-cmd="fault clear">${t("wf.safety.clear")}</button>
         </div>
         <p class="wf-note">${t("wf.calib.note")}</p>
-      </section>
-
-      <section class="wf-card">
-        <h4 class="wf-section">${t("wf.motor.flash")}</h4>
-        <div class="wf-row">
-          <button data-cmd="conf read">${t("wf.motor.conf_read")}</button>
-          <button class="danger" data-cmd="conf write" data-confirm="conf write">${t("wf.motor.conf_write")}</button>
-        </div>
-        <p class="wf-note">${t("wf.motor.note")}</p>
       </section>`;
   }
 
