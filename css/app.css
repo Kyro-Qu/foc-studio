@@ -950,6 +950,17 @@ main {
   font-size: 12px;
 }
 
+.console-targets > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.console-targets > span[hidden] {
+  display: none !important;
+}
+
 .tune-row {
   display: grid;
   grid-template-columns: 110px 1fr 72px auto;

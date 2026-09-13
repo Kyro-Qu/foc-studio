@@ -8,7 +8,7 @@ import { SessionRecorder, parseCsv, ReplaySource } from "./data/recorder.js";
 import { Scope } from "./ui/scope.js";
 import { Dashboard } from "./ui/dashboard.js";
 import { Terminal } from "./ui/terminal.js";
-import { ControlConsole, PRESET_COMMANDS, MODES, IDENT_COMMANDS, FEEDBACK_COMMANDS } from "./ui/console.js";
+import { ControlConsole, PRESET_COMMANDS, MODES, IDENT_COMMANDS, FEEDBACK_COMMANDS, MODE_CONTROLS } from "./ui/console.js";
 import { MathChannels, MATH_OPS } from "./ui/math.js";
 import { TriggerEngine, TriggerMode } from "./ui/trigger.js";
 import { measureChannel } from "./ui/measure.js";
@@ -370,16 +370,42 @@ function renderConsole() {
   row1.append(modeSel, modeBtn);
 
   const row2 = document.createElement("div");
-  row2.className = "console-row";
+  row2.className = "console-row console-targets";
   row2.innerHTML = `
-    <label>target</label><input type="number" id="ctl-target" step="0.1" style="width:90px" value="0" />
-    <button id="ctl-target-apply">Apply</button>
-    <label>rpm</label><input type="number" id="ctl-rpm" step="1" style="width:90px" value="0" />
-    <button id="ctl-rpm-apply">Apply</button>
-    <label>vq</label><input type="number" id="ctl-vq" step="0.1" style="width:80px" value="0" />
-    <button id="ctl-vq-apply">Apply</button>
+    <span id="ctl-target-wrap">
+      <label id="ctl-target-label">${t("dash.ctrl.target")}</label>
+      <input type="number" id="ctl-target" step="0.1" style="width:90px" value="0" />
+      <span class="dash-unit-tag" id="ctl-target-unit"></span>
+      <button id="ctl-target-apply">Apply</button>
+    </span>
+    <span id="ctl-vf-wrap">
+      <label>rpm</label>
+      <input type="number" id="ctl-rpm" step="1" style="width:90px" value="0" />
+      <button id="ctl-rpm-apply">Apply</button>
+      <label>vq</label>
+      <input type="number" id="ctl-vq" step="0.1" style="width:80px" value="0" />
+      <button id="ctl-vq-apply">Apply</button>
+    </span>
   `;
   ctrl.append(row1, row2);
+
+  const applyModeControls = () => {
+    const id = modeSel.value;
+    const mc = MODE_CONTROLS[id] || MODE_CONTROLS.vel;
+    const tw = $("ctl-target-wrap");
+    const vw = $("ctl-vf-wrap");
+    const tu = $("ctl-target-unit");
+    const ti = $("ctl-target");
+    if (tw) tw.hidden = !mc.target;
+    if (vw) vw.hidden = !(mc.rpm || mc.vq);
+    if (tu) tu.textContent = mc.target ? mc.target.unit : "";
+    if (ti && mc.target) {
+      ti.min = String(mc.target.min);
+      ti.max = String(mc.target.max);
+      ti.step = String(mc.target.step);
+    }
+  };
+  modeSel.addEventListener("change", applyModeControls);
 
   const custom = document.createElement("div");
   custom.className = "console-row";
@@ -393,6 +419,7 @@ function renderConsole() {
   root.appendChild(ctrl);
 
   const wire = () => {
+    applyModeControls();
     $("ctl-target-apply").onclick = () => consoleCtl.setTarget($("ctl-target").value).catch((e) => terminal.appendText(String(e) + "\n", "err"));
     $("ctl-rpm-apply").onclick = () => consoleCtl.setRpm($("ctl-rpm").value).catch((e) => terminal.appendText(String(e) + "\n", "err"));
     $("ctl-vq-apply").onclick = () => consoleCtl.setVq($("ctl-vq").value).catch((e) => terminal.appendText(String(e) + "\n", "err"));

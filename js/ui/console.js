@@ -42,6 +42,15 @@ export const MODES = [
   { id: "pos", key: "mode.pos" },
 ];
 
+/** 各闭环模式下可用的设定量（与固件 CLI 对齐） */
+export const MODE_CONTROLS = {
+  // V/F 开环：rpm + vq，无 target
+  vf: { target: null, rpm: true, vq: true },
+  iq: { target: { unit: "A", min: -20, max: 20, step: 0.1 }, rpm: false, vq: false },
+  vel: { target: { unit: "RPM", min: -8000, max: 8000, step: 10 }, rpm: false, vq: false },
+  pos: { target: { unit: "rad", min: -50, max: 50, step: 0.01 }, rpm: false, vq: false },
+};
+
 const LS_KEY = "foc-studio-console-v1";
 
 export class ControlConsole {
