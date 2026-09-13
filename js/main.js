@@ -351,78 +351,22 @@ function renderConsole() {
   fbSec.appendChild(fbGrid);
   root.appendChild(fbSec);
 
-  const ctrl = document.createElement("div");
-  ctrl.className = "console-section";
-  ctrl.innerHTML = `<div class="panel-title" style="font-size:11px">${t("dash.ctrl.mode")} / ${t("dash.ctrl.target")}</div>`;
-  const row1 = document.createElement("div");
-  row1.className = "console-row";
-  row1.innerHTML = `<label>${t("dash.ctrl.mode")}</label>`;
-  const modeSel = document.createElement("select");
-  for (const m of MODES) {
-    const o = document.createElement("option");
-    o.value = m.id;
-    o.textContent = t(m.key);
-    modeSel.appendChild(o);
-  }
-  const modeBtn = document.createElement("button");
-  modeBtn.textContent = "Set Mode";
-  modeBtn.addEventListener("click", () => consoleCtl.setMode(modeSel.value).catch((e) => terminal.appendText(String(e) + "\n", "err")));
-  row1.append(modeSel, modeBtn);
-
-  const row2 = document.createElement("div");
-  row2.className = "console-row console-targets";
-  row2.innerHTML = `
-    <span id="ctl-target-wrap">
-      <label id="ctl-target-label">${t("dash.ctrl.target")}</label>
-      <input type="number" id="ctl-target" step="0.1" style="width:90px" value="0" />
-      <span class="dash-unit-tag" id="ctl-target-unit"></span>
-      <button id="ctl-target-apply">Apply</button>
-    </span>
-    <span id="ctl-vf-wrap">
-      <label>rpm</label>
-      <input type="number" id="ctl-rpm" step="1" style="width:90px" value="0" />
-      <button id="ctl-rpm-apply">Apply</button>
-      <label>vq</label>
-      <input type="number" id="ctl-vq" step="0.1" style="width:80px" value="0" />
-      <button id="ctl-vq-apply">Apply</button>
-    </span>
-  `;
-  ctrl.append(row1, row2);
-
-  const applyModeControls = () => {
-    const id = modeSel.value;
-    const mc = MODE_CONTROLS[id] || MODE_CONTROLS.vel;
-    const tw = $("ctl-target-wrap");
-    const vw = $("ctl-vf-wrap");
-    const tu = $("ctl-target-unit");
-    const ti = $("ctl-target");
-    if (tw) tw.hidden = !mc.target;
-    if (vw) vw.hidden = !(mc.rpm || mc.vq);
-    if (tu) tu.textContent = mc.target ? mc.target.unit : "";
-    if (ti && mc.target) {
-      ti.min = String(mc.target.min);
-      ti.max = String(mc.target.max);
-      ti.step = String(mc.target.step);
-    }
-  };
-  modeSel.addEventListener("change", applyModeControls);
-
+  /* 模式/目标统一在 Dashboard 快捷控制，控制台只保留自定义 CLI */
   const custom = document.createElement("div");
-  custom.className = "console-row";
-  custom.innerHTML = `
-    <input type="text" id="ctl-custom-label" placeholder="标签" style="width:80px" />
+  custom.className = "console-section";
+  custom.innerHTML = `<div class="panel-title" style="font-size:11px">${t("dash.ctrl.custom") || "自定义 CLI"}</div>`;
+  const customRow = document.createElement("div");
+  customRow.className = "console-row";
+  customRow.innerHTML = `
+    <input type="text" id="ctl-custom-label" placeholder="${t("dash.ctrl.custom.label") || "标签"}" style="width:80px" />
     <input type="text" id="ctl-custom-cmd" placeholder="CLI 命令" style="flex:1;min-width:120px" />
     <button id="ctl-custom-add">Add</button>
     <div id="ctl-custom-list" style="display:flex;flex-wrap:wrap;gap:6px;width:100%"></div>
   `;
-  ctrl.appendChild(custom);
-  root.appendChild(ctrl);
+  custom.appendChild(customRow);
+  root.appendChild(custom);
 
   const wire = () => {
-    applyModeControls();
-    $("ctl-target-apply").onclick = () => consoleCtl.setTarget($("ctl-target").value).catch((e) => terminal.appendText(String(e) + "\n", "err"));
-    $("ctl-rpm-apply").onclick = () => consoleCtl.setRpm($("ctl-rpm").value).catch((e) => terminal.appendText(String(e) + "\n", "err"));
-    $("ctl-vq-apply").onclick = () => consoleCtl.setVq($("ctl-vq").value).catch((e) => terminal.appendText(String(e) + "\n", "err"));
     $("ctl-custom-add").onclick = () => {
       const cmd = $("ctl-custom-cmd").value.trim();
       if (!cmd) return;

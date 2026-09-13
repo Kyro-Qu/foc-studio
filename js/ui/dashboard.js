@@ -7,6 +7,7 @@ import { formatValue, channelLabel } from "../channels.js";
 import { faultText, decodeFault } from "./fault.js";
 import { getLang, t } from "../i18n.js";
 import { Gauge } from "./gauge.js";
+import { MODE_CONTROLS } from "./console.js";
 
 const ROW_GROUPS = [
   {
@@ -113,7 +114,17 @@ export class Dashboard {
     ctrl.innerHTML = `
       <h3 class="dash-group-title">${t("dash.ctrl.title")}</h3>
       <div class="dash-ctrl-row">
-        <label>${t("dash.ctrl.target")} <span id="dash-target-label" class="dash-unit-tag">RPM</span></label>
+        <label>${t("dash.ctrl.mode")}</label>
+        <select id="dash-mode">
+          <option value="vel">${t("mode.vel")}</option>
+          <option value="iq">${t("mode.iq")}</option>
+          <option value="vf">${t("mode.vf")}</option>
+          <option value="pos">${t("mode.pos")}</option>
+        </select>
+        <button class="small" id="dash-mode-send">${t("dash.ctrl.set")}</button>
+      </div>
+      <div class="dash-ctrl-row" id="dash-target-row">
+        <label><span id="dash-target-label" class="dash-unit-tag">RPM</span></label>
         <div class="slider-wrap">
           <input type="range" id="dash-target-range" min="-8000" max="8000" step="10" value="0" />
           <span class="slider-zero" title="0" aria-hidden="true">
@@ -124,15 +135,10 @@ export class Dashboard {
         <input type="number" id="dash-target-num" min="-8000" max="8000" step="10" value="0" style="width:90px" />
         <button class="small" id="dash-target-send">${t("dash.ctrl.send")}</button>
       </div>
-      <div class="dash-ctrl-row">
-        <label>${t("dash.ctrl.mode")}</label>
-        <select id="dash-mode">
-          <option value="vel">${t("mode.vel")}</option>
-          <option value="iq">${t("mode.iq")}</option>
-          <option value="vf">${t("mode.vf")}</option>
-          <option value="pos">${t("mode.pos")}</option>
-        </select>
-        <button class="small" id="dash-mode-send">${t("dash.ctrl.set")}</button>
+      <div class="dash-ctrl-row" id="dash-vf-row" hidden>
+        <label>Vq <span class="dash-unit-tag">V</span></label>
+        <input type="number" id="dash-vq-num" min="0" max="12" step="0.1" value="0.5" style="width:80px" />
+        <button class="small" id="dash-vq-send">${t("dash.ctrl.send")}</button>
       </div>
       <div class="dash-ctrl-row dash-ctrl-actions">
         <button class="small ok" id="dash-enable">${t("dash.ctrl.enable")}</button>
@@ -187,31 +193,33 @@ export class Dashboard {
     const num = this.root.querySelector("#dash-target-num");
     const modeSel = this.root.querySelector("#dash-mode");
     const targetLabel = this.root.querySelector("#dash-target-label");
-
-    const MODE_META = {
-      vel: { unit: "RPM", min: -8000, max: 8000, step: 10 },
-      iq: { unit: "A", min: -20, max: 20, step: 0.1 },
-      pos: { unit: "rad", min: -50, max: 50, step: 0.01 },
-      vf: { unit: "RPM", min: -8000, max: 8000, step: 10 },
-    };
+    const targetRow = this.root.querySelector("#dash-target-row");
+    const vfRow = this.root.querySelector("#dash-vf-row");
 
     const applyModeMeta = () => {
-      const m = MODE_META[modeSel?.value || "vel"] || MODE_META.vel;
+      const id = modeSel?.value || "vel";
+      const mc = MODE_CONTROLS[id] || MODE_CONTROLS.vel;
+      // vf：滑条发 rpm，另发 vq；闭环：滑条发 target
+      const useRpm = id === "vf";
+      const meta = useRpm
+        ? { unit: "RPM", min: -8000, max: 8000, step: 10 }
+        : mc.target || { unit: "RPM", min: -8000, max: 8000, step: 10 };
+      if (targetRow) targetRow.hidden = false;
+      if (vfRow) vfRow.hidden = !useRpm;
       if (range) {
-        range.min = String(m.min);
-        range.max = String(m.max);
-        range.step = String(m.step);
+        range.min = String(meta.min);
+        range.max = String(meta.max);
+        range.step = String(meta.step);
       }
       if (num) {
-        num.min = String(m.min);
-        num.max = String(m.max);
-        num.step = String(m.step);
+        num.min = String(meta.min);
+        num.max = String(meta.max);
+        num.step = String(meta.step);
       }
-      if (targetLabel) targetLabel.textContent = m.unit;
-      // 对称量程时 0 在中点；非对称则按公式定位
+      if (targetLabel) targetLabel.textContent = meta.unit;
       const zeroEl = this.root.querySelector(".slider-zero");
       if (zeroEl) {
-        const frac = (0 - m.min) / (m.max - m.min);
+        const frac = (0 - meta.min) / (meta.max - meta.min);
         zeroEl.style.left = `${(frac * 100).toFixed(2)}%`;
       }
     };
@@ -234,6 +242,14 @@ export class Dashboard {
         const mode = modeSel?.value || "vel";
         const cmd = mode === "vf" ? `rpm ${v}` : `target ${v}`;
         Promise.resolve(this.send(cmd)).catch(() => {});
+      });
+    }
+    const vqSend = this.root.querySelector("#dash-vq-send");
+    if (vqSend) {
+      vqSend.addEventListener("click", () => {
+        const v = Number(this.root.querySelector("#dash-vq-num")?.value);
+        if (!Number.isFinite(v) || !this.send) return;
+        Promise.resolve(this.send(`vq ${v}`)).catch(() => {});
       });
     }
     const modeSend = this.root.querySelector("#dash-mode-send");
