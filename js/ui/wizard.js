@@ -14,6 +14,362 @@ const STEPS = [
   { id: "run", key: "wf.run" },
 ];
 
+/** 固件标准故障码定义映射 */
+export const FAULT_NAMES = {
+  0: "NONE (正常)",
+  1: "CURRENT_SENSE (电流采样失效)",
+  2: "CALIB_OVERCURRENT (校准过流)",
+  3: "RUN_OVERCURRENT (运行过流)",
+  4: "CALIB_TIMEOUT (校准超时)",
+  5: "CALIB_STATE (校准状态异常)",
+  6: "NOT_CALIBRATED (未校准)",
+  7: "CONTROL_NAN (控制量溢出/NaN)",
+  8: "STALL (电机堵转)",
+  9: "OBSERVER (无感观测器失锁)",
+  10: "BAD_CONFIG (参数非法)",
+  11: "UNDERVOLTAGE (母线欠压)",
+  12: "OVERVOLTAGE (母线过压)",
+};
+
+/** 解析硬件复位标志 */
+export function parseResetFlags(text) {
+  // 匹配形如 rst_flags=0x0C000000 (IWDG=0 SFT=0 BOR=0 PIN=1)
+  const bracketMatch = text.match(/rst_flags=(0x[0-9A-Fa-f]+)\s*\(([^)]+)\)/);
+  if (bracketMatch) {
+    const rawHex = bracketMatch[1];
+    const details = bracketMatch[2].trim();
+    // 提取细节里非 0 的项
+    const active = [];
+    if (/IWDG=1/.test(details)) active.push("看门狗复位 (IWDG)");
+    if (/SFT=1/.test(details)) active.push("软件复位 (SFT)");
+    if (/BOR=1/.test(details)) active.push("欠压掉电 (BOR)");
+    if (/PIN=1/.test(details)) active.push("引脚复位 (PIN)");
+    return {
+      rawHex,
+      activeNames: active.length ? active : ["正常上电/引脚复位"],
+      desc: active.length ? active.join(" / ") : details,
+    };
+  }
+  const hexMatch = text.match(/rst_flags=(0x[0-9A-Fa-f]+)/);
+  if (hexMatch) {
+    return {
+      rawHex: hexMatch[1],
+      activeNames: ["未知复位源"],
+      desc: hexMatch[1],
+    };
+  }
+  return { rawHex: "—", activeNames: [], desc: "—" };
+}
+
+/**
+ * 解析 version 与 status 输出文本为结构化板卡与诊断字典
+ * @param {string} text
+ */
+export function parseBoardAndStatus(text) {
+  const pick = (re, def = "—") => {
+    const m = text.match(re);
+    return m ? m[1] : def;
+  };
+
+  const board = pick(/board=(\S+)/);
+  const firmware = pick(/firmware=(\S+)/);
+  const version = pick(/version=(\S+)/);
+  const cli = pick(/cli=(\S+)/);
+  const build = pick(/build=([^\r\n]+)/).trim();
+  const pp = pick(/pole_pairs=([0-9.]+)/);
+  const cpr = pick(/encoder_cpr=([0-9]+)/);
+  const maxRpm = pick(/max_rpm=([0-9.]+)/);
+  const vbus = pick(/udc=([0-9.]+)/, pick(/vbus=([0-9.]+)/));
+
+  // 校准信息：calib=1* 或 calib=0
+  const calibMatch = text.match(/calib=([0-9]+)(\*?)/);
+  const calibValid = calibMatch ? calibMatch[1] === "1" : false;
+  const calibFromStore = calibMatch ? calibMatch[2] === "*" : false;
+  const calibOffset = pick(/offset=([0-9.-]+(?:rad)?)/);
+  const calibDir = pick(/calib_dir=([0-9-]+)/);
+
+  // 故障码
+  const faultRaw = pick(/fault=([0-9]+)/);
+  const faultCode = faultRaw !== "—" ? parseInt(faultRaw, 10) : 0;
+  const faultName = FAULT_NAMES[faultCode] || `FAULT_${faultCode}`;
+
+  // 状态机与模式
+  const state = pick(/M0 ([A-Z]+)/);
+  const mode = pick(/mode=(\S+)/);
+  const cpu = pick(/cpu=([0-9.]+)%/);
+  const cpuMax = pick(/\(max ([0-9.]+)%\)/);
+
+  // 电流采样链路
+  const csReady = pick(/cs_ready=([0-9]+)/);
+  const csFault = pick(/cs_fault=([0-9]+)/);
+  const rejected = pick(/rejected=([0-9]+)/);
+  const consecutive = pick(/consecutive=([0-9]+)/);
+
+  // 复位与通信
+  const rst = parseResetFlags(text);
+  const cliRxOverflow = pick(/cli_rx_overflow=([0-9]+)/);
+  const tripI = pick(/trip_i=([^\r\n]+)/);
+
+  return {
+    board,
+    firmware,
+    version,
+    cli,
+    build,
+    pole_pairs: pp,
+    encoder_cpr: cpr,
+    max_rpm: maxRpm,
+    vbus,
+    calibValid,
+    calibFromStore,
+    calibOffset,
+    calibDir,
+    faultCode,
+    faultName,
+    state,
+    mode,
+    cpu,
+    cpuMax,
+    csReady: csReady !== "—" ? parseInt(csReady, 10) : null,
+    csFault: csFault !== "—" ? parseInt(csFault, 10) : null,
+    rejected: rejected !== "—" ? parseInt(rejected, 10) : null,
+    consecutive: consecutive !== "—" ? parseInt(consecutive, 10) : null,
+    rstHex: rst.rawHex,
+    rstDesc: rst.desc,
+    rstActive: rst.activeNames,
+    cliRxOverflow: cliRxOverflow !== "—" ? parseInt(cliRxOverflow, 10) : null,
+    tripI,
+    rawText: text,
+  };
+}
+
+/**
+ * 依据解析后的指标执行多维系统体检评分与诊断判定
+ * @param {ReturnType<typeof parseBoardAndStatus>} info
+ */
+export function diagnoseSystemHealth(info) {
+  const checks = [];
+  let score = 100;
+
+  // 1. 系统故障码检查 (权重 30)
+  if (info.faultCode === 0) {
+    checks.push({
+      id: "fault",
+      name: "系统故障码",
+      status: "ok",
+      msg: "系统正常无报错 (fault=0)",
+      value: "OK",
+    });
+  } else if (info.faultCode === 6) {
+    // NOT_CALIBRATED 属于待校准，提示但不算致命硬件损坏
+    score -= 10;
+    checks.push({
+      id: "fault",
+      name: "系统故障码",
+      status: "warn",
+      msg: "电机尚未校准 (NOT_CALIBRATED)，闭环前需完成校准",
+      value: info.faultName,
+    });
+  } else {
+    score -= 30;
+    checks.push({
+      id: "fault",
+      name: "系统故障码",
+      status: "bad",
+      msg: `系统存在跳闸故障: ${info.faultName}`,
+      value: info.faultName,
+    });
+  }
+
+  // 2. 电流采样链路健康度 (权重 25)
+  if (info.csReady !== null) {
+    if (info.csReady === 1 && info.csFault === 0 && (info.rejected ?? 0) === 0) {
+      checks.push({
+        id: "current_sense",
+        name: "电流采样链路",
+        status: "ok",
+        msg: "三相差分采样与OPAMP链路就绪，丢拍为 0",
+        value: "就绪 (cs_ready=1)",
+      });
+    } else if (info.csReady === 1 && (info.rejected ?? 0) > 0) {
+      score -= 10;
+      checks.push({
+        id: "current_sense",
+        name: "电流采样链路",
+        status: "warn",
+        msg: `电流链路就绪但存在 ${info.rejected} 次采样丢拍 (rejected)`,
+        value: `丢拍 ${info.rejected}`,
+      });
+    } else {
+      score -= 25;
+      checks.push({
+        id: "current_sense",
+        name: "电流采样链路",
+        status: "bad",
+        msg: `电流采样未就绪或存在故障 (ready=${info.csReady}, fault=${info.csFault})`,
+        value: `异常 fault=${info.csFault}`,
+      });
+    }
+  }
+
+  // 3. 供电母线电压 (权重 15)
+  const vbusNum = parseFloat(info.vbus);
+  if (!isNaN(vbusNum)) {
+    if (vbusNum >= 10.0 && vbusNum <= 28.0) {
+      checks.push({
+        id: "vbus",
+        name: "供电母线电压",
+        status: "ok",
+        msg: `母线电压 ${vbusNum.toFixed(2)}V 在标准安全工作区间 (10~28V)`,
+        value: `${vbusNum.toFixed(2)}V`,
+      });
+    } else if (vbusNum < 10.0) {
+      score -= 15;
+      checks.push({
+        id: "vbus",
+        name: "供电母线电压",
+        status: "warn",
+        msg: `母线电压 ${vbusNum.toFixed(2)}V 偏低，可能触发欠压保护`,
+        value: `${vbusNum.toFixed(2)}V (偏低)`,
+      });
+    } else {
+      score -= 15;
+      checks.push({
+        id: "vbus",
+        name: "供电母线电压",
+        status: "warn",
+        msg: `母线电压 ${vbusNum.toFixed(2)}V 偏高，注意过压风险`,
+        value: `${vbusNum.toFixed(2)}V (偏高)`,
+      });
+    }
+  }
+
+  // 4. 电角度校准与持久化 (权重 15)
+  if (info.calibValid) {
+    const src = info.calibFromStore ? "Flash 已固化" : "仅 RAM (掉电丢失)";
+    checks.push({
+      id: "calib",
+      name: "电角度偏置",
+      status: info.calibFromStore ? "ok" : "warn",
+      msg: `电角度已校准: offset=${info.calibOffset || "0"}, 存储源: ${src}`,
+      value: `已校准 (${src})`,
+    });
+    if (!info.calibFromStore) score -= 5;
+  } else {
+    score -= 15;
+    checks.push({
+      id: "calib",
+      name: "电角度偏置",
+      status: "warn",
+      msg: "电角度零点未完成校准，不可进入闭环",
+      value: "未校准",
+    });
+  }
+
+  // 5. 硬件复位源排查 (权重 10)
+  if (info.rstActive && info.rstActive.length > 0) {
+    const hasIwdg = info.rstDesc.includes("IWDG");
+    const hasBor = info.rstDesc.includes("BOR");
+    if (hasIwdg) {
+      score -= 10;
+      checks.push({
+        id: "reset",
+        name: "硬件复位源",
+        status: "bad",
+        msg: "检测到独立看门狗复位 (IWDG)，系统曾出现卡死或过载看门狗超时",
+        value: info.rstDesc,
+      });
+    } else if (hasBor) {
+      score -= 5;
+      checks.push({
+        id: "reset",
+        name: "硬件复位源",
+        status: "warn",
+        msg: "检测到欠压复位 (BOR)，电源母线可能发生过瞬态跌落",
+        value: info.rstDesc,
+      });
+    } else {
+      checks.push({
+        id: "reset",
+        name: "硬件复位源",
+        status: "ok",
+        msg: `正常复位唤醒: ${info.rstDesc}`,
+        value: info.rstDesc,
+      });
+    }
+  }
+
+  // 6. CPU 负荷与 CLI 串口实时性 (权重 5)
+  const cpuNum = parseFloat(info.cpu);
+  const overflow = info.cliRxOverflow ?? 0;
+  if (!isNaN(cpuNum)) {
+    if (cpuNum < 75.0 && overflow === 0) {
+      checks.push({
+        id: "cpu",
+        name: "算力与通信",
+        status: "ok",
+        msg: `CPU 占用 ${cpuNum.toFixed(1)}% (峰值 ${info.cpuMax || "—"}%)，CLI 接收 0 溢出`,
+        value: `${cpuNum.toFixed(1)}% / 0丢包`,
+      });
+    } else if (overflow > 0) {
+      score -= 5;
+      checks.push({
+        id: "cpu",
+        name: "算力与通信",
+        status: "warn",
+        msg: `检测到 CLI 接收缓冲区溢出 ${overflow} 字节，可能存在通信堵塞`,
+        value: `溢出 ${overflow}B`,
+      });
+    } else {
+      score -= 5;
+      checks.push({
+        id: "cpu",
+        name: "算力与通信",
+        status: "warn",
+        msg: `CPU 占用偏高 (${cpuNum.toFixed(1)}%)，请留意实时性`,
+        value: `${cpuNum.toFixed(1)}%`,
+      });
+    }
+  }
+
+  score = Math.max(0, Math.min(100, score));
+
+  let overall = "ok";
+  if (score < 60 || checks.some((c) => c.status === "bad")) {
+    overall = "bad";
+  } else if (score < 90 || checks.some((c) => c.status === "warn")) {
+    overall = "warn";
+  }
+
+  const generateMarkdownReport = () => {
+    const lines = [];
+    lines.push(`# FOC 系统健康诊断报告`);
+    lines.push(`- **诊断时间**: ${new Date().toLocaleString()}`);
+    lines.push(`- **综合健康得分**: **${score} / 100** (${overall.toUpperCase()})`);
+    lines.push(`- **硬件板卡**: ${info.board}`);
+    lines.push(`- **固件版本**: ${info.firmware} v${info.version} (CLI: ${info.cli})`);
+    lines.push(`- **构建时间**: ${info.build}`);
+    lines.push(`- **电机参数**: 极对数=${info.pole_pairs}, CPR=${info.encoder_cpr}, 最大转速=${info.max_rpm} RPM`);
+    lines.push(`\n## 诊断分项清单`);
+    for (const c of checks) {
+      const ico = c.status === "ok" ? "✔ [PASS]" : c.status === "warn" ? "▲ [WARN]" : "✖ [FAIL]";
+      lines.push(`- ${ico} **${c.name}**: ${c.msg} (读数: \`${c.value || "—"}\`)`);
+    }
+    lines.push(`\n## 硬件与底层链路快照`);
+    lines.push(`\`\`\``);
+    lines.push(info.rawText.trim());
+    lines.push(`\`\`\``);
+    return lines.join("\n");
+  };
+
+  return {
+    score,
+    overall,
+    checks,
+    generateMarkdownReport,
+  };
+}
+
 export class WorkflowWizard {
   /**
    * @param {HTMLElement} root
@@ -83,36 +439,114 @@ export class WorkflowWizard {
     } catch {
       /* ignore */
     }
+    this._latestBoardText = text;
     this._renderBoardInfo(text);
     if (box) box.classList.remove("loading");
+  }
+
+  /** 触发一键系统体检 */
+  async _runHealthCheck() {
+    const box = this.root.querySelector("#wf-health-card");
+    if (box) box.classList.add("loading");
+    if (!this._latestBoardText) {
+      await this._readBoardInfo();
+    }
+    const text = this._latestBoardText || "";
+    const info = parseBoardAndStatus(text);
+    const diag = diagnoseSystemHealth(info);
+    this._latestDiag = diag;
+    this._renderHealthCheck(diag);
+    if (box) box.classList.remove("loading");
+  }
+
+  /** 复制格式化 Markdown 诊断报告到剪贴板 */
+  async _copyHealthReport() {
+    if (!this._latestDiag) {
+      await this._runHealthCheck();
+    }
+    if (!this._latestDiag) return;
+    const report = this._latestDiag.generateMarkdownReport();
+    try {
+      await navigator.clipboard.writeText(report);
+      const btn = this.root.querySelector("#wf-copy-report");
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = "✔ 已复制到剪贴板";
+        setTimeout(() => (btn.textContent = orig), 2000);
+      }
+    } catch {
+      alert("复制失败，请在终端面板中查看。");
+    }
   }
 
   _renderBoardInfo(text) {
     const box = this.root.querySelector("#wf-board-info");
     if (!box) return;
-    const pick = (re) => {
-      const m = text.match(re);
-      return m ? m[1] : "—";
-    };
+    const info = parseBoardAndStatus(text);
+    const calibSrc = info.calibFromStore ? "Flash" : "RAM";
+    const calibVal = info.calibValid
+      ? `已校准 (${calibSrc} | ${info.calibOffset || "0rad"})`
+      : "未校准";
+
     const rows = [
-      [t("wf.device.mcu"), pick(/board=(\S+)/)],
-      [t("wf.device.fw"), pick(/firmware=(\S+)/)],
-      [t("board.version"), pick(/version=(\S+)/)],
-      ["cli", pick(/cli=(\S+)/)],
-      ["build", pick(/build=([^\r\n]+)/).trim()],
-      [t("wf.motor.pp"), pick(/pole_pairs=([0-9.]+)/)],
-      ["encoder_cpr", pick(/encoder_cpr=([0-9]+)/)],
-      [t("wf.motor.maxrpm"), pick(/max_rpm=([0-9.]+)/)],
-      [t("board.udc"), pick(/udc=([0-9.]+)/) + " / " + pick(/vbus=([0-9.]+)/)],
-      [t("board.calib"), pick(/calib=([0-9]+)/)],
-      [t("board.fault"), pick(/fault=([0-9]+)/)],
-      ["CPU %", pick(/cpu=([0-9.]+)/)],
-      [t("board.state"), pick(/M0 ([A-Z]+)/) + " / " + pick(/mode=(\S+)/)],
-      ["rst_flags", pick(/rst_flags=(0x[0-9A-Fa-f]+)/)],
+      [t("wf.device.mcu"), info.board],
+      [t("wf.device.fw"), `${info.firmware} v${info.version}`],
+      ["CLI", info.cli],
+      ["Build", info.build],
+      [t("wf.motor.pp"), `${info.pole_pairs} (CPR: ${info.encoder_cpr})`],
+      [t("wf.motor.maxrpm"), `${info.max_rpm} RPM`],
+      [t("board.udc"), `${info.vbus} V`],
+      [t("board.calib"), calibVal],
+      [t("board.fault"), `${info.faultCode} (${info.faultName})`],
+      ["CPU 负载", `${info.cpu || "—"}% (峰值 ${info.cpuMax || "—"}%)`],
+      [t("board.state"), `${info.state || "IDLE"} / ${info.mode || "—"}`],
+      ["复位来源", info.rstDesc],
+      ["电流采样", info.csReady !== null ? `cs_ready=${info.csReady}, cs_fault=${info.csFault}, 丢拍=${info.rejected ?? 0}` : "—"],
+      ["通信溢出", info.cliRxOverflow !== null ? `${info.cliRxOverflow} 字节` : "0 字节"],
     ];
+
     box.innerHTML = rows
       .map(([k, v]) => `<div class="wf-kv"><span>${k}</span><strong>${v}</strong></div>`)
       .join("");
+  }
+
+  _renderHealthCheck(diag) {
+    const card = this.root.querySelector("#wf-health-card");
+    if (!card) return;
+    card.style.display = "flex";
+    const pillClass =
+      diag.overall === "ok"
+        ? "health-score-ok"
+        : diag.overall === "warn"
+        ? "health-score-warn"
+        : "health-score-bad";
+
+    const itemsHtml = diag.checks
+      .map((c) => {
+        const itemClass =
+          c.status === "ok"
+            ? "item-ok"
+            : c.status === "warn"
+            ? "item-warn"
+            : "item-bad";
+        const icon = c.status === "ok" ? "✔" : c.status === "warn" ? "▲" : "✖";
+        return `
+          <div class="health-item ${itemClass}">
+            <span class="ico">${icon}</span>
+            <strong style="min-width:90px">${c.name}:</strong>
+            <span>${c.msg}</span>
+          </div>`;
+      })
+      .join("");
+
+    card.innerHTML = `
+      <div class="health-summary">
+        <span style="font-size:12px;font-weight:600;color:var(--text-muted)">系统体检综合诊断：</span>
+        <span class="health-score-pill ${pillClass}">得分: ${diag.score} / 100 (${diag.overall.toUpperCase()})</span>
+      </div>
+      <div class="health-items">
+        ${itemsHtml}
+      </div>`;
   }
 
   render() {
@@ -152,12 +586,15 @@ export class WorkflowWizard {
         <h4 class="wf-section">${t("wf.device.info")}</h4>
         <div class="wf-row">
           <button class="ok" id="wf-read-info">${t("wf.device.read")}</button>
+          <button class="ok" id="wf-health-check" style="background:#0284c7;border-color:#0369a1">${t("wf.device.self_check")}</button>
+          <button id="wf-copy-report">${t("wf.device.copy_report")}</button>
           <button data-cmd="log 0">${t("log.off")}</button>
           <button data-cmd="log 1">${t("log.on")}</button>
         </div>
         <div id="wf-board-info" class="wf-board">
           ${this._emptyBoardHtml()}
         </div>
+        <div id="wf-health-card" class="health-check-card" style="display:none"></div>
       </section>
 
       <section class="wf-card">
@@ -422,6 +859,8 @@ export class WorkflowWizard {
       });
     });
     this.root.querySelector("#wf-read-info")?.addEventListener("click", () => this._readBoardInfo());
+    this.root.querySelector("#wf-health-check")?.addEventListener("click", () => this._runHealthCheck());
+    this.root.querySelector("#wf-copy-report")?.addEventListener("click", () => this._copyHealthReport());
     this.root.querySelector("#wf-read-params")?.addEventListener("click", () => this._readMotorParams());
 
     this.root.querySelector("#wf-limit-set")?.addEventListener("click", () => {

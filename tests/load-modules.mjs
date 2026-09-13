@@ -23,6 +23,7 @@ const mods = [
   "../js/ui/legend.js",
   "../js/ui/tuning.js",
   "../js/ui/expert.js",
+  "../js/ui/wizard.js",
   "../js/i18n.js",
 ];
 

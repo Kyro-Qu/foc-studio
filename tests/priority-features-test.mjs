@@ -153,3 +153,79 @@ console.log("\n[4. 抗齿槽力矩 144 点 dump 数据解析验证]");
 
   console.log("  PASS  acog dump 144 槽力矩前馈分布表完整解析与幅值校准无误\n");
 }
+
+console.log("\n[5. 板卡信息多维解析与一键系统体检诊断引擎测试]");
+{
+  const { parseBoardAndStatus, diagnoseSystemHealth, parseResetFlags } = await import(
+    "../js/ui/wizard.js"
+  );
+
+  // 1. 测试正常上电工况 (Flash 固化校准、cs 就绪、0 丢拍、无故障)
+  const normalText = `
+firmware=FOC-G431 version=0.4.0 board=B-G431B-ESC1 cli=0.4.0 build=Sep 13 2026 12:00:00
+M0 pole_pairs=7 encoder_cpr=4000 udc=24.15V max_rpm=12000 limit=5.20A
+M0 IDLE mode=vel target=0.000 vel=0.000
+calib=1*
+fault=0
+calib_state=3 telem=1
+rst_flags=0x0C000000 (IWDG=0 SFT=0 BOR=0 PIN=1) chk=1024
+cli_rx_overflow=0
+calib_dir=1 offset=3.1415rad
+cs_ready=1
+cs_fault=0 rejected=0 consecutive=0
+cpu=18.5% (max 24.2%)
+`;
+
+  const info1 = parseBoardAndStatus(normalText);
+  assert.strictEqual(info1.board, "B-G431B-ESC1");
+  assert.strictEqual(info1.firmware, "FOC-G431");
+  assert.strictEqual(info1.version, "0.4.0");
+  assert.strictEqual(info1.calibValid, true);
+  assert.strictEqual(info1.calibFromStore, true); // 带 '*'
+  assert.strictEqual(info1.csReady, 1);
+  assert.strictEqual(info1.csFault, 0);
+  assert.strictEqual(info1.rejected, 0);
+  assert.strictEqual(info1.faultCode, 0);
+  assert.strictEqual(info1.cliRxOverflow, 0);
+
+  const diag1 = diagnoseSystemHealth(info1);
+  assert.strictEqual(diag1.score, 100);
+  assert.strictEqual(diag1.overall, "ok");
+  const md1 = diag1.generateMarkdownReport();
+  assert(md1.includes("# FOC 系统健康诊断报告"));
+  assert(md1.includes("100 / 100"));
+  assert(md1.includes("B-G431B-ESC1"));
+
+  // 2. 测试异常工况 (看门狗复位、欠压报警、电流丢拍、RAM校准未持久化)
+  const faultyText = `
+firmware=FOC-G431 version=0.4.0 board=B-G431B-ESC1 cli=0.4.0 build=Sep 13 2026 12:00:00
+M0 IDLE mode=vel target=0.000 vel=0.000
+calib=1
+fault=11
+calib_state=3 telem=0
+rst_flags=0x20000000 (IWDG=1 SFT=0 BOR=0 PIN=0) chk=1024
+cli_rx_overflow=12
+calib_dir=1 offset=1.5700rad
+cs_ready=1
+cs_fault=0 rejected=5 consecutive=1
+cpu=82.0% (max 95.0%)
+udc=8.50V
+`;
+
+  const info2 = parseBoardAndStatus(faultyText);
+  assert.strictEqual(info2.calibFromStore, false); // 不带 '*'
+  assert.strictEqual(info2.faultCode, 11); // UNDERVOLTAGE
+  assert.strictEqual(info2.faultName, "UNDERVOLTAGE (母线欠压)");
+  assert.strictEqual(info2.rejected, 5);
+  assert.strictEqual(info2.cliRxOverflow, 12);
+
+  const diag2 = diagnoseSystemHealth(info2);
+  assert(diag2.score < 60);
+  assert.strictEqual(diag2.overall, "bad");
+  assert(diag2.checks.some((c) => c.id === "reset" && c.status === "bad"));
+  assert(diag2.checks.some((c) => c.id === "vbus" && c.status === "warn"));
+  assert(diag2.checks.some((c) => c.id === "current_sense" && c.status === "warn"));
+  assert(diag2.checks.some((c) => c.id === "calib" && c.status === "warn"));
+
+  console.log("  PASS  parseBoardAndStatus 与 diagnoseSystemHealth 诊断全分支与报告生成测试 100% 通过\n");
+}
