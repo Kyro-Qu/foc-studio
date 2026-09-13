@@ -1047,6 +1047,14 @@ main {
   opacity: 0.5;
 }
 
+.wf-dash-host {
+  margin-top: 8px;
+}
+
+.wf-dash-host:empty {
+  display: none;
+}
+
 .wf-params {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));

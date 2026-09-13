@@ -121,6 +121,7 @@ export class WorkflowWizard {
     body.innerHTML = this._pageHtml(this.step);
     this.root.appendChild(body);
     this._wire();
+    if (this.onAfterRender) this.onAfterRender(this.step);
   }
 
   _pageHtml(id) {
@@ -403,6 +404,7 @@ export class WorkflowWizard {
           <button data-cmd="disable">${t("dash.ctrl.disable")}</button>
           <button data-cmd="fault">${t("wf.safety.fault")}</button>
         </div>
+        <div id="wf-dashboard-host" class="wf-dash-host"></div>
         <div class="wf-sep"></div>
         <div class="wf-h" style="font-size:13px">${t("obs.title")}</div>
         <div class="wf-row">${obs}</div>

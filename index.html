@@ -9,13 +9,7 @@
   <body>
     <div id="app">
       <header>
-        <div class="brand">FOC <span>Studio</span> <small>v0.3.6</small></div>
-
-        <div class="mode-group" title="数据源">
-          <label title="FOC-STP / UART"><input type="radio" name="data-mode" id="mode-serial" value="serial" /> <span data-i18n="mode.uart">串口</span></label>
-          <label title="Simulation" class="adv-only"><input type="radio" name="data-mode" id="mode-sim" value="sim" /> <span data-i18n="mode.sim">仿真</span></label>
-          <label title="Replay" class="adv-only"><input type="radio" name="data-mode" id="mode-replay" value="replay" /> <span data-i18n="mode.replay">回放</span></label>
-        </div>
+        <div class="brand">FOC <span>Studio</span> <small>v0.4</small></div>
 
         <div class="field">
           <label for="baud" data-i18n="baud">波特率</label>
@@ -40,15 +34,6 @@
           <input type="number" id="baud-custom" min="300" max="12000000" step="1" placeholder="e.g. 921600" style="width: 100px" hidden />
         </div>
 
-        <div class="field adv-only" title="仅仿真：1/2/5 kHz">
-          <label for="sim-rate" data-i18n="sim">仿真</label>
-          <select id="sim-rate">
-            <option value="1000" selected data-i18n="sim.1k">1 kHz</option>
-            <option value="2000" data-i18n="sim.2k">2 kHz</option>
-            <option value="5000" data-i18n="sim.5k">5 kHz 压力</option>
-          </select>
-        </div>
-
         <button id="btn-connect" data-i18n="connect">连接</button>
         <button id="btn-reconnect" data-i18n="reconnect" title="复用上次端口" hidden>重连</button>
         <button id="btn-disconnect" disabled data-i18n="disconnect">断开</button>
@@ -62,11 +47,6 @@
           </select>
         </div>
 
-        <div class="field" title="显示仿真 / 回放 / 录制">
-          <label for="chk-advanced" data-i18n="advanced">高级</label>
-          <input type="checkbox" id="chk-advanced" />
-        </div>
-
         <div id="conn-status" class="status-pill off" data-i18n="status.off">未连接</div>
       </header>
 
@@ -75,23 +55,17 @@
           <button class="nav-btn active" data-panel="wf" data-step="device"><span class="ico">⌁</span><span data-i18n="wf.device">设备</span></button>
           <button class="nav-btn" data-panel="wf" data-step="motor"><span class="ico">⚙</span><span data-i18n="wf.motor">电机</span></button>
           <button class="nav-btn" data-panel="wf" data-step="encoder"><span class="ico">◎</span><span data-i18n="wf.encoder">编码器</span></button>
-          <button class="nav-btn" data-panel="wf" data-step="pid"><span class="ico">∿</span><span data-i18n="wf.pid">调环</span></button>
+          <button class="nav-btn" data-panel="wf" data-step="pid"><span class="ico">⚙</span><span data-i18n="wf.pid">调参</span></button>
           <button class="nav-btn" data-panel="wf" data-step="run"><span class="ico">▶</span><span data-i18n="wf.run">控制台</span></button>
           <button class="nav-btn" data-panel="scope"><span class="ico">〜</span><span data-i18n="nav.scope">示波器</span></button>
           <button class="nav-btn" data-panel="terminal"><span class="ico">›_</span><span data-i18n="nav.terminal">终端</span></button>
-          <button class="nav-btn adv-only" data-panel="dashboard"><span class="ico">◉</span><span data-i18n="nav.dashboard">仪表盘</span></button>
-          <button class="nav-btn adv-only" data-panel="console"><span class="ico">⌨</span><span data-i18n="nav.console">控制台</span></button>
-          <button class="nav-btn adv-only" data-panel="tuning"><span class="ico">⚙</span><span data-i18n="nav.tuning">调参</span></button>
-          <button class="nav-btn adv-only" data-panel="record"><span class="ico">⏺</span><span data-i18n="nav.record">录制</span></button>
         </nav>
 
         <main>
           <section class="panel active" id="panel-wf"></section>
-
-          <section class="panel" id="panel-dashboard">
-            <div class="panel-title" data-i18n="panel.dashboard.title">实时状态</div>
+          <div id="panel-dashboard-hidden" hidden>
             <div id="dashboard"></div>
-          </section>
+          </div>
 
           <section class="panel" id="panel-scope">
             <div class="panel-title" data-i18n="panel.scope.title">实时示波器 — FOC-STP v1.0 自解释 32 通道 · 点击设 t1/t2 · Shift/Alt 微调 · 滚轮缩放</div>
@@ -184,16 +158,6 @@
             </div>
           </section>
 
-          <section class="panel" id="panel-console">
-            <div class="panel-title" data-i18n="panel.console.title">控制台 — 映射到现有 CLI（不改固件）</div>
-            <div id="console-root"></div>
-          </section>
-
-          <section class="panel" id="panel-tuning">
-            <div class="panel-title" data-i18n="panel.tuning.title">调参 — 滑条/数字 → CLI（本地编辑值，非 MCU 回读）</div>
-            <div id="tuning-root"></div>
-          </section>
-
           <section class="panel" id="panel-terminal">
             <div class="panel-title" data-i18n="panel.terminal.title">ASCII CLI（与遥测同一串口，自动解复用）</div>
             <div class="term-wrap">
@@ -209,27 +173,6 @@
                 <button id="term-send">Send</button>
               </div>
               <div id="term-raw" hidden></div>
-            </div>
-          </section>
-
-          <section class="panel" id="panel-record">
-            <div class="panel-title" data-i18n="panel.record.title">录制 / 回放 / 标记</div>
-            <div class="record-wrap">
-              <div class="scope-toolbar">
-                <button id="btn-record" data-i18n="rec.start">开始录制</button>
-                <button id="btn-mark" data-i18n="rec.mark">标记</button>
-                <input id="mark-text" type="text" data-i18n-ph="rec.mark.ph" placeholder="标记说明" style="flex: 1" />
-                <span id="record-status" class="status-pill off">IDLE</span>
-              </div>
-              <div class="scope-toolbar">
-                <button id="btn-save-csv" data-i18n="rec.export.csv">导出 CSV</button>
-                <button id="btn-save-json" data-i18n="rec.export.json">导出 JSON</button>
-                <button id="btn-load-csv" data-i18n="rec.load">加载 CSV…</button>
-                <button id="btn-replay" data-i18n="rec.replay">回放</button>
-                <button id="btn-replay-stop" data-i18n="rec.replay.stop">停止回放</button>
-                <input type="file" id="file-csv" accept=".csv,text/csv" hidden />
-              </div>
-              <pre id="record-log" class="record-log"></pre>
             </div>
           </section>
         </main>
