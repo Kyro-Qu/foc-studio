@@ -488,25 +488,127 @@ export class WorkflowWizard {
       ? `已校准 (${calibSrc} | ${info.calibOffset || "0rad"})`
       : "未校准";
 
-    const rows = [
-      [t("wf.device.mcu"), info.board],
-      [t("wf.device.fw"), `${info.firmware} v${info.version}`],
-      ["CLI", info.cli],
-      ["Build", info.build],
-      [t("wf.motor.pp"), `${info.pole_pairs} (CPR: ${info.encoder_cpr})`],
-      [t("wf.motor.maxrpm"), `${info.max_rpm} RPM`],
-      [t("board.udc"), `${info.vbus} V`],
-      [t("board.calib"), calibVal],
-      [t("board.fault"), `${info.faultCode} (${info.faultName})`],
-      ["CPU 负载", `${info.cpu || "—"}% (峰值 ${info.cpuMax || "—"}%)`],
-      [t("board.state"), `${info.state || "IDLE"} / ${info.mode || "—"}`],
-      ["复位来源", info.rstDesc],
-      ["电流采样", info.csReady !== null ? `cs_ready=${info.csReady}, cs_fault=${info.csFault}, 丢拍=${info.rejected ?? 0}` : "—"],
-      ["通信溢出", info.cliRxOverflow !== null ? `${info.cliRxOverflow} 字节` : "0 字节"],
+    const items = [
+      {
+        id: "mcu",
+        label: t("wf.device.mcu"),
+        val: info.board,
+        tag: "BOARD",
+        highlight: info.board !== "—",
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><rect x="5.5" y="5.5" width="5" height="5" rx="1"/><path d="M1 5.5h1.5M1 8h1.5M1 10.5h1.5M13.5 5.5h1.5M13.5 8h1.5M13.5 10.5h1.5M5.5 1v1.5M8 1v1.5M10.5 1v1.5M5.5 13.5v1.5M8 13.5v1.5M10.5 13.5v1.5"/></svg>`,
+      },
+      {
+        id: "fw",
+        label: t("wf.device.fw"),
+        val: info.version !== "—" ? `${info.firmware} v${info.version}` : "—",
+        tag: "VERSION",
+        highlight: info.version !== "—",
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1z"/><path d="M5 7l2 2-2 2M9 11h3"/></svg>`,
+      },
+      {
+        id: "vbus",
+        label: t("board.udc"),
+        val: info.vbus !== "—" ? `${info.vbus} V` : "—",
+        tag: "POWER",
+        highlight: info.vbus !== "—",
+        valClass: Number(info.vbus) > 10 ? "text-ok" : "text-warn",
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><polygon points="8.5,1.5 3.5,9 7.5,9 6.5,14.5 12.5,7 8.5,7" fill="rgba(56,189,248,0.2)"/></svg>`,
+      },
+      {
+        id: "state",
+        label: t("board.state"),
+        val: info.state !== "—" ? `${info.state} (${info.mode || "—"})` : "—",
+        tag: "CONTROL",
+        highlight: info.state !== "—",
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><polygon points="6.5,5 11,8 6.5,11" fill="currentColor"/></svg>`,
+      },
+      {
+        id: "calib",
+        label: t("board.calib"),
+        val: calibVal,
+        tag: "ANGLE",
+        highlight: info.calibValid,
+        valClass: info.calibValid ? "text-ok" : "text-warn",
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg>`,
+      },
+      {
+        id: "fault",
+        label: t("board.fault"),
+        val: `${info.faultCode} (${info.faultName})`,
+        tag: "HEALTH",
+        highlight: true,
+        valClass: info.faultCode === 0 ? "text-ok" : "text-err",
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11.5h.01"/></svg>`,
+      },
+      {
+        id: "motor",
+        label: t("wf.motor.pp"),
+        val: info.pole_pairs !== "—" ? `${info.pole_pairs} 极对 (CPR: ${info.encoder_cpr})` : "—",
+        tag: "ROTOR",
+        highlight: info.pole_pairs !== "—",
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/></svg>`,
+      },
+      {
+        id: "rpm",
+        label: t("wf.motor.maxrpm"),
+        val: info.max_rpm !== "—" ? `${info.max_rpm} RPM` : "—",
+        tag: "LIMIT",
+        highlight: info.max_rpm !== "—",
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13a7 7 0 1 1 10 0"/><path d="M8 8l3-3"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/></svg>`,
+      },
+      {
+        id: "cpu",
+        label: "CPU 负荷",
+        val: info.cpu !== "—" ? `${info.cpu}% (峰值 ${info.cpuMax || "—"}%)` : "—",
+        tag: "PERF",
+        highlight: info.cpu !== "—",
+        valClass: Number(info.cpu) < 80 ? "text-ok" : "text-warn",
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13h12M4 10l2.5-4 3 5 2.5-3"/></svg>`,
+      },
+      {
+        id: "reset",
+        label: "复位来源",
+        val: info.rstDesc,
+        tag: "BOOT",
+        highlight: info.rstDesc !== "—",
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8a6 6 0 1 1 1.8 4.2M2 12V8h4"/></svg>`,
+      },
+      {
+        id: "cs",
+        label: "电流采样",
+        val: info.csReady !== null ? `就绪: ${info.csReady} | 故障: ${info.csFault} | 丢拍: ${info.rejected ?? 0}` : "—",
+        tag: "SENSE",
+        highlight: info.csReady !== null,
+        valClass: (info.csFault === 0 && (info.rejected ?? 0) === 0) ? "text-ok" : "text-warn",
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8h3l2-5 4 10 2-5h3"/></svg>`,
+      },
+      {
+        id: "cli",
+        label: "通信吞吐",
+        val: info.cliRxOverflow !== null ? `溢出: ${info.cliRxOverflow} B | 构建: ${info.build}` : "—",
+        tag: "COMM",
+        highlight: info.cliRxOverflow !== null,
+        valClass: info.cliRxOverflow === 0 ? "text-ok" : "text-warn",
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M5 8h6M5 10h4"/></svg>`,
+      },
     ];
 
-    box.innerHTML = rows
-      .map(([k, v]) => `<div class="wf-kv"><span>${k}</span><strong>${v}</strong></div>`)
+    box.innerHTML = items
+      .map(
+        (it) => `
+        <div class="wf-tile ${it.highlight ? "has-val" : ""}">
+          <div class="tile-header">
+            <div class="tile-icon-box">${it.icon}</div>
+            <div class="tile-meta">
+              <span class="tile-label">${it.label}</span>
+              <span class="tile-tag">${it.tag}</span>
+            </div>
+          </div>
+          <div class="tile-val-box">
+            <strong class="tile-val ${it.valClass || ""}">${it.val}</strong>
+          </div>
+        </div>`
+      )
       .join("");
   }
 
@@ -609,9 +711,18 @@ export class WorkflowWizard {
         <div class="wf-row">
           <label>${t("wf.safety.limit")} (A)</label>
           <input type="number" id="wf-limit" step="0.1" min="0.1" max="40" value="5.2" style="width:90px" />
-          <button class="ok" id="wf-limit-set">${t("wf.apply")}</button>
-          <button data-cmd="fault">${t("wf.safety.fault")}</button>
-          <button data-cmd="fault clear">${t("wf.safety.clear")}</button>
+          <button class="ok" id="wf-limit-set">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>${t("wf.apply")}</span>
+          </button>
+          <button data-cmd="fault">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11.5h.01"/></svg>
+            <span>${t("wf.safety.fault")}</span>
+          </button>
+          <button class="danger" data-cmd="fault clear">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l8 8M12 4l-8 8" stroke-linecap="round"/></svg>
+            <span>${t("wf.safety.clear")}</span>
+          </button>
         </div>
         <div class="wf-row">
           <label>${t("wf.safety.trip")} (A)</label>
@@ -630,18 +741,121 @@ export class WorkflowWizard {
   }
 
   _emptyBoardHtml() {
-    const keys = [
-      t("wf.device.mcu"),
-      t("wf.device.fw"),
-      t("board.version"),
-      t("wf.motor.pp"),
-      t("board.udc"),
-      t("board.calib"),
-      t("board.fault"),
-      t("board.state"),
+    const defaultItems = [
+      {
+        id: "mcu",
+        label: t("wf.device.mcu"),
+        val: "—",
+        tag: "BOARD",
+        highlight: false,
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><rect x="5.5" y="5.5" width="5" height="5" rx="1"/><path d="M1 5.5h1.5M1 8h1.5M1 10.5h1.5M13.5 5.5h1.5M13.5 8h1.5M13.5 10.5h1.5M5.5 1v1.5M8 1v1.5M10.5 1v1.5M5.5 13.5v1.5M8 13.5v1.5M10.5 13.5v1.5"/></svg>`,
+      },
+      {
+        id: "fw",
+        label: t("wf.device.fw"),
+        val: "—",
+        tag: "VERSION",
+        highlight: false,
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1z"/><path d="M5 7l2 2-2 2M9 11h3"/></svg>`,
+      },
+      {
+        id: "vbus",
+        label: t("board.udc"),
+        val: "—",
+        tag: "POWER",
+        highlight: false,
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><polygon points="8.5,1.5 3.5,9 7.5,9 6.5,14.5 12.5,7 8.5,7" fill="rgba(56,189,248,0.2)"/></svg>`,
+      },
+      {
+        id: "state",
+        label: t("board.state"),
+        val: "—",
+        tag: "CONTROL",
+        highlight: false,
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><polygon points="6.5,5 11,8 6.5,11" fill="currentColor"/></svg>`,
+      },
+      {
+        id: "calib",
+        label: t("board.calib"),
+        val: "—",
+        tag: "ANGLE",
+        highlight: false,
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg>`,
+      },
+      {
+        id: "fault",
+        label: t("board.fault"),
+        val: "—",
+        tag: "HEALTH",
+        highlight: false,
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11.5h.01"/></svg>`,
+      },
+      {
+        id: "motor",
+        label: t("wf.motor.pp"),
+        val: "—",
+        tag: "ROTOR",
+        highlight: false,
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/></svg>`,
+      },
+      {
+        id: "rpm",
+        label: t("wf.motor.maxrpm"),
+        val: "—",
+        tag: "LIMIT",
+        highlight: false,
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13a7 7 0 1 1 10 0"/><path d="M8 8l3-3"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/></svg>`,
+      },
+      {
+        id: "cpu",
+        label: "CPU 负荷",
+        val: "—",
+        tag: "PERF",
+        highlight: false,
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13h12M4 10l2.5-4 3 5 2.5-3"/></svg>`,
+      },
+      {
+        id: "reset",
+        label: "复位来源",
+        val: "—",
+        tag: "BOOT",
+        highlight: false,
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8a6 6 0 1 1 1.8 4.2M2 12V8h4"/></svg>`,
+      },
+      {
+        id: "cs",
+        label: "电流采样",
+        val: "—",
+        tag: "SENSE",
+        highlight: false,
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8h3l2-5 4 10 2-5h3"/></svg>`,
+      },
+      {
+        id: "cli",
+        label: "通信吞吐",
+        val: "—",
+        tag: "COMM",
+        highlight: false,
+        icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M5 8h6M5 10h4"/></svg>`,
+      },
     ];
-    return keys
-      .map((k) => `<div class="wf-kv"><span>${k}</span><strong>—</strong></div>`)
+
+    return defaultItems
+      .map(
+        (it) => `
+        <div class="wf-tile ${it.highlight ? "has-val" : "is-empty"}">
+          <div class="tile-header">
+            <div class="tile-icon-box">${it.icon}</div>
+            <div class="tile-meta">
+              <span class="tile-label">${it.label}</span>
+              <span class="tile-tag">${it.tag}</span>
+            </div>
+          </div>
+          <div class="tile-val-box">
+            <strong class="tile-val ${it.valClass || ""}">${it.val}</strong>
+          </div>
+        </div>`
+      )
       .join("");
   }
 
