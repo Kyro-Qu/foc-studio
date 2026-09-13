@@ -700,6 +700,7 @@ export class WorkflowWizard {
       <h3 class="wf-h">${t("wf.device.h")}</h3>
       <p class="wf-p">${t("wf.device.p")}</p>
 
+      <!-- 独立卡片 1：板卡硬件与运行指标 (12项圆角磁贴卡片) -->
       <section class="wf-card">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
           <h4 class="wf-section" style="margin:0">${t("wf.device.info")}</h4>
@@ -707,10 +708,6 @@ export class WorkflowWizard {
             <button class="ok" id="wf-read-info">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>${t("wf.device.read")}</span>
-            </button>
-            <button class="btn-primary" id="wf-health-check">
-              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8.5l3.5 3.5L14 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span>${t("wf.device.self_check")}</span>
             </button>
             <button id="wf-diag-fault-btn" data-cmd="fault">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11.5h.01"/></svg>
@@ -720,16 +717,36 @@ export class WorkflowWizard {
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l8 8M12 4l-8 8" stroke-linecap="round"/></svg>
               <span>${t("wf.safety.clear")}</span>
             </button>
+          </div>
+        </div>
+        <div id="wf-board-info" class="wf-board">
+          ${this._emptyBoardHtml()}
+        </div>
+      </section>
+
+      <!-- 独立卡片 2：系统健康体检与智能诊断 -->
+      <section class="wf-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <h4 class="wf-section" style="margin:0">${t("wf.device.health_title")}</h4>
+          <div class="wf-row" style="gap:8px">
+            <button class="btn-primary" id="wf-health-check">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8.5l3.5 3.5L14 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>${t("wf.device.self_check")}</span>
+            </button>
             <button id="wf-copy-report">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="8" height="10" rx="1.5"/><path d="M4 2.5h6.5a1.5 1.5 0 0 1 1.5 1.5v6" stroke-linecap="round"/></svg>
               <span>${t("wf.device.copy_report")}</span>
             </button>
           </div>
         </div>
-        <div id="wf-board-info" class="wf-board">
-          ${this._emptyBoardHtml()}
+        <div id="wf-health-card" class="health-check-card">
+          <div class="health-empty-state">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.45;color:var(--accent)">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            </svg>
+            <span>点击上方「开始体检诊断」，将对硬件电压、校准源、复位状态、电流采样及 CPU 负载进行 6 维健康排查与智能打分</span>
+          </div>
         </div>
-        <div id="wf-health-card" class="health-check-card" style="display:none"></div>
       </section>
 
       <section class="wf-card">

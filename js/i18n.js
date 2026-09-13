@@ -152,10 +152,11 @@ const STRINGS = {
     "wf.needs_fw": "待固件",
     "wf.device.h": "设备与保护",
     "wf.device.p": "连接后读取板卡信息，并设置电流保护。",
-    "wf.device.info": "板卡信息与健康诊断",
+    "wf.device.info": "板卡硬件与运行指标",
+    "wf.device.health_title": "系统健康体检与智能诊断",
     "wf.device.mcu": "单片机 / 板卡",
     "wf.device.read": "读取板卡信息",
-    "wf.device.self_check": "一键系统体检",
+    "wf.device.self_check": "开始体检诊断",
     "wf.device.copy_report": "复制诊断报告",
     "wf.device.see_terminal": "请查看终端输出",
     "wf.device.fw": "固件",
@@ -243,9 +244,9 @@ const STRINGS = {
     "obs.ol": "开环角",
     "obs.note": "切换无感需 vel 模式且 |rpm|>800；先「开启对比」再「切到无感」。",
     "wf.run.note": "E-STOP 在顶栏。速度环振荡请回到第 5 步降增益。",
-    "nav.toggle": "收起/展开侧边栏",
-    "nav.collapse": "收起侧栏",
-    "nav.expand": "展开侧栏",
+    "nav.toggle": "关闭侧边栏",
+    "nav.collapse": "关闭侧边栏",
+    "nav.expand": "展开侧边栏",
     "sys.boot": "FOC Studio v0.3.6 — 示波器/图例 · 调参 · 控制台 · 录制 · 串口遥测 500 Hz",
     "sys.sim": "[sys] 仿真 @ {rate} Hz\n",
     "sys.serial": "[sys] 串口模式\n",
@@ -401,10 +402,11 @@ const STRINGS = {
     "wf.needs_fw": "Needs FW",
     "wf.device.h": "Device & protection",
     "wf.device.p": "Read board info and set current protection.",
-    "wf.device.info": "Board Info & Diagnostics",
+    "wf.device.info": "Board Hardware & Runtime Metrics",
+    "wf.device.health_title": "System Health & Diagnostics",
     "wf.device.mcu": "MCU / board",
     "wf.device.read": "Read Info",
-    "wf.device.self_check": "Health Check",
+    "wf.device.self_check": "Run Health Check",
     "wf.device.copy_report": "Copy Report",
     "wf.device.version": "Read version",
     "wf.device.status": "Read status",
@@ -490,8 +492,8 @@ const STRINGS = {
     "obs.note": "Switch needs vel mode and |rpm|>800; enable compare first.",
     "wf.run.note": "E-STOP is in the header. If vel oscillates, lower gains in step 5.",
     "nav.toggle": "Toggle Sidebar",
-    "nav.collapse": "Collapse",
-    "nav.expand": "Expand",
+    "nav.collapse": "Close Sidebar",
+    "nav.expand": "Expand Sidebar",
     "sys.boot": "FOC Studio v0.3.6 — Scope/Legend · Tuning · Console · Record · UART telemetry 500 Hz",
     "sys.sim": "[sys] simulation @ {rate} Hz\n",
     "sys.serial": "[sys] serial mode\n",
@@ -533,7 +535,23 @@ export function setLang(lang) {
 
 export function t(key, vars) {
   const lang = getLang();
-  let s = STRINGS[lang][key] ?? STRINGS.en[key] ?? key;
+  let s = STRINGS[lang]?.[key] ?? STRINGS.en?.[key];
+  if (!s) {
+    // 兜底降级表，彻底防御任何情况下裸露 nav.xxx 或 internal.key
+    const FALLBACK = {
+      "nav.toggle": "收起/展开侧边栏",
+      "nav.collapse": "收起侧栏",
+      "nav.expand": "展开侧栏",
+      "nav.terminal": "终端",
+      "nav.scope": "示波器",
+      "nav.expert": "高级算法",
+      "connect": "连接",
+      "reconnect": "重连",
+      "disconnect": "断开",
+      "estop": "急停",
+    };
+    s = FALLBACK[key] ?? key;
+  }
   if (vars) {
     for (const [k, v] of Object.entries(vars)) {
       s = s.replace(`{${k}}`, String(v));
@@ -546,17 +564,27 @@ export function t(key, vars) {
 export function applyI18n(root = document) {
   root.querySelectorAll("[data-i18n]").forEach((el) => {
     const key = el.getAttribute("data-i18n");
+    const val = t(key);
+    // 防御：若翻译结果仍为裸 key（包含小数点）且元素原本已有内容，绝不覆盖已有文本
+    if (val === key && key.includes(".") && el.textContent.trim()) {
+      return;
+    }
     const span = el.querySelector("span");
     if (span) {
-      span.textContent = t(key);
+      span.textContent = val;
     } else {
-      el.textContent = t(key);
+      el.textContent = val;
     }
   });
   root.querySelectorAll("[data-i18n-ph]").forEach((el) => {
     el.placeholder = t(el.getAttribute("data-i18n-ph"));
   });
   root.querySelectorAll("[data-i18n-title]").forEach((el) => {
-    el.title = t(el.getAttribute("data-i18n-title"));
+    const key = el.getAttribute("data-i18n-title");
+    const val = t(key);
+    if (val === key && key.includes(".") && el.getAttribute("title")) {
+      return;
+    }
+    el.title = val;
   });
 }

@@ -1130,9 +1130,9 @@ function setSidebarCollapsed(collapsed) {
   if (!bodyEl) return;
   bodyEl.classList.toggle("nav-collapsed", !!collapsed);
   btnToggleSidebar?.classList.toggle("active", !!collapsed);
-  const textEl = btnToggleSidebar?.querySelector(".toggle-text");
-  if (textEl) {
-    textEl.textContent = collapsed ? t("nav.expand") : t("nav.collapse");
+  const tipEl = btnToggleSidebar?.querySelector(".toggle-tooltip");
+  if (tipEl) {
+    tipEl.textContent = collapsed ? t("nav.expand") : t("nav.collapse");
   }
   try {
     localStorage.setItem(LS_SIDEBAR_KEY, collapsed ? "1" : "0");
@@ -1203,10 +1203,10 @@ try {
       setLang(langSel.value);
       applyI18n();
       $("btn-pause").textContent = scope.paused ? t("resume") : t("pause");
-      const textEl = btnToggleSidebar?.querySelector(".toggle-text");
-      if (textEl) {
-        const isCollapsed = bodyEl?.classList.contains("nav-collapsed");
-        textEl.textContent = isCollapsed ? t("nav.expand") : t("nav.collapse");
+      const tipEl = btnToggleSidebar?.querySelector(".toggle-tooltip");
+      const isCollapsed = bodyEl?.classList.contains("nav-collapsed");
+      if (tipEl) {
+        tipEl.textContent = isCollapsed ? t("nav.expand") : t("nav.collapse");
       }
       renderChannelList();
       fillChannelSelects();
