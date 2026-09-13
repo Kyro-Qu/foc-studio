@@ -106,6 +106,13 @@ const adapter = new TelemetryAdapter({
     const statusStr = ack.status === 0 ? "OK" : (ack.status === 2 ? "LIMITED" : "REJECTED");
     const msg = `[ACK] Cmd=${ack.cmdCode} Status=${statusStr} EffectiveMask=0x${(ack.effectiveMask >>> 0).toString(16).toUpperCase()} Rate=${ack.effectiveRateHz}Hz`;
     recordLog(msg);
+    // 设备回传的真实生效波形速率是时间轴的唯一权威来源（telem rate 后自动跟随）
+    if (state.mode === "serial" && ack.effectiveRateHz > 0 && ack.effectiveRateHz !== state.sampleRate) {
+      state.sampleRate = ack.effectiveRateHz;
+      scope.setSampleRate(state.sampleRate);
+      recorder.sampleRate = state.sampleRate;
+      terminal.appendText(`[sys] wave rate -> ${state.sampleRate} Hz\n`, "sys");
+    }
   },
 });
 adapter.attach(decoder);
@@ -552,7 +559,7 @@ $("btn-connect").addEventListener("click", async () => {
     setConnStatus(t("status.connecting"), "busy");
     await serial.connect(baud);
     resetPipeline();
-    // The firmware emits 16 kHz / 32 = 500 JustFloat frames per second.
+    // 固件默认 16 kHz / 32 = 500 Hz WAVE 帧；之后以 ACK 回传的 effectiveRateHz 为准
     state.sampleRate = 500;
     scope.setSampleRate(state.sampleRate);
     recorder.sampleRate = state.sampleRate;
@@ -634,10 +641,17 @@ serial.onState = (s) => {
   }
 };
 
+let idleFlushTimer = 0;
 serial.onData = (bytes) => {
   state.bytesWindow += bytes.length;
   if ($("chk-raw").checked) terminal.feedRaw(bytes);
   adapter.feed(bytes);
+  // 链路静默 40ms 后把不足一帧头长度的短 CLI 回复当作文本刷出
+  if (idleFlushTimer) clearTimeout(idleFlushTimer);
+  idleFlushTimer = setTimeout(() => {
+    idleFlushTimer = 0;
+    if (typeof decoder.flushIdle === "function") decoder.flushIdle();
+  }, 40);
 };
 
 /* ---------- scope controls ---------- */
@@ -703,12 +717,15 @@ $("btn-csv").addEventListener("click", () => {
   const take = Math.min(n, Math.floor(state.windowSec * state.sampleRate));
   const header = ["time_s", ...state.channels.map((c) => c.name)].join(",");
   const parts = [header];
-  const row = new Array(17);
+  const row = new Array(CHANNEL_COUNT + 1);
   for (let i = n - take; i < n; i++) {
     const s = store.sampleAt(i);
     if (!s) continue;
     row[0] = (s.sampleIndex / state.sampleRate).toFixed(6);
-    for (let c = 0; c < 16; c++) row[c + 1] = s.values[c].toFixed(6);
+    for (let c = 0; c < CHANNEL_COUNT; c++) {
+      const v = s.values[c];
+      row[c + 1] = Number.isFinite(v) ? v.toFixed(6) : "NaN";
+    }
     parts.push(row.join(","));
   }
   downloadText(`foc-studio-${Date.now()}.csv`, parts.join("\n"), "text/csv");
@@ -772,14 +789,22 @@ function syncChannelMaskToDevice() {
     if (state.mode !== "serial" || !serial.isConnected() || serial.generation !== curGen) return;
     let mask = 0;
     let count = 0;
+    const dropped = [];
     for (const ch of state.channels) {
-      if (ch.visible) {
+      if (!ch.visible) continue;
+      if (count < 16) {
         mask |= (1 << ch.id);
         count++;
+      } else {
+        dropped.push(ch.id);
       }
     }
-    if (count > 16) {
-      terminal.appendText("[warn] 勾选通道数超过 16 路上限，单片机将仅保留前 16 路\r\n", "rx");
+    if (dropped.length) {
+      // 固件对 >16 路掩码整体拒绝（ACK LIMITED，保持旧掩码），所以本地只下发前 16 路并明确告知
+      terminal.appendText(
+        `[warn] 单帧最多 16 路，仅下发前 16 路；未订阅: ch${dropped.join(", ch")}（波形显示为断线）\r\n`,
+        "rx"
+      );
     }
     const hexMask = "0x" + (mask >>> 0).toString(16).toUpperCase();
     consoleCtl.run(`telem mask ${hexMask}`).catch(() => {});

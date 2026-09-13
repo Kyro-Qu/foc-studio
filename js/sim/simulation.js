@@ -93,9 +93,25 @@ export class SimulationSource {
     v[10] = iq * Math.sin(theta - 2.094);
     v[11] = iq * Math.sin(theta + 2.094);
     v[12] = duty;
-    v[13] = 0;
-    v[14] = obsErr;
-    v[15] = vbus;
+    v[13] = id + (Math.random() - 0.5) * 0.05;
+    v[14] = 0;
+    v[15] = vel + (Math.random() - 0.5) * 6;
+    v[16] = 0;
+    v[17] = (t * 2 * Math.PI * (vel / 60)) % (2 * Math.PI);
+    v[18] = 0.5 + 0.35 * Math.sin(theta - 2.094);
+    v[19] = 0.5 + 0.35 * Math.sin(theta + 2.094);
+    v[20] = (theta + obsErr) % (2 * Math.PI);
+    v[21] = vel + 3 * Math.sin(t * 6);
+    v[22] = obsErr * 57.2958;
+    v[23] = 0.9 + 0.05 * Math.sin(t * 1.3);
+    v[24] = 0.0009;
+    v[25] = 1.5 * (vd * id + vq * iq);
+    v[26] = vbus;
+    v[27] = 1.5 * 7 * 0.0009 * iq;
+    v[28] = iqRef - iqRaw;
+    v[29] = 0 - id;
+    v[30] = velRef - vel;
+    v[31] = 4;
 
     this.onFrame(v, this.sampleIndex);
     this.sampleIndex += 1;

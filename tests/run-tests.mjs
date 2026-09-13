@@ -191,5 +191,18 @@ console.log("\n[csv shape]");
   assert(rows[0].split(",").length === 17, "csv cols = 1+16");
 }
 
+console.log("\n[csv parse: empty / NaN cells stay NaN]");
+
+{
+  const { parseCsv } = await import("../js/data/recorder.js");
+  const text = "time_s,a,b,c\n0.000000,1.5,,NaN\n0.002000,2.5,,NaN\n";
+  const r = parseCsv(text);
+  assert(r.frames.length === 2, "parsed 2 frames");
+  assert(r.frames[0].v[0] === 1.5, "numeric cell");
+  assert(Number.isNaN(r.frames[0].v[1]), "empty cell -> NaN (not 0)");
+  assert(Number.isNaN(r.frames[0].v[2]), "NaN cell -> NaN");
+  assert(r.sampleRate === 500, "rate from dt=2ms");
+}
+
 console.log(`\nResult: ${passed} passed, ${failed} failed\n`);
 process.exit(failed ? 1 : 0);

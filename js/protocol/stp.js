@@ -80,6 +80,25 @@ export class StpDecoder {
   }
 
   /**
+   * 空闲刷新：链路静默一小段时间后调用，把尚未凑满一帧头长度的残留字节
+   * （典型为不足 8 字节的短 CLI 回复，如 "ok\r\n"）当作裸文本上交，
+   * 避免它们一直等到下一帧二进制心跳才显示。
+   */
+  flushIdle() {
+    if (this.len === 0) return;
+    const syncPos = this._findSync(0);
+    if (syncPos === 0) {
+      // 帧头已就位但帧体未到齐：继续等待
+      return;
+    }
+    const end = syncPos > 0 ? syncPos : this.len;
+    const keep = (syncPos < 0 && this.buf[end - 1] === FOC_STP_SYNC0) ? 1 : 0;
+    this._emitRawText(0, end - keep);
+    this.buf.copyWithin(0, end - keep);
+    this.len -= (end - keep);
+  }
+
+  /**
    * 推送字节片断进行流式解包
    * @param {Uint8Array} chunk
    */
@@ -124,7 +143,7 @@ export class StpDecoder {
         s += String.fromCharCode(b);
       }
     }
-    if (s.length >= 2) {
+    if (s.length > 0) {
       this.onText(s, 0);
     }
   }
@@ -139,12 +158,11 @@ export class StpDecoder {
 
       const syncPos = this._findSync(0);
       if (syncPos < 0) {
-        // 没找到帧头，将前面大部分字节当作潜在文本处理后丢弃，保留最后 1 字节（防跨块同步字被切）
-        if (this.len > 1) {
-          this._emitRawText(0, this.len - 1);
-          buf[0] = buf[this.len - 1];
-          this.len = 1;
-        }
+        // 没找到帧头：全部当作裸 CLI 文本上交；仅当最后 1 字节是 SYNC0 时保留（防跨块同步字被切）
+        const keep = buf[this.len - 1] === FOC_STP_SYNC0 ? 1 : 0;
+        this._emitRawText(0, this.len - keep);
+        if (keep) buf[0] = buf[this.len - 1];
+        this.len = keep;
         return;
       }
 

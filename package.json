@@ -1,8 +1,8 @@
 {
   "name": "foc-studio",
-  "version": "0.3.6",
+  "version": "0.4.0",
   "private": true,
-  "description": "FOC Studio — Web Serial host for G431B-FOC (JustFloat + CLI)",
+  "description": "FOC Studio — Web Serial host for G431B-FOC (FOC-STP v1.0 telemetry + CLI)",
   "type": "module",
   "scripts": {
     "test": "node tests/load-modules.mjs && node tests/stp-decoder.mjs && node tests/stp-cross-verify.mjs && node tests/audit-verification.mjs && node tests/run-tests.mjs && node tests/channel-labels.mjs && node tests/justfloat-exact.mjs && node tests/integration.mjs && node tests/v02-tests.mjs && node tests/v03-tests.mjs && node tests/i18n-tests.mjs && node tests/trigger-freeze.mjs && node tests/ui-polish.mjs && node tests/serial-lifecycle.mjs && node tests/lifecycle-ui.mjs && node tests/soak-fuzz.mjs && node tests/check-links.mjs",

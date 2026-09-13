@@ -140,7 +140,8 @@ export function parseCsv(text) {
     const cols = lines[i].split(",");
     if (cols.length < 2) continue;
     const t = Number(cols[0]);
-    const v = cols.slice(1).map(Number);
+    // 空单元格/非数值一律 NaN（未订阅通道），绝不变成假零
+    const v = cols.slice(1).map((c) => (c.trim() === "" ? NaN : Number(c)));
     if (!Number.isFinite(t)) continue;
     rawFrames.push({ t, v });
   }

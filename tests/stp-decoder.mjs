@@ -177,4 +177,66 @@ test("抗噪与自动滑窗同步（包含伪同步字与损坏帧）", () => {
   assert.ok(texts.some(t => t.includes("boot message")), "Text before frames should be extracted");
 });
 
+function makeStatusFrame(seq) {
+  const buf = new Uint8Array(23);
+  const view = new DataView(buf.buffer);
+  buf[0] = FOC_STP_SYNC0;
+  buf[1] = FOC_STP_SYNC1;
+  buf[2] = 0x10 | FOC_STP_TYPE_STATUS;
+  buf[3] = 15;
+  view.setUint16(4, seq, true);
+  view.setUint32(6, 5000, true);
+  view.setUint16(10, 1442, true);
+  view.setUint16(21, crc16Ccitt(buf, 2, 4 + 15), true);
+  return buf;
+}
+
+test("裸 CLI 文本与二进制帧交错：行尾 \\r\\n 完整保留、不合并行", () => {
+  const texts = [];
+  const statuses = [];
+  const decoder = new StpDecoder({
+    onText: (t) => texts.push(t),
+    onStatus: (s) => statuses.push(s),
+  });
+  const enc = new TextEncoder();
+
+  // 1) 文本块单独到达（长度 >= 8，无同步字），最后一字节是 '\n'，必须整体上交
+  decoder.push(enc.encode("M0 IDLE mode=vf\r\n"));
+  assert.equal(texts.join(""), "M0 IDLE mode=vf\r\n", "trailing newline must not be retained/dropped");
+
+  // 2) 文本紧跟 STATUS 帧在同一块内
+  const line2 = enc.encode("telem: enable=1\r\n");
+  const st = makeStatusFrame(7);
+  const mixed = new Uint8Array(line2.length + st.length);
+  mixed.set(line2, 0);
+  mixed.set(st, line2.length);
+  decoder.push(mixed);
+  assert.equal(statuses.length, 1, "STATUS frame after text decodes");
+  assert.equal(texts.join(""), "M0 IDLE mode=vf\r\ntelem: enable=1\r\n");
+
+  // 3) 文本以 0xA5 结尾且同步字被块边界切开：帧仍需完整解码，A5 不得当成文本
+  const line3 = enc.encode("ok line\r\n");
+  const st2 = makeStatusFrame(8);
+  const part1 = new Uint8Array(line3.length + 1);
+  part1.set(line3, 0);
+  part1[line3.length] = FOC_STP_SYNC0;
+  decoder.push(part1);
+  decoder.push(st2.subarray(1));
+  assert.equal(statuses.length, 2, "split-sync STATUS frame decodes");
+  assert.equal(statuses[1].vbus, 14.42);
+  assert.equal(texts.join(""), "M0 IDLE mode=vf\r\ntelem: enable=1\r\nok line\r\n");
+
+  // 4) 不足 8 字节的短回复只在空闲刷新时上交
+  decoder.push(enc.encode("ok\r\n"));
+  assert.equal(texts.join(""), "M0 IDLE mode=vf\r\ntelem: enable=1\r\nok line\r\n", "short text waits");
+  decoder.flushIdle();
+  assert.equal(texts.join(""), "M0 IDLE mode=vf\r\ntelem: enable=1\r\nok line\r\nok\r\n", "idle flush emits short text");
+
+  // 5) 空闲刷新不得吞掉已就位但未到齐的帧头
+  decoder.push(st.subarray(0, 10));
+  decoder.flushIdle();
+  decoder.push(st.subarray(10));
+  assert.equal(statuses.length, 3, "partial frame survives idle flush");
+});
+
 console.log(`\nAll ${passed} FOC-STP decoder tests passed!\n`);
