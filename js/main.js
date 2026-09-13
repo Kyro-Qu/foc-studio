@@ -165,7 +165,8 @@ const terminal = new Terminal($("term-log"), $("term-input"), $("term-send"), {
   },
 });
 
-const tuning = new TuningPanel($("tuning-root"), (cmd) => consoleCtl.run(cmd));
+const tuningRoot = $("tuning-root");
+const tuning = tuningRoot ? new TuningPanel(tuningRoot, (cmd) => consoleCtl.run(cmd)) : null;
 
 const wizard = new WorkflowWizard($("panel-wf"), {
   send: (cmd) => consoleCtl.run(cmd),
@@ -311,7 +312,7 @@ function renderMathList() {
 
 function renderConsole() {
   const root = $("console-root");
-  root.innerHTML = "";
+  if (!root) return;
 
   const presets = document.createElement("div");
   presets.className = "console-section";
@@ -883,25 +884,27 @@ $("btn-term-clear").addEventListener("click", () => {
   $("term-raw").textContent = "";
 });
 
-/* record / replay */
-$("btn-record").addEventListener("click", () => {
+/* record / replay — UI 已隐藏时元素可能不存在 */
+$("btn-record")?.addEventListener("click", () => {
   recorder.sampleRate = state.sampleRate;
   const on = recorder.toggle();
   $("btn-record").textContent = on ? t("rec.stop") : t("rec.start");
   $("btn-record").classList.toggle("active", on);
   const st = $("record-status");
-  st.textContent = on ? "RECORDING" : `SAVED ${recorder.count}`;
-  st.className = `status-pill ${on ? "err" : "ok"}`;
+  if (st) {
+    st.textContent = on ? "RECORDING" : `SAVED ${recorder.count}`;
+    st.className = `status-pill ${on ? "err" : "ok"}`;
+  }
   recordLog(on ? "record start" : `record stop count=${recorder.count}`);
 });
 
-$("btn-mark").addEventListener("click", () => {
-  const m = recorder.mark($("mark-text").value.trim() || undefined);
+$("btn-mark")?.addEventListener("click", () => {
+  const m = recorder.mark($("mark-text")?.value?.trim() || undefined);
   if (m) recordLog(`mark @ ${m.sampleIndex}: ${m.text}`);
   else recordLog("mark ignored (not recording or empty)");
 });
 
-$("btn-save-csv").addEventListener("click", () => {
+$("btn-save-csv")?.addEventListener("click", () => {
   if (!recorder.count) {
     alert("无录制数据");
     return;
@@ -910,7 +913,7 @@ $("btn-save-csv").addEventListener("click", () => {
   recordLog(`export CSV ${recorder.count} frames`);
 });
 
-$("btn-save-json").addEventListener("click", () => {
+$("btn-save-json")?.addEventListener("click", () => {
   if (!recorder.count) {
     alert("无录制数据");
     return;
@@ -919,8 +922,8 @@ $("btn-save-json").addEventListener("click", () => {
   recordLog(`export JSON ${recorder.count} frames marks=${recorder.marks.length}`);
 });
 
-$("btn-load-csv").addEventListener("click", () => $("file-csv").click());
-$("file-csv").addEventListener("change", async (e) => {
+$("btn-load-csv")?.addEventListener("click", () => $("file-csv")?.click());
+$("file-csv")?.addEventListener("change", async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
   const text = await file.text();
@@ -938,7 +941,7 @@ $("file-csv").addEventListener("change", async (e) => {
   e.target.value = "";
 });
 
-$("btn-replay").addEventListener("click", async () => {
+$("btn-replay")?.addEventListener("click", async () => {
   if (!replaySession || !replaySession.frames.length) {
     alert("先 Load CSV");
     return;
@@ -950,7 +953,7 @@ $("btn-replay").addEventListener("click", async () => {
   recordLog(`replay started @ ${replaySession.sampleRate}Hz`);
 });
 
-$("btn-replay-stop").addEventListener("click", () => {
+$("btn-replay-stop")?.addEventListener("click", () => {
   if (replay) replay.stop();
   recordLog("replay stopped");
 });
