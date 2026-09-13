@@ -246,7 +246,7 @@ const STRINGS = {
     "wf.run.note": "E-STOP 在顶栏。速度环振荡请回到第 5 步降增益。",
     "nav.toggle": "关闭侧边栏",
     "nav.collapse": "关闭侧边栏",
-    "nav.expand": "展开侧边栏",
+    "nav.expand": "打开侧边栏",
     "sys.boot": "FOC Studio v0.3.6 — 示波器/图例 · 调参 · 控制台 · 录制 · 串口遥测 500 Hz",
     "sys.sim": "[sys] 仿真 @ {rate} Hz\n",
     "sys.serial": "[sys] 串口模式\n",

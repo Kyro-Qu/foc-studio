@@ -573,10 +573,11 @@ nav {
   transform: scale(0.94);
 }
 
-/* 类似图片样式的悬浮气泡提示 (Tooltip)，鼠标移上去点亮后在下方或右侧弹出 */
+/* 类似图片样式的悬浮气泡提示 (Tooltip)，默认绝不占位且隐藏，鼠标移上去点亮后才在上方或右侧浮出 */
 .toggle-tooltip {
+  display: none;
   position: absolute;
-  top: calc(100% + 7px);
+  bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%) translateY(4px);
   background: #1e242d;
@@ -593,23 +594,29 @@ nav {
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 100;
+  z-index: 999;
 }
 
-/* 当处于屏幕极底时，若下方空间受限则在上浮出，折叠时在右侧弹出 */
+/* 展开状态下鼠标移上按钮：上方浮出“关闭侧边栏”气泡 */
 .sidebar-toggle-btn:hover .toggle-tooltip {
+  display: block;
   opacity: 1;
   visibility: visible;
   transform: translateX(-50%) translateY(0);
 }
 
+/* 折叠状态下：气泡在右侧浮出“打开侧边栏” */
 .body.nav-collapsed .toggle-tooltip {
+  bottom: auto;
   top: 50%;
   left: calc(100% + 10px);
   transform: translateY(-50%) translateX(-4px);
 }
 
 .body.nav-collapsed .sidebar-toggle-btn:hover .toggle-tooltip {
+  display: block;
+  opacity: 1;
+  visibility: visible;
   transform: translateY(-50%) translateX(0);
 }
 

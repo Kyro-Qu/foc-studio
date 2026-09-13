@@ -31,7 +31,8 @@ for (const f of files) {
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 for (const ref of [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((x) => x[1])) {
   if (ref.startsWith("http") || ref.startsWith("#")) continue;
-  const target = path.join(root, ref);
+  const cleanRef = ref.split("?")[0].split("#")[0];
+  const target = path.join(root, cleanRef);
   if (!fs.existsSync(target)) {
     console.log("MISSING asset", ref);
     bad++;
