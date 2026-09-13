@@ -999,6 +999,29 @@ setInterval(() => {
   if (empty) empty.hidden = store.length > 2;
 }, 400);
 
+/* 简洁模式：默认串口；高级显示 sim/replay/record */
+const ADV_LS = "foc-studio-advanced-v1";
+function applyAdvanced(on, persist = true) {
+  document.body.classList.toggle("advanced", !!on);
+  const chk = $("chk-advanced");
+  if (chk) chk.checked = !!on;
+  if (persist) {
+    try {
+      localStorage.setItem(ADV_LS, on ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }
+  // 关掉高级时若正在 sim/replay，切回串口
+  if (!on && state.mode !== "serial") {
+    switchMode("serial").catch(() => {});
+  }
+}
+
+$("chk-advanced")?.addEventListener("change", (e) => {
+  applyAdvanced(e.target.checked);
+});
+
 /* boot — 任一异常都要可见，否则整页“点不动” */
 function showBootError(err) {
   console.error(err);
@@ -1052,8 +1075,20 @@ try {
     terminal.appendText(t("sys.boot"), "sys");
   }
 
-  $("mode-sim").checked = true;
-  switchMode("sim").catch(showBootError);
+  $("mode-serial").checked = true;
+  let adv0 = false;
+  try {
+    adv0 = localStorage.getItem(ADV_LS) === "1";
+  } catch {
+    /* ignore */
+  }
+  applyAdvanced(adv0, false);
+  // 默认串口；仅在高级且用户未关时才进仿真（无板预览）
+  if (adv0 && !SerialTransport.supported()) {
+    switchMode("sim").catch(showBootError);
+  } else {
+    switchMode("serial").catch(showBootError);
+  }
 } catch (err) {
   showBootError(err);
 }

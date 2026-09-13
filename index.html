@@ -13,8 +13,8 @@
 
         <div class="mode-group" title="数据源">
           <label title="FOC-STP / UART"><input type="radio" name="data-mode" id="mode-serial" value="serial" /> <span data-i18n="mode.uart">串口</span></label>
-          <label title="Simulation"><input type="radio" name="data-mode" id="mode-sim" value="sim" /> <span data-i18n="mode.sim">仿真</span></label>
-          <label title="Replay"><input type="radio" name="data-mode" id="mode-replay" value="replay" /> <span data-i18n="mode.replay">回放</span></label>
+          <label title="Simulation" class="adv-only"><input type="radio" name="data-mode" id="mode-sim" value="sim" /> <span data-i18n="mode.sim">仿真</span></label>
+          <label title="Replay" class="adv-only"><input type="radio" name="data-mode" id="mode-replay" value="replay" /> <span data-i18n="mode.replay">回放</span></label>
         </div>
 
         <div class="field">
@@ -27,7 +27,7 @@
           </select>
         </div>
 
-        <div class="field" title="仅仿真：5 kHz 压力测 UI/Store">
+        <div class="field adv-only" title="仅仿真：1/2/5 kHz">
           <label for="sim-rate" data-i18n="sim">仿真</label>
           <select id="sim-rate">
             <option value="1000" selected data-i18n="sim.1k">1 kHz</option>
@@ -49,6 +49,11 @@
           </select>
         </div>
 
+        <div class="field" title="显示仿真 / 回放 / 录制">
+          <label for="chk-advanced" data-i18n="advanced">高级</label>
+          <input type="checkbox" id="chk-advanced" />
+        </div>
+
         <div id="conn-status" class="status-pill off" data-i18n="status.off">未连接</div>
       </header>
 
@@ -59,7 +64,7 @@
           <button class="nav-btn" data-panel="console"><span class="ico">⌨</span><span data-i18n="nav.console">控制台</span></button>
           <button class="nav-btn" data-panel="tuning"><span class="ico">⚙</span><span data-i18n="nav.tuning">调参</span></button>
           <button class="nav-btn" data-panel="terminal"><span class="ico">›_</span><span data-i18n="nav.terminal">终端</span></button>
-          <button class="nav-btn" data-panel="record"><span class="ico">⏺</span><span data-i18n="nav.record">录制</span></button>
+          <button class="nav-btn adv-only" data-panel="record"><span class="ico">⏺</span><span data-i18n="nav.record">录制</span></button>
         </nav>
 
         <main>
