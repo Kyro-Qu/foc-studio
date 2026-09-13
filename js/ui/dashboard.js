@@ -127,10 +127,10 @@ export class Dashboard {
       <div class="dash-ctrl-row">
         <label>${t("dash.ctrl.mode")}</label>
         <select id="dash-mode">
-          <option value="vel">vel</option>
-          <option value="iq">iq</option>
-          <option value="vf">vf</option>
-          <option value="pos">pos</option>
+          <option value="vel">${t("mode.vel")}</option>
+          <option value="iq">${t("mode.iq")}</option>
+          <option value="vf">${t("mode.vf")}</option>
+          <option value="pos">${t("mode.pos")}</option>
         </select>
         <button class="small" id="dash-mode-send">${t("dash.ctrl.set")}</button>
       </div>

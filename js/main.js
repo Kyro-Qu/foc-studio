@@ -351,15 +351,15 @@ function renderConsole() {
 
   const ctrl = document.createElement("div");
   ctrl.className = "console-section";
-  ctrl.innerHTML = `<div class="panel-title" style="font-size:11px">模式 / 目标</div>`;
+  ctrl.innerHTML = `<div class="panel-title" style="font-size:11px">${t("dash.ctrl.mode")} / ${t("dash.ctrl.target")}</div>`;
   const row1 = document.createElement("div");
   row1.className = "console-row";
-  row1.innerHTML = `<label>Mode</label>`;
+  row1.innerHTML = `<label>${t("dash.ctrl.mode")}</label>`;
   const modeSel = document.createElement("select");
   for (const m of MODES) {
     const o = document.createElement("option");
     o.value = m.id;
-    o.textContent = m.label;
+    o.textContent = t(m.key);
     modeSel.appendChild(o);
   }
   const modeBtn = document.createElement("button");
@@ -1027,6 +1027,7 @@ try {
       fillChannelSelects();
       dashboard.setChannels(state.channels);
       legend.setChannels(state.channels);
+      renderConsole();
       const rateNow = Number($("sim-rate")?.value) || 1000;
       if (state.mode === "sim") setStatusKey(rateNow >= 5000 ? "status.stress" : "status.sim", "sim");
       terminal.appendText(`[sys] lang → ${getLang()}\n`, "sys");

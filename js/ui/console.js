@@ -36,10 +36,10 @@ export const IDENT_COMMANDS = [
 ];
 
 export const MODES = [
-  { id: "vf", label: "V/F" },
-  { id: "iq", label: "Iq" },
-  { id: "vel", label: "Vel" },
-  { id: "pos", label: "Pos" },
+  { id: "vf", key: "mode.vf" },
+  { id: "iq", key: "mode.iq" },
+  { id: "vel", key: "mode.vel" },
+  { id: "pos", key: "mode.pos" },
 ];
 
 const LS_KEY = "foc-studio-console-v1";
