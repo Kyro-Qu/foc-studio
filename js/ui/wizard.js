@@ -9,6 +9,7 @@ import { MODES, MODE_CONTROLS, OBS_COMMANDS } from "./console.js";
 const STEPS = [
   { id: "device", key: "wf.device" },
   { id: "motor", key: "wf.motor" },
+  { id: "encoder", key: "wf.encoder" },
   { id: "pid", key: "wf.pid" },
   { id: "run", key: "wf.run" },
 ];
@@ -128,6 +129,8 @@ export class WorkflowWizard {
         return this._htmlDevice();
       case "motor":
         return this._htmlMotor();
+      case "encoder":
+        return this._htmlEncoder();
       case "pid":
         return this._htmlPid();
       case "run":
@@ -282,6 +285,58 @@ export class WorkflowWizard {
     if (lq) set("wf-lq", lq);
     if (flux) set("wf-flux", flux);
     if (badge) badge.textContent = t("wf.motor.from_device");
+  }
+
+  _htmlEncoder() {
+    return `
+      <h3 class="wf-h">${t("wf.encoder.h")}</h3>
+      <p class="wf-p">${t("wf.encoder.p")}</p>
+
+      <section class="wf-card">
+        <h4 class="wf-section">${t("wf.encoder.type")}</h4>
+        <div class="wf-row">
+          <label>${t("wf.encoder.kind")}</label>
+          <select id="wf-enc-kind">
+            <option value="abz">${t("wf.encoder.abz")}</option>
+            <option value="sensorless">${t("wf.encoder.sensorless")}</option>
+          </select>
+          <span class="wf-badge">${t("wf.encoder.kind_note")}</span>
+        </div>
+        <div class="wf-row">
+          <label>CPR</label>
+          <input type="number" id="wf-enc-cpr" step="1" min="16" max="65536" value="2048" style="width:90px" />
+          <button id="wf-enc-cpr-set">${t("wf.apply")}</button>
+          <span class="wf-badge">${t("wf.needs_fw")}</span>
+        </div>
+        <p class="wf-note">${t("wf.encoder.note")}</p>
+      </section>
+
+      <section class="wf-card">
+        <h4 class="wf-section">${t("wf.encoder.source")}</h4>
+        <div class="wf-row">
+          <button class="ok" data-cmd="angle enc">${t("obs.enc")}</button>
+          <button data-cmd="angle ol">${t("obs.ol")}</button>
+          <button data-cmd="angle">${t("wf.encoder.query")}</button>
+        </div>
+        <p class="wf-note">${t("wf.encoder.source_note")}</p>
+      </section>
+
+      <section class="wf-card">
+        <h4 class="wf-section">${t("obs.title")}</h4>
+        <div class="wf-row">
+          <button data-cmd="feedback">${t("fb.status")}</button>
+          <button data-cmd="feedback sensored">${t("fb.sensored")}</button>
+          <button data-cmd="feedback sensorless">${t("fb.sensorless")}</button>
+          <button data-cmd="feedback auto">${t("fb.auto")}</button>
+        </div>
+        <div class="wf-row">
+          <button data-cmd="obs">${t("obs.query")}</button>
+          <button data-cmd="obs 0">${t("obs.off")}</button>
+          <button data-cmd="obs 1">${t("obs.on")}</button>
+          <button class="danger" data-cmd="obs 2" data-confirm="obs 2">${t("obs.switch")}</button>
+        </div>
+        <p class="wf-note">${t("obs.note")}</p>
+      </section>`;
   }
 
   _htmlPid() {
