@@ -8,7 +8,6 @@ import { MODES, MODE_CONTROLS, IDENT_COMMANDS } from "./console.js";
 
 const STEPS = [
   { id: "device", key: "wf.device" },
-  { id: "safety", key: "wf.safety" },
   { id: "motor", key: "wf.motor" },
   { id: "pid", key: "wf.pid" },
   { id: "run", key: "wf.run" },
@@ -22,6 +21,8 @@ export class WorkflowWizard {
   constructor(root, opts) {
     this.root = root;
     this.send = opts.send;
+    /** @type {(cmd:string,ms?:number)=>Promise<string>|undefined} */
+    this.sendCapture = opts.sendCapture;
     this.isConnected = opts.isConnected || (() => true);
     this.step = "device";
     this.render();
@@ -62,6 +63,53 @@ export class WorkflowWizard {
     }
   }
 
+  /** 读取 version+status 并解析板卡信息 */
+  async _readBoardInfo() {
+    const out = this.root.querySelector("#wf-device-out");
+    const box = this.root.querySelector("#wf-board-info");
+    if (out) out.textContent = t("wf.wait");
+    if (!this.sendCapture) {
+      await this._cli("version");
+      await this._cli("status");
+      if (out) out.textContent = t("wf.device.see_terminal");
+      return;
+    }
+    let text = "";
+    try {
+      text += await this.sendCapture("version", 350);
+      text += "\n" + (await this.sendCapture("status", 400));
+    } catch {
+      /* ignore */
+    }
+    if (out) out.textContent = text || t("wf.device.see_terminal");
+    this._renderBoardInfo(text);
+  }
+
+  _renderBoardInfo(text) {
+    const box = this.root.querySelector("#wf-board-info");
+    if (!box) return;
+    const pick = (re) => {
+      const m = text.match(re);
+      return m ? m[1] : "—";
+    };
+    const rows = [
+      [t("wf.device.fw"), pick(/firmware=(\S+)/)],
+      ["version", pick(/version=(\S+)/)],
+      [t("wf.device.board"), pick(/board=(\S+)/)],
+      [t("wf.motor.pp"), pick(/pole_pairs=([0-9.]+)/)],
+      ["udc / Vbus", pick(/udc=([0-9.]+)/) + " / " + pick(/vbus=([0-9.]+)/)],
+      ["calib / fault", pick(/calib=([0-9]+)/) + " / " + pick(/fault=([0-9]+)/)],
+      ["CPU %", pick(/cpu=([0-9.]+)/)],
+      ["state / mode", pick(/M0 ([A-Z]+)/) + " / " + pick(/mode=(\S+)/)],
+    ];
+    box.innerHTML = rows
+      .map(
+        ([k, v]) =>
+          `<div class="wf-kv"><span>${k}</span><strong>${v}</strong></div>`
+      )
+      .join("");
+  }
+
   render() {
     this.root.innerHTML = "";
     // 步骤在左侧栏切换；页内不显示步骤条或上一步/下一步
@@ -76,8 +124,6 @@ export class WorkflowWizard {
     switch (id) {
       case "device":
         return this._htmlDevice();
-      case "safety":
-        return this._htmlSafety();
       case "motor":
         return this._htmlMotor();
       case "pid":
@@ -95,21 +141,15 @@ export class WorkflowWizard {
       <p class="wf-p">${t("wf.device.p")}</p>
       <div class="wf-card">
         <div class="wf-row">
-          <button class="ok" data-cmd="version">${t("wf.device.version")}</button>
+          <button class="ok" id="wf-read-info">${t("wf.device.read")}</button>
           <button data-cmd="status">${t("wf.device.status")}</button>
           <button data-cmd="log 0">log 0</button>
           <button data-cmd="log 1">log 1</button>
         </div>
+        <div id="wf-board-info" class="wf-board"></div>
         <pre id="wf-device-out" class="wf-out">${t("wf.wait")}</pre>
         <p class="wf-note">${t("wf.device.note")}</p>
-      </div>`;
-  }
-
-  _htmlSafety() {
-    return `
-      <h3 class="wf-h">${t("wf.safety.h")}</h3>
-      <p class="wf-p">${t("wf.safety.p")}</p>
-      <div class="wf-card">
+        <div class="wf-sep"></div>
         <div class="wf-row">
           <label>${t("wf.safety.limit")} (A)</label>
           <input type="number" id="wf-limit" step="0.1" min="0.1" max="40" value="5.2" style="width:90px" />
@@ -120,13 +160,10 @@ export class WorkflowWizard {
         <div class="wf-row">
           <label>${t("wf.safety.trip")}</label>
           <input type="number" id="wf-trip" step="0.1" min="0.1" max="50" value="6.6" style="width:90px" />
-          <span class="wf-badge">${t("wf.needs_fw")}</span>
-        </div>
-        <div class="wf-row">
-          <label>${t("wf.safety.uv")} (V)</label>
-          <input type="number" id="wf-uv" step="0.1" min="0" max="50" value="10" style="width:90px" />
-          <label>${t("wf.safety.ov")} (V)</label>
-          <input type="number" id="wf-ov" step="0.1" min="0" max="60" value="30" style="width:90px" />
+          <label>${t("wf.safety.uv")}</label>
+          <input type="number" id="wf-uv" step="0.1" min="0" max="50" value="10" style="width:70px" />
+          <label>${t("wf.safety.ov")}</label>
+          <input type="number" id="wf-ov" step="0.1" min="0" max="60" value="30" style="width:70px" />
           <span class="wf-badge">${t("wf.needs_fw")}</span>
         </div>
         <p class="wf-note">${t("wf.safety.note")}</p>
@@ -238,6 +275,7 @@ export class WorkflowWizard {
         this._cli(cmd);
       });
     });
+    this.root.querySelector("#wf-read-info")?.addEventListener("click", () => this._readBoardInfo());
 
     this.root.querySelector("#wf-limit-set")?.addEventListener("click", () => {
       const v = Number(this.root.querySelector("#wf-limit")?.value);

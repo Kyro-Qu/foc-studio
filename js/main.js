@@ -44,6 +44,7 @@ let replaySession = null;
 
 function queueText(text) {
   state.textBuf += text;
+  if (state.capture) state.capture(text);
   if (state.textBuf.length > 8192) state.textBuf = state.textBuf.slice(-8192);
   if (!state.textFlush) state.textFlush = requestAnimationFrame(flushText);
 }
@@ -168,6 +169,19 @@ const tuning = new TuningPanel($("tuning-root"), (cmd) => consoleCtl.run(cmd));
 
 const wizard = new WorkflowWizard($("panel-wf"), {
   send: (cmd) => consoleCtl.run(cmd),
+  sendCapture: async (cmd, ms = 400) => {
+    // 临时捕获解复用出的文本（terminal 同源）
+    let buf = "";
+    const prev = state.capture;
+    state.capture = (s) => {
+      buf += s;
+      if (prev) prev(s);
+    };
+    await consoleCtl.run(cmd);
+    await new Promise((r) => setTimeout(r, ms));
+    state.capture = prev;
+    return buf;
+  },
 });
 
 scope.setMath(math);

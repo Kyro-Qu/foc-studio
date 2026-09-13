@@ -1082,6 +1082,30 @@ main {
   white-space: pre-wrap;
 }
 
+.wf-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px 12px;
+}
+
+.wf-kv {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.wf-kv span {
+  color: var(--text-dim);
+}
+
+.wf-kv strong {
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
 .console-row label {
   color: var(--text-dim);
   font-size: 12px;
