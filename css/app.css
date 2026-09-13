@@ -1311,11 +1311,25 @@ main {
 }
 
 .wf-dash-host {
-  margin-top: 8px;
+  margin-top: 0;
 }
 
 .wf-dash-host:empty {
   display: none;
+}
+
+.wf-dash-host #dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wf-dash-host .dash-strip {
+  margin-bottom: 0;
+}
+
+.wf-dash-host .dash-mid {
+  margin-bottom: 0;
 }
 
 .wf-params {

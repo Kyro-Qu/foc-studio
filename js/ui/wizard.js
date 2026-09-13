@@ -4,7 +4,7 @@
  */
 
 import { t } from "../i18n.js";
-import { MODES, MODE_CONTROLS, OBS_COMMANDS } from "./console.js";
+import { OBS_COMMANDS } from "./console.js";
 
 const STEPS = [
   { id: "device", key: "wf.device" },
@@ -839,7 +839,6 @@ export class WorkflowWizard {
   }
 
   _htmlRun() {
-    const modes = MODES.map((m) => `<option value="${m.id}">${t(m.key)}</option>`).join("");
     const obs = OBS_COMMANDS.map((c) => {
       const cls = c.danger ? "danger" : "";
       return `<button class="${cls}" data-cmd="${c.cmd}" title="${c.cmd}">${t(c.key)}</button>`;
@@ -847,44 +846,15 @@ export class WorkflowWizard {
     return `
       <h3 class="wf-h">${t("wf.run.h")}</h3>
       <p class="wf-p">${t("wf.run.p")}</p>
-      <div class="wf-card">
-        <h4 class="wf-section">实时运动模式与给定</h4>
-        <div class="wf-row">
-          <label>${t("dash.ctrl.mode")}</label>
-          <select id="wf-run-mode">${modes}</select>
-          <button id="wf-run-mode-set">${t("dash.ctrl.set")}</button>
-        </div>
-        <div class="wf-row" id="wf-run-target-row">
-          <label>${t("dash.ctrl.target")} <span class="dash-unit-tag" id="wf-run-unit">RPM</span></label>
-          <input type="range" id="wf-run-range" min="-8000" max="8000" step="10" value="0" style="flex:1;min-width:120px" />
-          <input type="number" id="wf-run-num" step="10" value="0" style="width:90px" />
-          <button class="ok" id="wf-run-send">
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="3,2 14,8 3,14" fill="currentColor"/></svg>
-            <span>${t("dash.ctrl.send")}</span>
-          </button>
-        </div>
-        <div class="wf-row" id="wf-run-vf-row" hidden>
-          <label>Vq (V)</label>
-          <input type="number" id="wf-run-vq" step="0.1" value="0.5" style="width:80px" />
-          <button class="ok" id="wf-run-vq-send">${t("dash.ctrl.send")}</button>
-        </div>
-        <div class="wf-row">
-          <button class="ok" data-cmd="enable">
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><polygon points="4,3 13,8 4,13"/></svg>
-            <span>${t("dash.ctrl.enable")}</span>
-          </button>
-          <button class="danger" data-cmd="disable">
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="1.5"/></svg>
-            <span>${t("dash.ctrl.disable")}</span>
-          </button>
-          <button data-cmd="fault">${t("wf.safety.fault")}</button>
-        </div>
-        <div id="wf-dashboard-host" class="wf-dash-host"></div>
+      <div class="wf-card" style="gap:16px">
+        <div id="wf-dashboard-host" class="wf-dash-host" style="margin:0"></div>
         <div class="wf-sep"></div>
-        <div class="wf-h" style="font-size:13px">${t("obs.title")}</div>
-        <div class="wf-row">${obs}</div>
-        <p class="wf-note">${t("obs.note")}</p>
-        <p class="wf-note">${t("wf.run.note")}</p>
+        <div>
+          <h4 class="wf-section" style="margin:0 0 10px">${t("obs.title")}</h4>
+          <div class="wf-row">${obs}</div>
+          <p class="wf-note" style="margin-top:8px">${t("obs.note")}</p>
+          <p class="wf-note">${t("wf.run.note")}</p>
+        </div>
       </div>`;
   }
 
@@ -936,40 +906,6 @@ export class WorkflowWizard {
         }
         input.addEventListener("input", () => this._checkPidDirty());
       }
-    });
-
-    this.root.querySelector("#wf-run-mode-set")?.addEventListener("click", () => {
-      const m = this.root.querySelector("#wf-run-mode")?.value;
-      if (m) {
-        this._cli(`mode ${m}`);
-        this._applyRunMeta(m);
-      }
-    });
-    const applyRunMeta = () => {
-      const m = this.root.querySelector("#wf-run-mode")?.value || "vel";
-      this._applyRunMeta(m);
-    };
-    this.root.querySelector("#wf-run-mode")?.addEventListener("change", applyRunMeta);
-    applyRunMeta();
-    const range = this.root.querySelector("#wf-run-range");
-    const num = this.root.querySelector("#wf-run-num");
-    if (range && num) {
-      range.addEventListener("input", () => {
-        num.value = range.value;
-      });
-      num.addEventListener("change", () => {
-        range.value = num.value;
-      });
-    }
-    this.root.querySelector("#wf-run-send")?.addEventListener("click", () => {
-      const v = Number(num?.value);
-      if (!Number.isFinite(v)) return;
-      const m = this.root.querySelector("#wf-run-mode")?.value || "vel";
-      this._cli(m === "vf" ? `rpm ${v}` : `target ${v}`);
-    });
-    this.root.querySelector("#wf-run-vq-send")?.addEventListener("click", () => {
-      const v = Number(this.root.querySelector("#wf-run-vq")?.value);
-      if (Number.isFinite(v)) this._cli(`vq ${v}`);
     });
   }
 
@@ -1032,28 +968,6 @@ export class WorkflowWizard {
     if (badge) {
       badge.style.display = "none";
     }
-  }
-
-  _applyRunMeta(mode) {
-    const mc = MODE_CONTROLS[mode] || MODE_CONTROLS.vel;
-    const useVf = mode === "vf";
-    const meta = useVf ? { unit: "RPM", min: -8000, max: 8000, step: 10 } : mc.target || { unit: "RPM", min: -8000, max: 8000, step: 10 };
-    const unit = this.root.querySelector("#wf-run-unit");
-    if (unit) unit.textContent = meta.unit;
-    const range = this.root.querySelector("#wf-run-range");
-    const num = this.root.querySelector("#wf-run-num");
-    if (range) {
-      range.min = String(meta.min);
-      range.max = String(meta.max);
-      range.step = String(meta.step);
-    }
-    if (num) {
-      num.min = String(meta.min);
-      num.max = String(meta.max);
-      num.step = String(meta.step);
-    }
-    const vfRow = this.root.querySelector("#wf-run-vf-row");
-    if (vfRow) vfRow.hidden = !useVf;
   }
 }
 

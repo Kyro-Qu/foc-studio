@@ -141,8 +141,18 @@ export class Dashboard {
         <button class="small" id="dash-vq-send">${t("dash.ctrl.send")}</button>
       </div>
       <div class="dash-ctrl-row dash-ctrl-actions">
-        <button class="small ok" id="dash-enable">${t("dash.ctrl.enable")}</button>
-        <button class="small" id="dash-disable">${t("dash.ctrl.disable")}</button>
+        <button class="small ok" id="dash-enable">
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><polygon points="4,3 13,8 4,13"/></svg>
+          <span>${t("dash.ctrl.enable")}</span>
+        </button>
+        <button class="small danger" id="dash-disable">
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="1.5"/></svg>
+          <span>${t("dash.ctrl.disable")}</span>
+        </button>
+        <button class="small" id="dash-fault">
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11.5h.01"/></svg>
+          <span>${t("wf.safety.fault")}</span>
+        </button>
       </div>
       <p class="dash-ctrl-note">${t("dash.ctrl.note")}</p>
     `;
@@ -263,6 +273,8 @@ export class Dashboard {
     if (en) en.addEventListener("click", () => this.send && Promise.resolve(this.send("enable")).catch(() => {}));
     const dis = this.root.querySelector("#dash-disable");
     if (dis) dis.addEventListener("click", () => this.send && Promise.resolve(this.send("disable")).catch(() => {}));
+    const faultBtn = this.root.querySelector("#dash-fault");
+    if (faultBtn) faultBtn.addEventListener("click", () => this.send && Promise.resolve(this.send("fault")).catch(() => {}));
   }
 
   /**
