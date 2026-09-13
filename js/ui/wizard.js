@@ -63,20 +63,12 @@ export class WorkflowWizard {
   }
 
   render() {
-    const idx = STEPS.findIndex((s) => s.id === this.step);
     this.root.innerHTML = "";
-    // 步骤导航在左侧栏，页内不重复显示步骤条
+    // 步骤在左侧栏切换；页内不显示步骤条或上一步/下一步
     const body = document.createElement("div");
     body.className = "wf-body";
     body.innerHTML = this._pageHtml(this.step);
     this.root.appendChild(body);
-    const nav = document.createElement("div");
-    nav.className = "wf-nav";
-    nav.innerHTML = `
-      <button id="wf-prev" ${idx <= 0 ? "disabled" : ""}>${t("wf.prev")}</button>
-      <button id="wf-next" class="ok" ${idx >= STEPS.length - 1 ? "disabled" : ""}>${t("wf.next")}</button>
-    `;
-    this.root.appendChild(nav);
     this._wire();
   }
 
@@ -246,8 +238,6 @@ export class WorkflowWizard {
         this._cli(cmd);
       });
     });
-    this.root.querySelector("#wf-prev")?.addEventListener("click", () => this.prev());
-    this.root.querySelector("#wf-next")?.addEventListener("click", () => this.next());
 
     this.root.querySelector("#wf-limit-set")?.addEventListener("click", () => {
       const v = Number(this.root.querySelector("#wf-limit")?.value);
