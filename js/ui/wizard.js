@@ -341,7 +341,6 @@ export class WorkflowWizard {
   }
 
   _htmlPid() {
-    const modes = MODES.map((m) => `<option value="${m.id}">${t(m.key)}</option>`).join("");
     return `
       <h3 class="wf-h">${t("wf.pid.h")}</h3>
       <p class="wf-p">${t("wf.pid.p")}</p>
@@ -349,24 +348,20 @@ export class WorkflowWizard {
         <div class="wf-row">
           <label>${t("wf.pid.current_bw")}</label>
           <input type="number" id="wf-bw" min="100" max="5000" step="50" value="2000" style="width:90px" />
-          <button class="ok" id="wf-bw-set">${t("wf.apply")}</button>
         </div>
         <div class="wf-row">
           <label>${t("wf.pid.vel_kp")}</label>
           <input type="number" id="wf-vkp" step="0.01" value="0.02" style="width:80px" />
           <label>${t("wf.pid.vel_ki")}</label>
           <input type="number" id="wf-vki" step="0.01" value="0.02" style="width:80px" />
-          <button class="ok" id="wf-vel-set">${t("wf.apply")}</button>
         </div>
         <div class="wf-row">
           <label>${t("wf.pid.pos_kp")}</label>
           <input type="number" id="wf-pkp" step="0.5" value="10" style="width:80px" />
-          <button class="ok" id="wf-pos-set">${t("wf.apply")}</button>
         </div>
         <div class="wf-row">
-          <label>${t("dash.ctrl.mode")}</label>
-          <select id="wf-mode">${modes}</select>
-          <button id="wf-mode-set">${t("wf.apply")}</button>
+          <button class="ok" id="wf-pid-apply">${t("wf.apply")}</button>
+          <button id="wf-pid-read">${t("wf.pid.read")}</button>
           <span class="wf-badge">${t("wf.pid.watch_scope")}</span>
         </div>
         <p class="wf-note">${t("wf.pid.note")}</p>
@@ -429,24 +424,18 @@ export class WorkflowWizard {
       const v = Number(this.root.querySelector("#wf-limit")?.value);
       if (Number.isFinite(v)) this._cli(`limit ${v}`);
     });
-    this.root.querySelector("#wf-bw-set")?.addEventListener("click", () => {
-      const v = Number(this.root.querySelector("#wf-bw")?.value);
-      if (Number.isFinite(v)) this._cli(`current bw ${v}`);
-    });
-    this.root.querySelector("#wf-vel-set")?.addEventListener("click", async () => {
+    // 调参：一次应用全部
+    this.root.querySelector("#wf-pid-apply")?.addEventListener("click", async () => {
+      const bw = Number(this.root.querySelector("#wf-bw")?.value);
       const kp = Number(this.root.querySelector("#wf-vkp")?.value);
       const ki = Number(this.root.querySelector("#wf-vki")?.value);
+      const pkp = Number(this.root.querySelector("#wf-pkp")?.value);
+      if (Number.isFinite(bw)) await this._cli(`current bw ${bw}`);
       if (Number.isFinite(kp)) await this._cli(`vel kp ${kp}`);
       if (Number.isFinite(ki)) await this._cli(`vel ki ${ki}`);
+      if (Number.isFinite(pkp)) await this._cli(`pos kp ${pkp}`);
     });
-    this.root.querySelector("#wf-pos-set")?.addEventListener("click", () => {
-      const v = Number(this.root.querySelector("#wf-pkp")?.value);
-      if (Number.isFinite(v)) this._cli(`pos kp ${v}`);
-    });
-    this.root.querySelector("#wf-mode-set")?.addEventListener("click", () => {
-      const m = this.root.querySelector("#wf-mode")?.value;
-      if (m) this._cli(`mode ${m}`);
-    });
+    this.root.querySelector("#wf-pid-read")?.addEventListener("click", () => this._readPid());
     this.root.querySelector("#wf-run-mode-set")?.addEventListener("click", () => {
       const m = this.root.querySelector("#wf-run-mode")?.value;
       if (m) {
@@ -480,6 +469,32 @@ export class WorkflowWizard {
       const v = Number(this.root.querySelector("#wf-run-vq")?.value);
       if (Number.isFinite(v)) this._cli(`vq ${v}`);
     });
+  }
+
+  /** 从 conf read 解析环路参数填入表单 */
+  async _readPid() {
+    if (!this.sendCapture) {
+      await this._cli("conf read");
+      return;
+    }
+    let text = "";
+    try {
+      text = await this.sendCapture("conf read", 450);
+    } catch {
+      /* ignore */
+    }
+    const pick = (re) => {
+      const m = text.match(re);
+      return m ? m[1] : null;
+    };
+    const set = (id, v) => {
+      const el = this.root.querySelector(`#${id}`);
+      if (el && v != null) el.value = v;
+    };
+    set("wf-bw", pick(/bw=([0-9.]+)/));
+    // conf 里 vp/vi 对应电流环；速度 kp/ki 可能不在 conf 行 — 仅填存在的
+    set("wf-vkp", pick(/vp=([0-9.]+)/));
+    set("wf-vki", pick(/vi=([0-9.]+)/));
   }
 
   _applyRunMeta(mode) {

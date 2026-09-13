@@ -630,7 +630,7 @@ $("btn-reconnect")?.addEventListener("click", async () => {
 
 $("btn-disconnect").addEventListener("click", async () => {
   await serial.disconnect();
-  setConnStatus("DISCONNECTED", "off");
+  setConnStatus(t("status.off"), "off");
   terminal.appendText("[sys] disconnected\n", "sys");
   applyModeUI();
 });
