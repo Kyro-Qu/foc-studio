@@ -31,6 +31,7 @@ export class ScopeLegend {
   }
 
   start(intervalMs = 80) {
+    if (!this.root) return;
     this.stop();
     this._timer = setInterval(() => this.refresh(), intervalMs);
     this.refresh();
@@ -44,6 +45,7 @@ export class ScopeLegend {
   }
 
   refresh() {
+    if (!this.root) return;
     const vis = this.channels.filter((c) => c.visible);
     const mathVis = this.math ? this.math.items.filter((m) => m.visible) : [];
     if (!vis.length && !mathVis.length) {

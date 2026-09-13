@@ -83,6 +83,37 @@ header {
   user-select: none;
 }
 
+.sidebar-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all var(--transition);
+  margin-right: 2px;
+}
+
+.sidebar-toggle-btn:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+  border-color: rgba(56, 189, 248, 0.4);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
+.sidebar-toggle-btn:active {
+  transform: scale(0.94);
+}
+
+.sidebar-toggle-btn svg {
+  display: block;
+}
+
 .brand-icon {
   filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.4));
   transition: transform 0.3s ease;
@@ -422,6 +453,11 @@ button.small {
   grid-template-columns: 180px 1fr;
   min-height: 0;
   min-width: 0;
+  transition: grid-template-columns 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.body.nav-collapsed {
+  grid-template-columns: 56px 1fr;
 }
 
 nav {
@@ -432,6 +468,12 @@ nav {
   flex-direction: column;
   gap: 4px;
   user-select: none;
+  overflow: hidden;
+  transition: padding 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.body.nav-collapsed nav {
+  padding: 12px 7px;
 }
 
 .nav-btn {
@@ -448,6 +490,16 @@ nav {
   font-weight: 500;
   transition: all var(--transition);
   position: relative;
+  white-space: nowrap;
+}
+
+.body.nav-collapsed .nav-btn {
+  padding: 8px 11px;
+  justify-content: center;
+}
+
+.body.nav-collapsed .nav-btn > span[data-i18n] {
+  display: none;
 }
 
 .nav-btn .ico {
@@ -459,6 +511,7 @@ nav {
   opacity: 0.75;
   transition: opacity var(--transition), transform var(--transition);
   color: inherit;
+  flex-shrink: 0;
 }
 
 .nav-btn:hover {
@@ -1470,16 +1523,16 @@ main {
   margin-top: 4px;
 }
 
-/* 现代化卡片指标磁贴 (Tile Card) */
+/* 现代化卡片指标磁贴 (Tile Card) - 柔润圆角工程质感 */
 .wf-tile {
   background: linear-gradient(180deg, #131b26 0%, #0d141e 100%);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 14px;
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   transition: all var(--transition);
   position: relative;
   overflow: hidden;
@@ -1491,15 +1544,17 @@ main {
   top: 0;
   left: 0;
   right: 0;
-  height: 2px;
+  height: 2.5px;
   background: transparent;
   transition: background var(--transition);
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
 }
 
 .wf-tile:hover {
   border-color: var(--border-bright);
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.09);
 }
 
 .wf-tile.has-val::before {
@@ -1519,7 +1574,7 @@ main {
 .tile-icon-box {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 10px;
   background: rgba(56, 189, 248, 0.08);
   border: 1px solid rgba(56, 189, 248, 0.2);
   color: var(--accent);

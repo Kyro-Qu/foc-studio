@@ -10,6 +10,12 @@
     <div id="app">
       <header>
         <div class="brand">
+          <button id="btn-toggle-sidebar" class="sidebar-toggle-btn" title="收起/展开侧边栏" data-i18n-title="nav.toggle" aria-label="Toggle Sidebar">
+            <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2.5" width="12" height="11" rx="2.5" />
+              <line x1="6.2" y1="2.5" x2="6.2" y2="13.5" />
+            </svg>
+          </button>
           <svg class="brand-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="9" stroke="url(#brand-grad)" stroke-width="2.2" stroke-dasharray="4 2"/>
             <path d="M12 7v5l3 3" stroke="#3d9cf0" stroke-linecap="round"/>
@@ -91,7 +97,7 @@
 
       <div class="body">
         <nav>
-          <button class="nav-btn active" data-panel="wf" data-step="device">
+          <button class="nav-btn active" data-panel="wf" data-step="device" title="设备" data-i18n-title="wf.device">
             <span class="ico">
               <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
                 <!-- 外围芯片封装轮廓 (带圆角) -->
@@ -106,7 +112,7 @@
             </span>
             <span data-i18n="wf.device">设备</span>
           </button>
-          <button class="nav-btn" data-panel="wf" data-step="motor">
+          <button class="nav-btn" data-panel="wf" data-step="motor" title="电机" data-i18n-title="wf.motor">
             <span class="ico">
               <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
                 <circle cx="8" cy="8" r="6"/>
@@ -116,7 +122,7 @@
             </span>
             <span data-i18n="wf.motor">电机</span>
           </button>
-          <button class="nav-btn" data-panel="wf" data-step="encoder">
+          <button class="nav-btn" data-panel="wf" data-step="encoder" title="编码器" data-i18n-title="wf.encoder">
             <span class="ico">
               <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
                 <circle cx="8" cy="8" r="6"/>
@@ -126,7 +132,7 @@
             </span>
             <span data-i18n="wf.encoder">编码器</span>
           </button>
-          <button class="nav-btn" data-panel="wf" data-step="pid">
+          <button class="nav-btn" data-panel="wf" data-step="pid" title="调参" data-i18n-title="wf.pid">
             <span class="ico">
               <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
                 <path d="M2 13h12M4 10l3-6 3 4 3-5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -134,7 +140,7 @@
             </span>
             <span data-i18n="wf.pid">调参</span>
           </button>
-          <button class="nav-btn" data-panel="wf" data-step="run">
+          <button class="nav-btn" data-panel="wf" data-step="run" title="控制台" data-i18n-title="wf.run">
             <span class="ico">
               <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
                 <polygon points="4,3 13,8 4,13" fill="currentColor" opacity="0.8"/>
@@ -142,7 +148,7 @@
             </span>
             <span data-i18n="wf.run">控制台</span>
           </button>
-          <button class="nav-btn" data-panel="scope">
+          <button class="nav-btn" data-panel="scope" title="示波器" data-i18n-title="nav.scope">
             <span class="ico">
               <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
                 <rect x="2" y="2" width="12" height="12" rx="2"/>
@@ -151,7 +157,7 @@
             </span>
             <span data-i18n="nav.scope">示波器</span>
           </button>
-          <button class="nav-btn" data-panel="expert">
+          <button class="nav-btn" data-panel="expert" title="高级算法" data-i18n-title="nav.expert">
             <span class="ico">
               <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
                 <polygon points="9,1 3,9 8,9 7,15 13,7 8,7" fill="currentColor" opacity="0.85"/>
@@ -159,7 +165,7 @@
             </span>
             <span data-i18n="nav.expert">高级算法</span>
           </button>
-          <button class="nav-btn" data-panel="terminal">
+          <button class="nav-btn" data-panel="terminal" title="终端" data-i18n-title="nav.terminal">
             <span class="ico">
               <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
                 <rect x="2" y="3" width="12" height="10" rx="1.5"/>

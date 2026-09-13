@@ -1121,6 +1121,41 @@ $("btn-wave-toggle")?.addEventListener("click", () => {
   setWaveStream(!state.waveActive);
 });
 
+/* 侧边栏折叠/展开 */
+const bodyEl = document.querySelector(".body");
+const btnToggleSidebar = $("btn-toggle-sidebar");
+const LS_SIDEBAR_KEY = "foc-studio-nav-collapsed";
+
+function setSidebarCollapsed(collapsed) {
+  if (!bodyEl) return;
+  bodyEl.classList.toggle("nav-collapsed", !!collapsed);
+  btnToggleSidebar?.classList.toggle("active", !!collapsed);
+  try {
+    localStorage.setItem(LS_SIDEBAR_KEY, collapsed ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+  // 折叠变更后重新计算示波器和仪表盘尺寸
+  setTimeout(() => {
+    scope?._resize();
+    dashboard?.resizeGauges();
+  }, 240);
+}
+
+// 初始化读取持久化状态
+try {
+  if (localStorage.getItem(LS_SIDEBAR_KEY) === "1") {
+    setSidebarCollapsed(true);
+  }
+} catch {
+  /* ignore */
+}
+
+btnToggleSidebar?.addEventListener("click", () => {
+  const isCollapsed = bodyEl?.classList.contains("nav-collapsed");
+  setSidebarCollapsed(!isCollapsed);
+});
+
 /* stats */
 setInterval(() => {
   const now = performance.now();
