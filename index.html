@@ -94,10 +94,15 @@
           <div class="nav-section-title">向导调试</div>
           <button class="nav-btn active" data-panel="wf" data-step="device">
             <span class="ico">
-              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6">
-                <rect x="3" y="3" width="10" height="10" rx="2"/>
-                <circle cx="8" cy="8" r="2.2"/>
-                <path d="M1 5h2M1 8h2M1 11h2M13 5h2M13 8h2M13 11h2M5 1v2M8 1v2M11 1v2M5 13v2M8 13v2M11 13v2"/>
+              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                <!-- 外围芯片封装轮廓 (带圆角) -->
+                <rect x="2.5" y="2.5" width="11" height="11" rx="2.2" />
+                <!-- 内部芯片核心核心区 (带微圆角) -->
+                <rect x="5.2" y="5.2" width="5.6" height="5.6" rx="1.2" />
+                <!-- 左右外伸引脚 (双侧各3组，精确对齐 Apple 芯片引脚比例) -->
+                <path d="M0.8 5.4h1.7M0.8 8h1.7M0.8 10.6h1.7M13.5 5.4h1.7M13.5 8h1.7M13.5 10.6h1.7" />
+                <!-- 上下外伸引脚 (顶底各3组) -->
+                <path d="M5.4 0.8v1.7M8 0.8v1.7M10.6 0.8v1.7M5.4 13.5v1.7M8 13.5v1.7M10.6 13.5v1.7" />
               </svg>
             </span>
             <span data-i18n="wf.device">设备</span>
