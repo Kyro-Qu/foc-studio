@@ -60,12 +60,12 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px 18px;
-  padding: 8px 18px;
+  gap: 16px;
+  padding: 0 18px;
+  height: 52px;
   background: linear-gradient(180deg, #121923 0%, #0c1219 100%);
   border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-  min-height: 52px;
+  flex-wrap: nowrap;
   box-shadow: var(--shadow);
   position: relative;
   z-index: 10;
@@ -120,9 +120,8 @@ header {
 .header-controls {
   display: flex;
   align-items: center;
-  gap: 10px 14px;
-  flex-wrap: wrap;
-  flex: 1;
+  gap: 14px;
+  flex-wrap: nowrap;
   justify-content: flex-end;
 }
 
@@ -322,12 +321,15 @@ header button {
   background: rgba(192, 132, 252, 0.08);
 }
 
-@media (max-width: 820px) {
+@media (max-width: 960px) {
   header {
-    justify-content: center;
+    height: auto;
+    padding: 8px 14px;
+    flex-wrap: wrap;
   }
   .header-controls {
-    justify-content: center;
+    flex-wrap: wrap;
+    justify-content: flex-start;
   }
 }
 
@@ -425,24 +427,11 @@ button.small {
 nav {
   background: linear-gradient(180deg, #0e141c 0%, #080d12 100%);
   border-right: 1px solid var(--border);
-  padding: 14px 10px;
+  padding: 12px 10px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   user-select: none;
-}
-
-.nav-section-title {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-faint);
-  padding: 10px 10px 4px;
-}
-
-.nav-section-title:first-child {
-  padding-top: 2px;
 }
 
 .nav-btn {
