@@ -14,6 +14,22 @@ const STEPS = [
   { id: "run", key: "wf.run" },
 ];
 
+export const PID_INPUT_IDS = [
+  "wf-bw",
+  "wf-limit-val",
+  "wf-vkp",
+  "wf-vki",
+  "wf-vramp",
+  "wf-vfilt",
+  "wf-vff",
+  "wf-vtrack",
+  "wf-pkp",
+  "wf-pki",
+  "wf-pvkp",
+  "wf-paccel",
+  "wf-pvmax",
+];
+
 /** 固件标准故障码定义映射 */
 export const FAULT_NAMES = {
   0: "NONE (正常)",
@@ -685,20 +701,30 @@ export class WorkflowWizard {
       <p class="wf-p">${t("wf.device.p")}</p>
 
       <section class="wf-card">
-        <h4 class="wf-section">${t("wf.device.info")}</h4>
-        <div class="wf-row">
-          <button class="ok" id="wf-read-info">
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span>${t("wf.device.read")}</span>
-          </button>
-          <button class="btn-primary" id="wf-health-check">
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8.5l3.5 3.5L14 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span>${t("wf.device.self_check")}</span>
-          </button>
-          <button id="wf-copy-report">
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="8" height="10" rx="1.5"/><path d="M4 2.5h6.5a1.5 1.5 0 0 1 1.5 1.5v6" stroke-linecap="round"/></svg>
-            <span>${t("wf.device.copy_report")}</span>
-          </button>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <h4 class="wf-section" style="margin:0">${t("wf.device.info")}</h4>
+          <div class="wf-row" style="gap:8px">
+            <button class="ok" id="wf-read-info">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>${t("wf.device.read")}</span>
+            </button>
+            <button class="btn-primary" id="wf-health-check">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8.5l3.5 3.5L14 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>${t("wf.device.self_check")}</span>
+            </button>
+            <button id="wf-diag-fault-btn" data-cmd="fault">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11.5h.01"/></svg>
+              <span>${t("wf.safety.fault")}</span>
+            </button>
+            <button class="danger" id="wf-diag-clear-btn" data-cmd="fault clear">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l8 8M12 4l-8 8" stroke-linecap="round"/></svg>
+              <span>${t("wf.safety.clear")}</span>
+            </button>
+            <button id="wf-copy-report">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="8" height="10" rx="1.5"/><path d="M4 2.5h6.5a1.5 1.5 0 0 1 1.5 1.5v6" stroke-linecap="round"/></svg>
+              <span>${t("wf.device.copy_report")}</span>
+            </button>
+          </div>
         </div>
         <div id="wf-board-info" class="wf-board">
           ${this._emptyBoardHtml()}
@@ -714,14 +740,6 @@ export class WorkflowWizard {
           <button class="ok" id="wf-limit-set">
             <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span>${t("wf.apply")}</span>
-          </button>
-          <button data-cmd="fault">
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11.5h.01"/></svg>
-            <span>${t("wf.safety.fault")}</span>
-          </button>
-          <button class="danger" data-cmd="fault clear">
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l8 8M12 4l-8 8" stroke-linecap="round"/></svg>
-            <span>${t("wf.safety.clear")}</span>
           </button>
         </div>
         <div class="wf-row">
@@ -1013,23 +1031,135 @@ export class WorkflowWizard {
     return `
       <h3 class="wf-h">${t("wf.pid.h")}</h3>
       <p class="wf-p">${t("wf.pid.p")}</p>
+
+      <!-- 1. 电流环整定与保护限幅 -->
       <div class="wf-card">
-        <h4 class="wf-section">闭环与电流环带宽整定</h4>
-        <div class="wf-row">
-          <label>${t("wf.pid.current_bw")}</label>
-          <input type="number" id="wf-bw" min="100" max="5000" step="50" value="2000" style="width:90px" />
+        <h4 class="wf-section">${t("wf.pid.title_current")}</h4>
+        <div class="wf-tuning-grid">
+          <div class="wf-field">
+            <div class="wf-field-label">
+              <span>${t("wf.pid.current_bw")}</span>
+              <span class="wf-field-unit">rad/s</span>
+            </div>
+            <input type="number" id="wf-bw" min="100" max="3000" step="50" value="2000" />
+            <span class="wf-field-hint">自动整定 d/q 轴 Kp/Ki (100~3000)</span>
+          </div>
+          <div class="wf-field">
+            <div class="wf-field-label">
+              <span>${t("wf.pid.limit")}</span>
+              <span class="wf-field-unit">A</span>
+            </div>
+            <input type="number" id="wf-limit-val" min="0.1" max="15.0" step="0.1" value="2.0" />
+            <span class="wf-field-hint">电机运行相电流软保护限幅 (limit)</span>
+          </div>
         </div>
-        <div class="wf-row">
-          <label>${t("wf.pid.vel_kp")}</label>
-          <input type="number" id="wf-vkp" step="0.01" value="0.02" style="width:80px" />
-          <label>${t("wf.pid.vel_ki")}</label>
-          <input type="number" id="wf-vki" step="0.01" value="0.02" style="width:80px" />
+      </div>
+
+      <!-- 2. 速度环与运动加减速规划 -->
+      <div class="wf-card">
+        <h4 class="wf-section">${t("wf.pid.title_vel")}</h4>
+        <div class="wf-tuning-grid">
+          <div class="wf-field">
+            <div class="wf-field-label">
+              <span>${t("wf.pid.vel_kp")}</span>
+              <span class="wf-field-unit">A/RPM</span>
+            </div>
+            <input type="number" id="wf-vkp" min="0" max="2.0" step="0.005" value="0.02" />
+            <span class="wf-field-hint">比例增益，响应刚度</span>
+          </div>
+          <div class="wf-field">
+            <div class="wf-field-label">
+              <span>${t("wf.pid.vel_ki")}</span>
+              <span class="wf-field-unit">A/(RPM·s)</span>
+            </div>
+            <input type="number" id="wf-vki" min="0" max="5.0" step="0.005" value="0.02" />
+            <span class="wf-field-hint">积分增益，消除稳态转速静差</span>
+          </div>
+          <div class="wf-field">
+            <div class="wf-field-label">
+              <span>${t("wf.pid.vel_ramp")}</span>
+              <span class="wf-field-unit">RPM/s</span>
+            </div>
+            <input type="number" id="wf-vramp" min="0" max="100000" step="500" value="10000" />
+            <span class="wf-field-hint">速度斜坡率，0=直通无斜坡</span>
+          </div>
+          <div class="wf-field">
+            <div class="wf-field-label">
+              <span>${t("wf.pid.vel_filter")}</span>
+              <span class="wf-field-unit">Hz</span>
+            </div>
+            <input type="number" id="wf-vfilt" min="5" max="200" step="5" value="50" />
+            <span class="wf-field-hint">测速反馈一阶低通截止频率</span>
+          </div>
+          <div class="wf-field">
+            <div class="wf-field-label">
+              <span>${t("wf.pid.vel_ff")}</span>
+              <span class="wf-field-unit">A</span>
+            </div>
+            <input type="number" id="wf-vff" min="0" max="2.0" step="0.01" value="0.0" />
+            <span class="wf-field-hint">静摩擦阻力矩前馈补偿</span>
+          </div>
+          <div class="wf-field">
+            <div class="wf-field-label">
+              <span>${t("wf.pid.vel_track")}</span>
+              <span class="wf-field-unit">A/rad</span>
+            </div>
+            <input type="number" id="wf-vtrack" min="0" max="100" step="0.1" value="0.0" />
+            <span class="wf-field-hint">抗扰动角度跟踪刚度</span>
+          </div>
         </div>
-        <div class="wf-row">
-          <label>${t("wf.pid.pos_kp")}</label>
-          <input type="number" id="wf-pkp" step="0.5" value="10" style="width:80px" />
+      </div>
+
+      <!-- 3. 位置环与轨迹参数整定 -->
+      <div class="wf-card">
+        <h4 class="wf-section">${t("wf.pid.title_pos")}</h4>
+        <div class="wf-tuning-grid">
+          <div class="wf-field">
+            <div class="wf-field-label">
+              <span>${t("wf.pid.pos_kp")}</span>
+              <span class="wf-field-unit">A/rad</span>
+            </div>
+            <input type="number" id="wf-pkp" min="0" max="500" step="0.5" value="10" />
+            <span class="wf-field-hint">位置环比例刚度</span>
+          </div>
+          <div class="wf-field">
+            <div class="wf-field-label">
+              <span>${t("wf.pid.pos_ki")}</span>
+              <span class="wf-field-unit">A/(rad·s)</span>
+            </div>
+            <input type="number" id="wf-pki" min="0" max="50" step="0.05" value="0" />
+            <span class="wf-field-hint">位置积分，消除稳态位置误差</span>
+          </div>
+          <div class="wf-field">
+            <div class="wf-field-label">
+              <span>${t("wf.pid.pos_vkp")}</span>
+              <span class="wf-field-unit">A/RPM</span>
+            </div>
+            <input type="number" id="wf-pvkp" min="0" max="0.5" step="0.002" value="0.02" />
+            <span class="wf-field-hint">速度微分阻尼，抑制位置强摆晃动</span>
+          </div>
+          <div class="wf-field">
+            <div class="wf-field-label">
+              <span>${t("wf.pid.pos_accel")}</span>
+              <span class="wf-field-unit">RPM/s</span>
+            </div>
+            <input type="number" id="wf-paccel" min="100" max="100000" step="500" value="5000" />
+            <span class="wf-field-hint">梯形加减速轨迹规划加速度</span>
+          </div>
+          <div class="wf-field">
+            <div class="wf-field-label">
+              <span>${t("wf.pid.pos_vmax")}</span>
+              <span class="wf-field-unit">RPM</span>
+            </div>
+            <input type="number" id="wf-pvmax" min="100" max="10000" step="100" value="3000" />
+            <span class="wf-field-hint">位置运动过程中的最高巡航转速</span>
+          </div>
         </div>
-        <div class="wf-row" style="align-items: center; gap: 8px;">
+      </div>
+
+      <!-- 操作工具栏与持久化按钮 -->
+      <div class="wf-card" style="padding:14px 18px">
+        <div class="wf-row" style="align-items: center; gap: 10px;">
           <button class="ok" id="wf-pid-apply">
             <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span>${t("wf.apply")}</span>
@@ -1048,7 +1178,7 @@ export class WorkflowWizard {
           </span>
           <span class="wf-badge" style="margin-left: auto;">${t("wf.pid.watch_scope")}</span>
         </div>
-        <p class="wf-note">${t("wf.pid.note")}</p>
+        <p class="wf-note" style="margin-top:10px">${t("wf.pid.note")}</p>
       </div>`;
   }
 
@@ -1093,13 +1223,32 @@ export class WorkflowWizard {
     // 调参：一次应用全部
     this.root.querySelector("#wf-pid-apply")?.addEventListener("click", async () => {
       const bw = Number(this.root.querySelector("#wf-bw")?.value);
-      const kp = Number(this.root.querySelector("#wf-vkp")?.value);
-      const ki = Number(this.root.querySelector("#wf-vki")?.value);
+      const limitVal = Number(this.root.querySelector("#wf-limit-val")?.value);
+      const vkp = Number(this.root.querySelector("#wf-vkp")?.value);
+      const vki = Number(this.root.querySelector("#wf-vki")?.value);
+      const vramp = Number(this.root.querySelector("#wf-vramp")?.value);
+      const vfilt = Number(this.root.querySelector("#wf-vfilt")?.value);
+      const vff = Number(this.root.querySelector("#wf-vff")?.value);
+      const vtrack = Number(this.root.querySelector("#wf-vtrack")?.value);
       const pkp = Number(this.root.querySelector("#wf-pkp")?.value);
+      const pki = Number(this.root.querySelector("#wf-pki")?.value);
+      const pvkp = Number(this.root.querySelector("#wf-pvkp")?.value);
+      const paccel = Number(this.root.querySelector("#wf-paccel")?.value);
+      const pvmax = Number(this.root.querySelector("#wf-pvmax")?.value);
+
       if (Number.isFinite(bw)) await this._cli(`current bw ${bw}`);
-      if (Number.isFinite(kp)) await this._cli(`vel kp ${kp}`);
-      if (Number.isFinite(ki)) await this._cli(`vel ki ${ki}`);
+      if (Number.isFinite(limitVal)) await this._cli(`limit ${limitVal}`);
+      if (Number.isFinite(vkp)) await this._cli(`vel kp ${vkp}`);
+      if (Number.isFinite(vki)) await this._cli(`vel ki ${vki}`);
+      if (Number.isFinite(vramp)) await this._cli(`vel ramp ${vramp}`);
+      if (Number.isFinite(vfilt)) await this._cli(`vel filter ${vfilt}`);
+      if (Number.isFinite(vff)) await this._cli(`vel ff ${vff}`);
+      if (Number.isFinite(vtrack)) await this._cli(`vel track ${vtrack}`);
       if (Number.isFinite(pkp)) await this._cli(`pos kp ${pkp}`);
+      if (Number.isFinite(pki)) await this._cli(`pos ki ${pki}`);
+      if (Number.isFinite(pvkp)) await this._cli(`pos vkp ${pvkp}`);
+      if (Number.isFinite(paccel)) await this._cli(`pos accel ${paccel}`);
+      if (Number.isFinite(pvmax)) await this._cli(`pos vmax ${pvmax}`);
     });
     this.root.querySelector("#wf-pid-read")?.addEventListener("click", () => this._readPid());
     this.root.querySelector("#wf-pid-save")?.addEventListener("click", async () => {
@@ -1111,7 +1260,7 @@ export class WorkflowWizard {
     });
 
     // 监听调参输入脏状态
-    ["wf-bw", "wf-vkp", "wf-vki", "wf-pkp"].forEach((id) => {
+    PID_INPUT_IDS.forEach((id) => {
       const input = this.root.querySelector(`#${id}`);
       if (input) {
         // 若基准尚未建立，初始化当前值为基准
@@ -1123,19 +1272,13 @@ export class WorkflowWizard {
     });
   }
 
-  /** 从 conf read 解析环路参数填入表单 */
+  /** 从 conf read / vel / pos 等解析环路参数填入表单 */
   async _readPid() {
     if (!this.sendCapture) {
       await this._cli("conf read");
       return;
     }
-    let text = "";
-    try {
-      text = await this.sendCapture("conf read", 450);
-    } catch {
-      /* ignore */
-    }
-    const pick = (re) => {
+    const pick = (text, re) => {
       const m = text.match(re);
       return m ? m[1] : null;
     };
@@ -1143,10 +1286,43 @@ export class WorkflowWizard {
       const el = this.root.querySelector(`#${id}`);
       if (el && v != null) el.value = v;
     };
-    set("wf-bw", pick(/bw=([0-9.]+)/));
-    // conf 里 vp/vi 对应电流环；速度 kp/ki 可能不在 conf 行 — 仅填存在的
-    set("wf-vkp", pick(/vp=([0-9.]+)/));
-    set("wf-vki", pick(/vi=([0-9.]+)/));
+
+    // 1. 读取 conf read (提取 bw, limit, vp/vi 等)
+    try {
+      const confText = await this.sendCapture("conf read", 450);
+      set("wf-bw", pick(confText, /bw=([0-9.]+)/));
+      set("wf-limit-val", pick(confText, /limit=([0-9.]+)/));
+      set("wf-vkp", pick(confText, /vp=([0-9.]+)/));
+      set("wf-vki", pick(confText, /vi=([0-9.]+)/));
+      set("wf-pkp", pick(confText, /pos_kp=([0-9.]+)/));
+    } catch {
+      /* ignore */
+    }
+
+    // 2. 读取 vel 详细参数 (kp, ki, filter, ramp, ff, track)
+    try {
+      const velText = await this.sendCapture("vel", 350);
+      set("wf-vkp", pick(velText, /kp=([0-9.]+)/));
+      set("wf-vki", pick(velText, /ki=([0-9.]+)/));
+      set("wf-vfilt", pick(velText, /filter_high=([0-9.]+)Hz/));
+      set("wf-vramp", pick(velText, /ramp=([0-9.]+)RPM\/s/));
+      set("wf-vff", pick(velText, /ff=([0-9.]+)A/));
+      set("wf-vtrack", pick(velText, /track=([0-9.]+)A\/rad/));
+    } catch {
+      /* ignore */
+    }
+
+    // 3. 读取 pos 详细参数 (kp, ki, vkp, accel, vmax)
+    try {
+      const posText = await this.sendCapture("pos", 350);
+      set("wf-pkp", pick(posText, /kp=([0-9.]+)A\/rad/));
+      set("wf-pki", pick(posText, /ki=([0-9.]+)A\/\(rad\*s\)/));
+      set("wf-pvkp", pick(posText, /vkp=([0-9.]+)A\/RPM/));
+      set("wf-paccel", pick(posText, /accel=([0-9.]+)RPM\/s/));
+      set("wf-pvmax", pick(posText, /vmax=([0-9.]+)RPM/));
+    } catch {
+      /* ignore */
+    }
 
     // 读取成功后，建立新的基准并清除 dirty 标记
     this._markPidClean();
@@ -1154,7 +1330,7 @@ export class WorkflowWizard {
 
   _checkPidDirty() {
     let dirtyCount = 0;
-    ["wf-bw", "wf-vkp", "wf-vki", "wf-pkp"].forEach((id) => {
+    PID_INPUT_IDS.forEach((id) => {
       const input = this.root.querySelector(`#${id}`);
       if (!input) return;
       const base = this.pidBaseline[id];
@@ -1170,7 +1346,7 @@ export class WorkflowWizard {
   }
 
   _markPidClean() {
-    ["wf-bw", "wf-vkp", "wf-vki", "wf-pkp"].forEach((id) => {
+    PID_INPUT_IDS.forEach((id) => {
       const input = this.root.querySelector(`#${id}`);
       if (!input) return;
       this.pidBaseline[id] = input.value;

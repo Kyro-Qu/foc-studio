@@ -42,7 +42,7 @@ export const DEFAULT_CHANNELS = [
 
 /** 显示名：中文友好名 / 英文技术名 */
 export const CHANNEL_LABELS = {
-  0:  { zh: "电角度 θe",   en: "THETA_E" },
+  0:  { zh: "电角度",       en: "THETA_E" },
   1:  { zh: "Iq 原始",     en: "IQ_RAW" },
   2:  { zh: "控制转速",    en: "VEL_CTRL" },
   3:  { zh: "转速给定",    en: "VEL_REF" },
@@ -68,7 +68,7 @@ export const CHANNEL_LABELS = {
   23: { zh: "观测置信度",  en: "OBS_CONF" },
   24: { zh: "观测磁链",    en: "OBS_FLUX" },
   25: { zh: "电功率估算",  en: "POWER_EST" },
-  26: { zh: "实时母线电压", en: "VBUS_FAST" },
+  26: { zh: "母线电压",    en: "VBUS" },
   27: { zh: "估算转矩",    en: "TORQUE_EST" },
   28: { zh: "Iq 跟踪误差", en: "IQ_ERR" },
   29: { zh: "Id 跟踪误差", en: "ID_ERR" },

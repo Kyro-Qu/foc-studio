@@ -241,11 +241,16 @@ if (expertRoot) {
 // 控制台页挂载仪表盘（表盘+状态）
 wizard.onAfterRender = (step) => {
   const host = $("wf-dashboard-host");
-  if (!host) return;
+  const dashEl = $("dashboard");
+  if (!host || !dashEl) return;
   if (step === "run") {
-    host.appendChild($("dashboard"));
-  } else if ($("dashboard")?.parentElement === host) {
-    $("panel-dashboard-hidden")?.appendChild($("dashboard"));
+    if (dashEl.parentElement !== host) {
+      host.appendChild(dashEl);
+    }
+    dashboard.resizeGauges();
+    dashboard.refresh();
+  } else if (dashEl.parentElement === host) {
+    $("panel-dashboard-hidden")?.appendChild(dashEl);
   }
 };
 

@@ -288,6 +288,15 @@ export class Dashboard {
     this.refresh();
   }
 
+  resizeGauges() {
+    for (const g of Object.values(this.gauges)) {
+      if (g && !g._destroyed) {
+        g._resize();
+        g.draw();
+      }
+    }
+  }
+
   start(intervalMs = 100) {
     this.stop();
     this._timer = setInterval(() => this.refresh(), intervalMs);

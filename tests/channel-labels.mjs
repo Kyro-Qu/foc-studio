@@ -13,8 +13,9 @@ function assert(cond, msg) {
 }
 
 console.log("\n[channel labels]");
-assert(channelLabel(26, "zh") === "实时母线电压", `zh vbus_fast=${channelLabel(26, "zh")}`);
-assert(channelLabel(26, "en") === "VBUS_FAST", `en vbus_fast=${channelLabel(26, "en")}`);
+assert(channelLabel(26, "zh") === "母线电压", `zh vbus_fast=${channelLabel(26, "zh")}`);
+assert(channelLabel(26, "en") === "VBUS", `en vbus_fast=${channelLabel(26, "en")}`);
+assert(channelLabel(0, "zh") === "电角度", `zh theta_e=${channelLabel(0, "zh")}`);
 assert(channelLabel(2, "zh") === "控制转速", "zh rpm");
 assert(channelLabel(2, "en") === "VEL_CTRL", "en rpm");
 assert(channelLabel(1, "zh") === "Iq 原始", "iq raw zh");
