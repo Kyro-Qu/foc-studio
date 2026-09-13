@@ -95,17 +95,17 @@ export class WorkflowWizard {
     const rows = [
       [t("wf.device.mcu"), pick(/board=(\S+)/)],
       [t("wf.device.fw"), pick(/firmware=(\S+)/)],
-      ["version", pick(/version=(\S+)/)],
+      [t("board.version"), pick(/version=(\S+)/)],
       ["cli", pick(/cli=(\S+)/)],
       ["build", pick(/build=([^\r\n]+)/).trim()],
       [t("wf.motor.pp"), pick(/pole_pairs=([0-9.]+)/)],
       ["encoder_cpr", pick(/encoder_cpr=([0-9]+)/)],
-      ["max_rpm", pick(/max_rpm=([0-9.]+)/)],
-      ["udc / Vbus", pick(/udc=([0-9.]+)/) + " / " + pick(/vbus=([0-9.]+)/)],
-      ["calib", pick(/calib=([0-9]+)/)],
-      ["fault", pick(/fault=([0-9]+)/)],
+      [t("wf.motor.maxrpm"), pick(/max_rpm=([0-9.]+)/)],
+      [t("board.udc"), pick(/udc=([0-9.]+)/) + " / " + pick(/vbus=([0-9.]+)/)],
+      [t("board.calib"), pick(/calib=([0-9]+)/)],
+      [t("board.fault"), pick(/fault=([0-9]+)/)],
       ["CPU %", pick(/cpu=([0-9.]+)/)],
-      ["state / mode", pick(/M0 ([A-Z]+)/) + " / " + pick(/mode=(\S+)/)],
+      [t("board.state"), pick(/M0 ([A-Z]+)/) + " / " + pick(/mode=(\S+)/)],
       ["rst_flags", pick(/rst_flags=(0x[0-9A-Fa-f]+)/)],
     ];
     box.innerHTML = rows
@@ -150,8 +150,8 @@ export class WorkflowWizard {
         <h4 class="wf-section">${t("wf.device.info")}</h4>
         <div class="wf-row">
           <button class="ok" id="wf-read-info">${t("wf.device.read")}</button>
-          <button data-cmd="log 0">log 0</button>
-          <button data-cmd="log 1">log 1</button>
+          <button data-cmd="log 0">${t("log.off")}</button>
+          <button data-cmd="log 1">${t("log.on")}</button>
         </div>
         <div id="wf-board-info" class="wf-board">
           ${this._emptyBoardHtml()}
@@ -187,12 +187,12 @@ export class WorkflowWizard {
     const keys = [
       t("wf.device.mcu"),
       t("wf.device.fw"),
-      "version",
+      t("board.version"),
       t("wf.motor.pp"),
-      "udc / Vbus",
-      "calib",
-      "fault",
-      "state / mode",
+      t("board.udc"),
+      t("board.calib"),
+      t("board.fault"),
+      t("board.state"),
     ];
     return keys
       .map((k) => `<div class="wf-kv"><span>${k}</span><strong>—</strong></div>`)
@@ -386,7 +386,7 @@ export class WorkflowWizard {
         <div class="wf-row">
           <label>${t("dash.ctrl.mode")}</label>
           <select id="wf-run-mode">${modes}</select>
-          <button id="wf-run-mode-set">${t("wf.apply")}</button>
+          <button id="wf-run-mode-set">${t("dash.ctrl.set")}</button>
         </div>
         <div class="wf-row" id="wf-run-target-row">
           <label>${t("dash.ctrl.target")} <span class="dash-unit-tag" id="wf-run-unit">RPM</span></label>
