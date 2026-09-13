@@ -9,6 +9,7 @@ import { Scope } from "./ui/scope.js";
 import { Dashboard } from "./ui/dashboard.js";
 import { Terminal } from "./ui/terminal.js";
 import { ControlConsole, PRESET_COMMANDS, MODES, IDENT_COMMANDS, FEEDBACK_COMMANDS, MODE_CONTROLS } from "./ui/console.js";
+import { WorkflowWizard } from "./ui/wizard.js";
 import { MathChannels, MATH_OPS } from "./ui/math.js";
 import { TriggerEngine, TriggerMode } from "./ui/trigger.js";
 import { measureChannel } from "./ui/measure.js";
@@ -164,6 +165,10 @@ const terminal = new Terminal($("term-log"), $("term-input"), $("term-send"), {
 });
 
 const tuning = new TuningPanel($("tuning-root"), (cmd) => consoleCtl.run(cmd));
+
+const wizard = new WorkflowWizard($("panel-wf"), {
+  send: (cmd) => consoleCtl.run(cmd),
+});
 
 scope.setMath(math);
 scope.setTrigger(trigger);
@@ -968,9 +973,20 @@ document.querySelectorAll(".nav-btn").forEach((btn) => {
     document.querySelectorAll(".nav-btn").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
-    $(`panel-${btn.dataset.panel}`).classList.add("active");
+    const panel = $(`panel-${btn.dataset.panel}`);
+    if (panel) panel.classList.add("active");
     if (btn.dataset.panel === "scope") scope._resize();
     if (btn.dataset.panel === "console") renderConsole();
+    if (btn.dataset.panel === "wf") {
+      const step = btn.dataset.step;
+      if (step) {
+        wizard.setStep(step);
+        document.querySelectorAll('.nav-btn[data-panel="wf"]').forEach((b) => {
+          b.classList.toggle("active", b.dataset.step === step);
+        });
+        btn.classList.add("active");
+      }
+    }
   });
 });
 

@@ -72,21 +72,32 @@
 
       <div class="body">
         <nav>
-          <button class="nav-btn" data-panel="dashboard"><span class="ico">◉</span><span data-i18n="nav.dashboard">仪表盘</span></button>
-          <button class="nav-btn active" data-panel="scope"><span class="ico">〜</span><span data-i18n="nav.scope">示波器</span></button>
-          <button class="nav-btn" data-panel="console"><span class="ico">⌨</span><span data-i18n="nav.console">控制台</span></button>
-          <button class="nav-btn" data-panel="tuning"><span class="ico">⚙</span><span data-i18n="nav.tuning">调参</span></button>
+          <div class="nav-section" data-i18n="wf.nav">调试向导</div>
+          <button class="nav-btn active" data-panel="wf" data-step="device"><span class="ico">①</span><span data-i18n="wf.device">设备</span></button>
+          <button class="nav-btn" data-panel="wf" data-step="safety"><span class="ico">②</span><span data-i18n="wf.safety">保护</span></button>
+          <button class="nav-btn" data-panel="wf" data-step="motor"><span class="ico">③</span><span data-i18n="wf.motor">电机</span></button>
+          <button class="nav-btn" data-panel="wf" data-step="calib"><span class="ico">④</span><span data-i18n="wf.calib">校准</span></button>
+          <button class="nav-btn" data-panel="wf" data-step="pid"><span class="ico">⑤</span><span data-i18n="wf.pid">调环</span></button>
+          <button class="nav-btn" data-panel="wf" data-step="run"><span class="ico">⑥</span><span data-i18n="wf.run">运行</span></button>
+          <div class="nav-section" data-i18n="nav.scope">示波器</div>
+          <button class="nav-btn" data-panel="scope"><span class="ico">〜</span><span data-i18n="nav.scope">示波器</span></button>
           <button class="nav-btn" data-panel="terminal"><span class="ico">›_</span><span data-i18n="nav.terminal">终端</span></button>
+          <div class="nav-section adv-only" data-i18n="advanced">高级</div>
+          <button class="nav-btn adv-only" data-panel="dashboard"><span class="ico">◉</span><span data-i18n="nav.dashboard">仪表盘</span></button>
+          <button class="nav-btn adv-only" data-panel="console"><span class="ico">⌨</span><span data-i18n="nav.console">控制台</span></button>
+          <button class="nav-btn adv-only" data-panel="tuning"><span class="ico">⚙</span><span data-i18n="nav.tuning">调参</span></button>
           <button class="nav-btn adv-only" data-panel="record"><span class="ico">⏺</span><span data-i18n="nav.record">录制</span></button>
         </nav>
 
         <main>
+          <section class="panel active" id="panel-wf"></section>
+
           <section class="panel" id="panel-dashboard">
-            <div class="panel-title" data-i18n="panel.dashboard.title">实时状态（与示波器同一帧源）</div>
+            <div class="panel-title" data-i18n="panel.dashboard.title">实时状态</div>
             <div id="dashboard"></div>
           </section>
 
-          <section class="panel active" id="panel-scope">
+          <section class="panel" id="panel-scope">
             <div class="panel-title" data-i18n="panel.scope.title">实时示波器 — FOC-STP v1.0 自解释 32 通道 · 点击设 t1/t2 · Shift/Alt 微调 · 滚轮缩放</div>
             <div class="scope-layout">
               <aside class="scope-side">

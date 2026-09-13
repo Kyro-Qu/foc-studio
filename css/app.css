@@ -945,6 +945,143 @@ main {
   align-items: center;
 }
 
+/* workflow wizard */
+.nav-section {
+  margin: 10px 8px 4px;
+  font-size: 10px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.wf-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.wf-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.wf-step .wf-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-elev);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.wf-step.active {
+  color: var(--text);
+  border-color: var(--accent);
+  background: rgba(61, 156, 240, 0.12);
+}
+
+.wf-step.done .wf-num {
+  background: rgba(61, 214, 140, 0.25);
+  color: var(--ok);
+}
+
+.wf-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.wf-h {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.wf-p {
+  margin: 0 0 12px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.wf-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wf-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.wf-row label {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.wf-note {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.wf-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.wf-badge.danger {
+  color: var(--err);
+  border-color: rgba(240, 113, 120, 0.4);
+}
+
+.wf-sep {
+  height: 1px;
+  background: var(--border-soft);
+}
+
+.wf-nav {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  justify-content: flex-end;
+}
+
+.wf-out {
+  margin: 0;
+  min-height: 80px;
+  max-height: 220px;
+  overflow: auto;
+  background: #070a0e;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #7ee787;
+  white-space: pre-wrap;
+}
+
 .console-row label {
   color: var(--text-dim);
   font-size: 12px;
