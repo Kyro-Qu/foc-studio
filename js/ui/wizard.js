@@ -1081,8 +1081,31 @@ export class WorkflowWizard {
 
   _htmlPid() {
     return `
-      <h3 class="wf-h">${t("wf.pid.h")}</h3>
-      <p class="wf-p">${t("wf.pid.p")}</p>
+      <div class="wf-page-head">
+        <div>
+          <h3 class="wf-h">${t("wf.pid.h")}</h3>
+          <p class="wf-p">${t("wf.pid.p")}</p>
+        </div>
+        <div class="wf-card-actions">
+          <button class="ok" id="wf-pid-apply">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>${t("wf.apply")}</span>
+          </button>
+          <button id="wf-pid-read">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>${t("wf.pid.read")}</span>
+          </button>
+          <button class="danger" id="wf-pid-save" data-confirm="conf write">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h8l2 2v8H3V3zM5 3v4h6V3M5 13v-4h6v4" stroke-linejoin="round"/></svg>
+            <span>${t("wf.pid.save_flash")}</span>
+          </button>
+          <span id="wf-pid-dirty-badge" class="dirty-notice" style="display:none;">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><circle cx="8" cy="8" r="7" opacity="0.2"/><circle cx="8" cy="8" r="4"/></svg>
+            <span>${t("wf.pid.dirty")}</span>
+          </span>
+          <span class="wf-badge">${t("wf.pid.watch_scope")}</span>
+        </div>
+      </div>
 
       <!-- 1. 电流环整定与保护限幅 -->
       <div class="wf-card">
@@ -1214,32 +1237,7 @@ export class WorkflowWizard {
           </div>
         </div>
       </div>
-
-      <!-- 操作工具栏与持久化按钮 -->
-      <div class="wf-card" style="padding:14px 18px">
-        <div class="wf-card-head">
-          <div class="wf-card-actions">
-            <button class="ok" id="wf-pid-apply">
-              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span>${t("wf.apply")}</span>
-            </button>
-            <button id="wf-pid-read">
-              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span>${t("wf.pid.read")}</span>
-            </button>
-            <button class="danger" id="wf-pid-save" data-confirm="conf write">
-              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h8l2 2v8H3V3zM5 3v4h6V3M5 13v-4h6v4" stroke-linejoin="round"/></svg>
-              <span>${t("wf.pid.save_flash")}</span>
-            </button>
-            <span id="wf-pid-dirty-badge" class="dirty-notice" style="display:none;">
-              <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><circle cx="8" cy="8" r="7" opacity="0.2"/><circle cx="8" cy="8" r="4"/></svg>
-              <span>${t("wf.pid.dirty")}</span>
-            </span>
-          </div>
-          <span class="wf-badge">${t("wf.pid.watch_scope")}</span>
-        </div>
-        <p class="wf-note" style="margin-top:10px">${t("wf.pid.note")}</p>
-      </div>`;
+      <p class="wf-note">${t("wf.pid.note")}</p>`;
   }
 
   _htmlRun() {
