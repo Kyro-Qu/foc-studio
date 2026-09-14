@@ -26,6 +26,14 @@
         </div>
 
         <div class="header-controls">
+          <div class="serial-btn-group">
+            <button id="btn-select-port" class="btn-select-port" data-i18n="serial.select" title="选择串口设备">选择串口</button>
+            <button id="btn-toggle-port" class="btn-toggle-port" data-i18n="serial.open" title="打开或关闭串口">打开串口</button>
+            <button id="btn-connect" hidden></button>
+            <button id="btn-reconnect" hidden></button>
+            <button id="btn-disconnect" hidden></button>
+          </div>
+
           <div class="field field-baud">
             <label for="baud" data-i18n="baud">波特率</label>
             <select id="baud">
@@ -50,24 +58,6 @@
           </div>
 
           <div class="btn-group">
-            <button id="btn-connect" class="btn-primary" data-i18n="connect">
-              <svg class="btn-ico" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M4 8h8M9 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span>连接</span>
-            </button>
-            <button id="btn-reconnect" data-i18n="reconnect" title="复用上次端口" hidden>
-              <svg class="btn-ico" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M2.5 8a5.5 5.5 0 1 0 1.2-3.4M2.5 3v3h3" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span>重连</span>
-            </button>
-            <button id="btn-disconnect" disabled data-i18n="disconnect">
-              <svg class="btn-ico" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M3 3l10 10M13 3L3 13" stroke-linecap="round"/>
-              </svg>
-              <span>断开</span>
-            </button>
             <button id="btn-estop" class="danger" title="立即 disable" data-i18n="estop">
               <svg class="btn-ico" viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
                 <polygon points="8,1 15,8 8,15 1,8"/>
@@ -398,6 +388,6 @@
       </footer>
     </div>
 
-    <script type="module" src="js/main.js?v=0.4.4"></script>
+    <script type="module" src="js/main.js?v=0.4.5"></script>
   </body>
 </html>

@@ -62,6 +62,20 @@ export class SerialTransport {
   }
 
   /**
+   * 独立请求选择串口设备，保存在 _lastPort 供后续打开
+   */
+  async selectPort() {
+    if (!SerialTransport.supported()) {
+      const err = new Error("当前浏览器不支持 Web Serial，请使用 Chrome / Edge");
+      this._setState(SerialState.ERROR, err);
+      throw err;
+    }
+    const port = await navigator.serial.requestPort();
+    this._lastPort = port;
+    return port;
+  }
+
+  /**
    * @param {number} baudRate
    */
   async connect(baudRate = 6500000) {

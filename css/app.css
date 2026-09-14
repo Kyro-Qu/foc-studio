@@ -125,6 +125,64 @@ header {
   justify-content: flex-end;
 }
 
+.serial-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-select-port {
+  background: #505862;
+  border: 1px solid #606a77;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.btn-select-port:hover:not(:disabled) {
+  background: #5c6673;
+  border-color: #7b8796;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.btn-toggle-port {
+  background: #1d72f2;
+  border: 1px solid #1d72f2;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(29, 114, 242, 0.25);
+}
+
+.btn-toggle-port:hover:not(:disabled) {
+  background: #2563eb;
+  border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.btn-toggle-port.is-open {
+  background: #1d72f2;
+  border-color: #1d72f2;
+  box-shadow: 0 0 0 3.5px rgba(56, 189, 248, 0.48), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-toggle-port.is-open:hover:not(:disabled) {
+  background: #2563eb;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3.5px rgba(56, 189, 248, 0.65), 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
 .btn-group {
   display: flex;
   align-items: center;

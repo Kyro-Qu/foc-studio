@@ -288,8 +288,20 @@ function setStatusKey(key, cls) {
 }
 
 function applyModeUI() {
-  $("btn-connect").disabled = state.mode !== "serial";
-  $("btn-disconnect").disabled = state.mode !== "serial" || serial.state === SerialState.DISCONNECTED;
+  const isConn = serial.isConnected();
+  const toggleBtn = $("btn-toggle-port");
+  if (toggleBtn) {
+    toggleBtn.textContent = isConn ? t("serial.close") : t("serial.open");
+    toggleBtn.title = isConn ? t("serial.close") : t("serial.open");
+    toggleBtn.classList.toggle("is-open", isConn);
+    toggleBtn.disabled = state.mode !== "serial";
+  }
+  const selectBtn = $("btn-select-port");
+  if (selectBtn) {
+    selectBtn.disabled = state.mode !== "serial";
+  }
+  if ($("btn-connect")) $("btn-connect").disabled = state.mode !== "serial";
+  if ($("btn-disconnect")) $("btn-disconnect").disabled = state.mode !== "serial" || !isConn;
   $("baud").disabled = state.mode !== "serial";
   const baudC = $("baud-custom");
   if (baudC) baudC.disabled = state.mode !== "serial" || $("baud").value !== "custom";
@@ -669,7 +681,18 @@ $("baud")?.addEventListener("change", () => {
   }
 });
 
-$("btn-connect").addEventListener("click", async () => {
+$("btn-select-port")?.addEventListener("click", async () => {
+  try {
+    await serial.selectPort();
+    terminal.appendText("[sys] 串口已选定，点击「打开串口」连接\n", "sys");
+  } catch (e) {
+    if (e.name !== "NotFoundError" && !e.message?.includes("cancel")) {
+      terminal.appendText(`[sys] 选择串口失败: ${e.message || e}\n`, "err");
+    }
+  }
+});
+
+async function doConnect() {
   const baud = getBaudRate();
   try {
     setConnStatus(t("status.connecting"), "busy");
@@ -694,7 +717,24 @@ $("btn-connect").addEventListener("click", async () => {
     terminal.appendText(`[sys] connect failed: ${e.message || e}\n`, "err");
     applyModeUI();
   }
+}
+
+async function doDisconnect() {
+  await serial.disconnect();
+  setConnStatus(t("status.off"), "off");
+  terminal.appendText("[sys] disconnected\n", "sys");
+  applyModeUI();
+}
+
+$("btn-toggle-port")?.addEventListener("click", async () => {
+  if (serial.isConnected()) {
+    await doDisconnect();
+  } else {
+    await doConnect();
+  }
 });
+
+$("btn-connect")?.addEventListener("click", doConnect);
 
 $("btn-reconnect")?.addEventListener("click", async () => {
   try {
@@ -719,12 +759,7 @@ $("btn-reconnect")?.addEventListener("click", async () => {
   }
 });
 
-$("btn-disconnect").addEventListener("click", async () => {
-  await serial.disconnect();
-  setConnStatus(t("status.off"), "off");
-  terminal.appendText("[sys] disconnected\n", "sys");
-  applyModeUI();
-});
+$("btn-disconnect")?.addEventListener("click", doDisconnect);
 
 $("btn-estop").addEventListener("click", async () => {
   try {
@@ -1251,6 +1286,7 @@ try {
       renderConsole();
       const rateNow = Number($("sim-rate")?.value) || 1000;
       if (state.mode === "sim") setStatusKey(rateNow >= 5000 ? "status.stress" : "status.sim", "sim");
+      applyModeUI();
       terminal.appendText(`[sys] lang → ${getLang()}\n`, "sys");
     });
   }
