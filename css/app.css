@@ -680,6 +680,22 @@ button.ghost:hover {
 }
 
 /* ===== Safety form grid ===== */
+.safety-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.safety-head .wf-section {
+  margin: 0;
+}
+
+.safety-head button {
+  flex-shrink: 0;
+}
+
 .safety-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

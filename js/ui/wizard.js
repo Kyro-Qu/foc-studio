@@ -750,7 +750,13 @@ export class WorkflowWizard {
       </section>
 
       <section class="wf-card">
-        <h4 class="wf-section">${t("wf.safety.h")}</h4>
+        <div class="safety-head">
+          <h4 class="wf-section">${t("wf.safety.h")}</h4>
+          <button class="ok" id="wf-limit-set">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>${t("wf.apply")}</span>
+          </button>
+        </div>
         <div class="safety-grid">
           <div class="safety-item">
             <label for="wf-limit">${t("wf.safety.limit")}</label>
@@ -758,10 +764,6 @@ export class WorkflowWizard {
               <input type="number" id="wf-limit" step="0.1" min="0.1" max="40" value="5.2" />
               <span class="unit">A</span>
             </div>
-            <button class="ok" id="wf-limit-set">
-              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span>${t("wf.apply")}</span>
-            </button>
           </div>
           <div class="safety-item">
             <label for="wf-trip">${t("wf.safety.trip")}</label>
