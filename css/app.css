@@ -1028,12 +1028,11 @@ button.ghost:hover {
 }
 
 .form-row-trail {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 88px 36px;
   align-items: center;
-  gap: 8px;
+  column-gap: 8px;
   flex-shrink: 0;
-  min-width: 148px;
-  justify-content: flex-end;
 }
 
 .form-row-trail input[type="number"],
@@ -1041,6 +1040,18 @@ button.ghost:hover {
   width: 88px;
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.form-row-trail .form-unit {
+  width: 36px;
+  text-align: left;
+}
+
+/* select 行：占满 trail，不占单位格 */
+.form-row-trail select {
+  grid-column: 1 / -1;
+  min-width: 120px;
+  justify-self: end;
 }
 
 /* 隐藏数字微调箭头，保持宽度一致、更像 Apple */
@@ -1055,16 +1066,10 @@ button.ghost:hover {
   appearance: textfield;
 }
 
-.form-row-trail select {
-  min-width: 120px;
-}
-
 .form-unit {
   font-family: var(--mono);
   font-size: 12px;
   color: var(--text-dim);
-  min-width: 28px;
-  text-align: left;
 }
 
 .form-row .wf-badge {

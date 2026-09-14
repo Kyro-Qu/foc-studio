@@ -918,7 +918,7 @@ export class WorkflowWizard {
         <label for="${id}">${label}</label>
         <div class="form-row-trail">
           <input type="number" id="${id}" step="${step}" value="${val}" />
-          ${unit ? `<span class="form-unit">${unit}</span>` : ""}
+          <span class="form-unit">${unit || ""}</span>
         </div>
       </div>`;
     return `
