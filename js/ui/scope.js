@@ -581,7 +581,7 @@ export class Scope {
     const yToPx = (v) => area.y + area.h * (1 - (v - yMin) / (yMax - yMin));
 
     // 网格
-    ctx.strokeStyle = "#21262d";
+    ctx.strokeStyle = "#243044";
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let i = 0; i <= 8; i++) {
@@ -596,7 +596,7 @@ export class Scope {
     }
     ctx.stroke();
 
-    ctx.fillStyle = "#8b949e";
+    ctx.fillStyle = "#9aa8bd";
     ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
@@ -737,7 +737,7 @@ export class Scope {
       }
     }
 
-    ctx.strokeStyle = "#30363d";
+    ctx.strokeStyle = "#2f384c";
     ctx.strokeRect(area.x, area.y, area.w, area.h);
 
     if (this.paused) {

@@ -90,7 +90,7 @@ export class Gauge {
     const a1 = Math.PI * 2.25;
     ctx.lineWidth = 10;
     ctx.lineCap = "round";
-    ctx.strokeStyle = "#21262d";
+    ctx.strokeStyle = "#2a3448";
     ctx.beginPath();
     ctx.arc(cx, cy, r, a0, a1);
     ctx.stroke();
@@ -112,7 +112,7 @@ export class Gauge {
     }
 
     // 刻度
-    ctx.fillStyle = "#8b949e";
+    ctx.fillStyle = "#9aa8bd";
     ctx.font = "10px ui-monospace, monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -142,14 +142,14 @@ export class Gauge {
     }
 
     // 中心读数
-    ctx.fillStyle = Number.isFinite(this.value) ? "#e6edf3" : "#8b949e";
+    ctx.fillStyle = Number.isFinite(this.value) ? "#eef2f8" : "#9aa8bd";
     ctx.font = "600 18px ui-monospace, monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const text = Number.isFinite(this.value) ? this.value.toFixed(this.digits) : "—";
     ctx.fillText(text, cx, cy + r * 0.35);
 
-    ctx.fillStyle = "#8b949e";
+    ctx.fillStyle = "#9aa8bd";
     ctx.font = "11px system-ui, sans-serif";
     ctx.fillText(this.unit ? `${this.label} · ${this.unit}` : this.label, cx, cy + r * 0.35 + 20);
   }

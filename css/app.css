@@ -3,6 +3,7 @@
 
 :root {
   /* Soft slate-dark (not pure black) — lifted blue-gray layers */
+  color-scheme: dark;
   --bg: #12161f;
   --bg-grouped: #171c28;
   --bg-panel: #1d2434;
@@ -218,7 +219,7 @@ button.small {
   font-weight: 600;
   border: 1px solid var(--border);
   color: var(--text-dim);
-  background: var(--bg);
+  background: var(--bg-elev);
   display: inline-flex;
   align-items: center;
   gap: 6px;

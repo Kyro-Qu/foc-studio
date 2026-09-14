@@ -271,7 +271,7 @@ export class ExpertPanel {
     // 背景与网格
     ctx.fillStyle = "#151a26";
     ctx.fillRect(0, 0, w, h);
-    ctx.strokeStyle = "#1a2332";
+    ctx.strokeStyle = "#243044";
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let x = 0; x < w; x += 80) {
@@ -399,7 +399,7 @@ export class ExpertPanel {
     ctx.fillRect(0, 0, w, h);
 
     // 网格与 0A 基准线
-    ctx.strokeStyle = "#1a2332";
+    ctx.strokeStyle = "#243044";
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let deg = 0; deg <= 360; deg += 45) {
