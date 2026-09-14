@@ -99,7 +99,10 @@ export class SerialTransport {
     this._setState(SerialState.CONNECTING);
     const gen = ++this._gen;
     try {
-      const port = this._lastPort || (await navigator.serial.requestPort());
+      let port = this._lastPort;
+      if (!port) {
+        port = await navigator.serial.requestPort();
+      }
       if (gen !== this._gen) {
         try {
           await port.close();
@@ -108,13 +111,31 @@ export class SerialTransport {
         }
         throw new Error("connect cancelled");
       }
-      await port.open({
-        baudRate,
-        dataBits: 8,
-        stopBits: 1,
-        parity: "none",
-        flowControl: "none",
-      });
+      try {
+        await port.open({
+          baudRate,
+          dataBits: 8,
+          stopBits: 1,
+          parity: "none",
+          flowControl: "none",
+        });
+      } catch (openErr) {
+        // 如果旧缓存端口因为物理拔插失效无法打开，自动清除缓存并重新弹窗挑选
+        if (this._lastPort) {
+          this._lastPort = null;
+          port = await navigator.serial.requestPort();
+          if (gen !== this._gen) throw new Error("connect cancelled");
+          await port.open({
+            baudRate,
+            dataBits: 8,
+            stopBits: 1,
+            parity: "none",
+            flowControl: "none",
+          });
+        } else {
+          throw openErr;
+        }
+      }
       if (gen !== this._gen) {
         try {
           await port.close();
@@ -130,6 +151,7 @@ export class SerialTransport {
       void this._readLoop(gen);
     } catch (e) {
       this.port = null;
+      this._lastPort = null;
       this._setState(SerialState.DISCONNECTED, e);
       throw e;
     }
