@@ -305,7 +305,8 @@ button.small {
 /* ===== Body / sidebar ===== */
 .body {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  /* 容纳最长项「⚡ 高级算法」不换行，两侧与边框等距 */
+  grid-template-columns: 140px 1fr;
   min-height: 0;
   min-width: 0;
   background: var(--bg-grouped);
@@ -331,6 +332,7 @@ nav {
   align-items: center;
   gap: 10px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .nav-btn .ico {
@@ -1724,6 +1726,8 @@ footer strong {
   border-radius: 8px;
   position: relative;
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .sidebar-toggle-btn .ico {
