@@ -269,7 +269,7 @@ export class ExpertPanel {
     if (emptyEl) emptyEl.hidden = true;
 
     // 背景与网格
-    ctx.fillStyle = "#070a0e";
+    ctx.fillStyle = "#151a26";
     ctx.fillRect(0, 0, w, h);
     ctx.strokeStyle = "#1a2332";
     ctx.lineWidth = 1;
@@ -395,7 +395,7 @@ export class ExpertPanel {
     const h = canvas.height;
 
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "#070a0e";
+    ctx.fillStyle = "#151a26";
     ctx.fillRect(0, 0, w, h);
 
     // 网格与 0A 基准线

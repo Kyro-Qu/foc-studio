@@ -2,25 +2,27 @@
    Tokens follow systemBackground / secondaryBackground / separator / label / systemBlue */
 
 :root {
-  --bg: #000000;
-  --bg-grouped: #0d0d0f;
-  --bg-panel: #1c1c1e;
-  --bg-elev: #2c2c2e;
-  --bg-hover: #3a3a3c;
-  --border: #38383a;
-  --border-soft: #2c2c2e;
-  --text: #ffffff;
-  --text-dim: #98989d;
-  --text-faint: #636366;
-  --accent: #0a84ff;
-  --accent-soft: rgba(10, 132, 255, 0.18);
-  --ok: #30d158;
-  --warn: #ff9f0a;
-  --err: #ff453a;
-  --sim: #bf5af2;
+  /* Soft slate-dark (not pure black) — lifted blue-gray layers */
+  --bg: #12161f;
+  --bg-grouped: #171c28;
+  --bg-panel: #1d2434;
+  --bg-elev: #273147;
+  --bg-hover: #324058;
+  --border: #334056;
+  --border-soft: #273142;
+  --text: #eef2f8;
+  --text-dim: #9aa8bd;
+  --text-faint: #6b7a90;
+  --accent: #4da3ff;
+  --accent-soft: rgba(77, 163, 255, 0.16);
+  --ok: #3dd68c;
+  --warn: #f5a524;
+  --err: #ff6b6b;
+  --sim: #c084fc;
+  --canvas-bg: #151a26;
   --radius: 12px;
   --radius-sm: 8px;
-  --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
   --transition: 0.16s cubic-bezier(0.4, 0, 0.2, 1);
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC",
     "Microsoft YaHei", system-ui, sans-serif;
@@ -36,6 +38,10 @@ body {
   margin: 0;
   height: 100%;
   background: var(--bg);
+  background-image:
+    radial-gradient(1200px 640px at 8% -12%, rgba(77, 163, 255, 0.12), transparent 55%),
+    radial-gradient(900px 520px at 92% -4%, rgba(120, 140, 255, 0.08), transparent 50%),
+    radial-gradient(700px 420px at 50% 110%, rgba(61, 214, 140, 0.04), transparent 55%);
   color: var(--text);
   font-family: var(--font);
   font-size: 13px;
@@ -56,8 +62,8 @@ header {
   justify-content: space-between;
   gap: 12px;
   padding: 8px 14px;
-  background: rgba(28, 28, 30, 0.92);
-  backdrop-filter: saturate(140%) blur(12px);
+  background: rgba(29, 36, 52, 0.82);
+  backdrop-filter: saturate(160%) blur(18px);
   border-bottom: 1px solid var(--border);
   min-height: 48px;
   flex-wrap: nowrap;
@@ -246,7 +252,7 @@ button.small {
 }
 
 nav {
-  background: rgba(28, 28, 30, 0.8);
+  background: rgba(23, 28, 40, 0.88);
   border-right: 1px solid var(--border);
   padding: 12px 10px;
   display: flex;
@@ -579,7 +585,7 @@ main {
 .scope-canvas-wrap {
   flex: 1;
   min-height: 280px;
-  background: #000;
+  background: var(--canvas-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -703,7 +709,7 @@ main {
 #term-log {
   flex: 1;
   min-height: 240px;
-  background: #000;
+  background: var(--canvas-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px;
