@@ -53,13 +53,33 @@ body {
 header {
   display: flex;
   align-items: center;
-  gap: 8px 12px;
+  justify-content: space-between;
+  gap: 12px;
   padding: 8px 14px;
   background: rgba(28, 28, 30, 0.92);
   backdrop-filter: saturate(140%) blur(12px);
   border-bottom: 1px solid var(--border);
+  min-height: 48px;
+  flex-wrap: nowrap;
+}
+
+.header-controls {
+  display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
-  min-height: 46px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.serial-btn-group,
+.btn-group {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
 }
 
 .brand {
@@ -68,8 +88,9 @@ header {
   letter-spacing: -0.01em;
   flex-shrink: 0;
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
 }
 
 .brand span {
@@ -973,6 +994,9 @@ footer strong {
 
 /* responsive */
 @media (max-width: 900px) {
+  header {
+    flex-wrap: wrap;
+  }
   .body {
     grid-template-columns: 1fr;
   }
