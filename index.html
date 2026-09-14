@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FOC Studio</title>
-    <link rel="stylesheet" href="css/app.css?v=0.4.12" />
+    <link rel="stylesheet" href="css/app.css?v=0.4.13" />
   </head>
   <body>
     <div id="app">
@@ -22,18 +22,18 @@
             </defs>
           </svg>
           <span class="brand-name">FOC <span>Studio</span></span>
-          <small>v0.4</small>
         </div>
 
-        <div class="header-controls">
-          <div class="serial-btn-group">
-            <button id="btn-select-port" class="btn-select-port" data-i18n="serial.select" title="选择串口设备">选择串口</button>
-            <button id="btn-toggle-port" class="btn-toggle-port" data-i18n="serial.open" title="打开或关闭串口">打开串口</button>
+        <div class="header-toolbar" role="toolbar" aria-label="Device toolbar">
+          <div class="tb-cluster">
+            <button id="btn-select-port" class="tb-btn" data-i18n="serial.select" title="选择串口设备">选择串口</button>
+            <button id="btn-toggle-port" class="tb-btn primary" data-i18n="serial.open" title="打开或关闭串口">打开串口</button>
           </div>
 
-          <div class="field field-baud">
-            <label for="baud" data-i18n="baud">波特率</label>
-            <select id="baud">
+          <div class="tb-sep" aria-hidden="true"></div>
+
+          <div class="tb-cluster">
+            <select id="baud" class="tb-select" title="波特率" aria-label="波特率">
               <option value="9600">9600</option>
               <option value="19200">19200</option>
               <option value="38400">38400</option>
@@ -48,32 +48,34 @@
               <option value="3000000">3000000</option>
               <option value="4000000">4000000</option>
               <option value="6000000">6000000</option>
-              <option value="6500000" selected>6500000</option>
+              <option value="6500000" selected>6.5M</option>
               <option value="custom" data-i18n="baud.custom">自定义…</option>
             </select>
-            <input type="number" id="baud-custom" min="300" max="12000000" step="1" placeholder="e.g. 921600" style="width: 100px" hidden />
+            <input type="number" id="baud-custom" class="tb-input" min="300" max="12000000" step="1" placeholder="波特率" style="width: 88px" hidden />
           </div>
 
-          <div class="btn-group">
-            <button id="btn-estop" class="danger" title="立即 disable" data-i18n="estop">
-              <svg class="btn-ico" viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
+          <div class="tb-sep" aria-hidden="true"></div>
+
+          <div class="tb-cluster">
+            <button id="btn-estop" class="tb-btn danger" title="立即 disable" data-i18n="estop">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
                 <polygon points="8,1 15,8 8,15 1,8"/>
-                <path d="M8 5v4M8 11h.01" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
               </svg>
               <span>急停</span>
             </button>
           </div>
 
-          <div class="field field-lang">
-            <label for="lang-select" data-i18n="lang">语言</label>
-            <select id="lang-select" title="Language">
+          <div class="tb-sep" aria-hidden="true"></div>
+
+          <div class="tb-cluster">
+            <select id="lang-select" class="tb-select" title="Language" aria-label="语言">
               <option value="zh" selected>中文</option>
-              <option value="en">English</option>
+              <option value="en">EN</option>
             </select>
           </div>
-
-          <div id="conn-status" class="status-pill off" data-i18n="status.off">未连接</div>
         </div>
+
+        <div id="conn-status" class="status-pill off" data-i18n="status.off">未连接</div>
       </header>
 
       <div class="body">

@@ -750,7 +750,7 @@ export class WorkflowWizard {
       </section>
 
       <section class="wf-card">
-        <div class="safety-head wf-card-head">
+        <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.safety.h")}</h4>
           <div class="wf-card-actions">
             <button class="ok" id="wf-limit-set">
@@ -759,36 +759,34 @@ export class WorkflowWizard {
             </button>
           </div>
         </div>
-        <div class="safety-grid">
-          <div class="safety-item">
+        <div class="form-list">
+          <div class="form-row">
             <label for="wf-limit">${t("wf.safety.limit")}</label>
-            <div class="safety-input">
+            <div class="form-row-trail">
               <input type="number" id="wf-limit" step="0.1" min="0.1" max="40" value="5.2" />
-              <span class="unit">A</span>
+              <span class="form-unit">A</span>
             </div>
           </div>
-          <div class="safety-item">
+          <div class="form-row">
             <label for="wf-trip">${t("wf.safety.trip")}</label>
-            <div class="safety-input">
+            <div class="form-row-trail">
               <input type="number" id="wf-trip" step="0.1" min="0.1" max="50" value="6.6" />
-              <span class="unit">A</span>
+              <span class="form-unit">A</span>
             </div>
-            <span class="wf-badge">${t("wf.needs_fw")}</span>
           </div>
-          <div class="safety-item">
+          <div class="form-row">
             <label for="wf-uv">${t("wf.safety.uv")}</label>
-            <div class="safety-input">
+            <div class="form-row-trail">
               <input type="number" id="wf-uv" step="0.1" min="0" max="50" value="10" />
-              <span class="unit">V</span>
+              <span class="form-unit">V</span>
             </div>
           </div>
-          <div class="safety-item">
+          <div class="form-row">
             <label for="wf-ov">${t("wf.safety.ov")}</label>
-            <div class="safety-input">
+            <div class="form-row-trail">
               <input type="number" id="wf-ov" step="0.1" min="0" max="60" value="30" />
-              <span class="unit">V</span>
+              <span class="form-unit">V</span>
             </div>
-            <span class="wf-badge">${t("wf.needs_fw")}</span>
           </div>
         </div>
         <p class="wf-note">${t("wf.safety.note")}</p>
@@ -960,7 +958,7 @@ export class WorkflowWizard {
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.motor.auto")}</h4>
         </div>
-        <div class="wf-row">
+        <div class="action-grid" style="grid-template-columns: repeat(5, minmax(0, 1fr));">
           <button data-cmd="ident rs">${t("ident.rs")}</button>
           <button class="danger" data-cmd="ident full" data-confirm="ident full">${t("ident.full")}</button>
           <button data-cmd="ident show">${t("ident.show")}</button>
@@ -1029,20 +1027,24 @@ export class WorkflowWizard {
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>${t("wf.apply")}</span>
             </button>
-            <span class="wf-badge">${t("wf.needs_fw")}</span>
           </div>
         </div>
-        <div class="wf-row">
-          <label>${t("wf.encoder.kind")}</label>
-          <select id="wf-enc-kind">
-            <option value="abz">${t("wf.encoder.abz")}</option>
-            <option value="sensorless">${t("wf.encoder.sensorless")}</option>
-          </select>
-          <span class="wf-badge">${t("wf.encoder.kind_note")}</span>
-        </div>
-        <div class="wf-row">
-          <label>CPR</label>
-          <input type="number" id="wf-enc-cpr" step="1" min="16" max="65536" value="2048" style="width:90px" />
+        <div class="form-list">
+          <div class="form-row">
+            <label for="wf-enc-kind">${t("wf.encoder.kind")}</label>
+            <div class="form-row-trail">
+              <select id="wf-enc-kind">
+                <option value="abz">${t("wf.encoder.abz")}</option>
+                <option value="sensorless">${t("wf.encoder.sensorless")}</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="wf-enc-cpr">CPR</label>
+            <div class="form-row-trail">
+              <input type="number" id="wf-enc-cpr" step="1" min="16" max="65536" value="2048" />
+            </div>
+          </div>
         </div>
         <p class="wf-note">${t("wf.encoder.note")}</p>
       </section>
@@ -1051,7 +1053,7 @@ export class WorkflowWizard {
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.encoder.source")}</h4>
         </div>
-        <div class="wf-row">
+        <div class="action-grid" style="grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 480px;">
           <button class="ok" data-cmd="angle enc">${t("obs.enc")}</button>
           <button data-cmd="angle ol">${t("obs.ol")}</button>
           <button data-cmd="angle">${t("wf.encoder.query")}</button>
@@ -1063,13 +1065,11 @@ export class WorkflowWizard {
         <div class="wf-card-head">
           <h4 class="wf-section">${t("obs.title")}</h4>
         </div>
-        <div class="wf-row">
+        <div class="action-grid">
           <button data-cmd="feedback">${t("fb.status")}</button>
           <button data-cmd="feedback sensored">${t("fb.sensored")}</button>
           <button data-cmd="feedback sensorless">${t("fb.sensorless")}</button>
           <button data-cmd="feedback auto">${t("fb.auto")}</button>
-        </div>
-        <div class="wf-row">
           <button data-cmd="obs">${t("obs.query")}</button>
           <button data-cmd="obs 0">${t("obs.off")}</button>
           <button data-cmd="obs 1">${t("obs.on")}</button>
