@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FOC Studio</title>
-    <link rel="stylesheet" href="css/app.css?v=0.4.13" />
+    <link rel="stylesheet" href="css/app.css?v=0.4.14" />
   </head>
   <body>
     <div id="app">
@@ -284,39 +284,69 @@
             <div class="expert-layout">
               <!-- 1. 纯无感 7 状态机监控 -->
               <section class="wf-card expert-card">
-                <div class="expert-card-header">
-                  <h4 class="wf-section" style="margin:0" data-i18n="expert.sensorless.h">纯无感主控（Sensorless Primary）看板</h4>
-                  <div class="wf-row" style="margin:0">
-                    <button id="btn-sl-query" class="small">查询状态 (feedback)</button>
-                    <button id="btn-sl-mode" class="small ok">切为纯无感 (feedback sensorless)</button>
-                    <button id="btn-sl-auto" class="small">切为自动降级 (feedback auto)</button>
+                <div class="wf-card-head">
+                  <h4 class="wf-section" data-i18n="expert.sensorless.h">纯无感主控（Sensorless Primary）看板</h4>
+                  <div class="wf-card-actions">
+                    <button id="btn-sl-query" class="small">查询状态</button>
+                    <button id="btn-sl-mode" class="small ok">切为纯无感</button>
+                    <button id="btn-sl-auto" class="small">切为自动降级</button>
                   </div>
                 </div>
 
                 <div class="sl-fsm-bar" id="sl-fsm-steps">
-                  <div class="sl-step" data-step="if_start"><span class="step-idx">1</span><span class="step-name">IF_START</span><small>对齐 0.5A</small></div>
-                  <div class="sl-step" data-step="if_accel"><span class="step-idx">2</span><span class="step-name">IF_ACCEL</span><small>拖动爬坡</small></div>
-                  <div class="sl-step" data-step="obs_locking"><span class="step-idx">3</span><span class="step-name">LOCKING</span><small>置信度门禁</small></div>
-                  <div class="sl-step" data-step="blend"><span class="step-idx">4</span><span class="step-name">BLEND</span><small>动基准过渡</small></div>
-                  <div class="sl-step" data-step="run"><span class="step-idx">5</span><span class="step-name">RUN</span><small>纯无感闭环</small></div>
+                  <div class="sl-step" data-step="if_start">
+                    <span class="step-idx">1</span>
+                    <div class="step-body">
+                      <span class="step-name">IF_START</span>
+                      <small>对齐 0.5A</small>
+                    </div>
+                  </div>
+                  <div class="sl-step" data-step="if_accel">
+                    <span class="step-idx">2</span>
+                    <div class="step-body">
+                      <span class="step-name">IF_ACCEL</span>
+                      <small>拖动爬坡</small>
+                    </div>
+                  </div>
+                  <div class="sl-step" data-step="obs_locking">
+                    <span class="step-idx">3</span>
+                    <div class="step-body">
+                      <span class="step-name">LOCKING</span>
+                      <small>置信度门禁</small>
+                    </div>
+                  </div>
+                  <div class="sl-step" data-step="blend">
+                    <span class="step-idx">4</span>
+                    <div class="step-body">
+                      <span class="step-name">BLEND</span>
+                      <small>动基准过渡</small>
+                    </div>
+                  </div>
+                  <div class="sl-step" data-step="run">
+                    <span class="step-idx">5</span>
+                    <div class="step-body">
+                      <span class="step-name">RUN</span>
+                      <small>纯无感闭环</small>
+                    </div>
+                  </div>
                 </div>
 
-                <div class="expert-metrics-grid">
-                  <div class="expert-metric">
-                    <span class="metric-lbl">观测器锁定 (obs_lock)</span>
+                <div class="metric-tiles">
+                  <div class="metric-tile">
+                    <span class="metric-lbl">观测器锁定</span>
                     <strong id="sl-val-lock" class="metric-val">—</strong>
                   </div>
-                  <div class="expert-metric">
-                    <span class="metric-lbl">置信度 (conf_window)</span>
+                  <div class="metric-tile">
+                    <span class="metric-lbl">置信度</span>
                     <strong id="sl-val-conf" class="metric-val">— %</strong>
                     <div class="progress-bar-wrap"><div id="sl-bar-conf" class="progress-bar-fill" style="width:0%"></div></div>
                   </div>
-                  <div class="expert-metric">
-                    <span class="metric-lbl">动基准角差 (|delta|)</span>
+                  <div class="metric-tile">
+                    <span class="metric-lbl">动基准角差</span>
                     <strong id="sl-val-delta" class="metric-val">— °</strong>
                   </div>
-                  <div class="expert-metric">
-                    <span class="metric-lbl">开环拖动 / 观测转速</span>
+                  <div class="metric-tile">
+                    <span class="metric-lbl">开环 / 观测转速</span>
                     <strong id="sl-val-speeds" class="metric-val">— / — RPM</strong>
                   </div>
                 </div>

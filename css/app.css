@@ -517,8 +517,27 @@ main {
 
 .wf-board {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px 12px;
+}
+
+/* 12 块磁贴：6/4/3/2 列均可整除，不留空位 */
+@media (max-width: 1280px) {
+  .wf-board {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .wf-board {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .wf-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .wf-tile {
@@ -662,6 +681,48 @@ main {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 10px;
+}
+
+.wf-tuning-grid.cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.wf-tuning-grid.cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.wf-tuning-grid.cols-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .wf-tuning-grid.cols-5 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .wf-tuning-grid.cols-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .wf-tuning-grid.cols-2,
+  .wf-tuning-grid.cols-3,
+  .wf-tuning-grid.cols-5 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 双列表单（电机参数） */
+.form-list-2col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+}
+
+@media (max-width: 900px) {
+  .form-list-2col {
+    grid-template-columns: 1fr;
+  }
 }
 
 .wf-field {
@@ -1661,29 +1722,37 @@ footer strong {
 .scope-mini-hud {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 14px;
   align-items: center;
+  gap: 6px 8px;
+  padding: 8px 10px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 6px 10px;
 }
 
 .hud-item {
-  display: flex;
+  display: inline-flex;
   align-items: baseline;
   gap: 6px;
-  font-size: 12px;
+  padding: 4px 10px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  min-height: 28px;
 }
 
 .hud-label {
-  color: var(--text-dim);
   font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 500;
 }
 
 .hud-item strong {
   font-family: var(--mono);
   font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 .hud-fault-ok {
@@ -1710,6 +1779,7 @@ footer strong {
   margin-left: auto;
   font-size: 11px;
   padding: 4px 10px;
+  height: 28px;
 }
 
 .btn-wave-toggle.is-off {
@@ -1737,23 +1807,28 @@ footer strong {
 }
 
 .sl-fsm-bar {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 
+@media (max-width: 900px) {
+  .sl-fsm-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .sl-step {
-  flex: 1 1 100px;
-  min-width: 90px;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: var(--bg-grouped);
+  border: 1px solid var(--border-soft);
   border-radius: var(--radius-sm);
-  padding: 8px;
+  padding: 10px 12px;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 11px;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12px;
   color: var(--text-dim);
+  min-height: 56px;
 }
 
 .sl-step.active {
@@ -1767,37 +1842,84 @@ footer strong {
 }
 
 .step-idx {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-family: var(--mono);
-  font-size: 10px;
-  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.sl-step.active .step-idx {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .step-name {
   font-weight: 600;
+  font-size: 12px;
   color: inherit;
+  white-space: nowrap;
 }
 
-.expert-metrics-grid {
+.sl-step small {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.metric-tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.expert-metric {
+@media (max-width: 900px) {
+  .metric-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.metric-tile {
+  background: var(--bg-grouped);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  min-height: 72px;
 }
 
 .metric-lbl {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-dim);
 }
 
 .metric-val {
   font-family: var(--mono);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-tile .progress-bar-wrap {
+  margin-top: 2px;
 }
 
 .progress-bar-wrap {

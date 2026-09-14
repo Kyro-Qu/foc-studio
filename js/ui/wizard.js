@@ -913,10 +913,13 @@ export class WorkflowWizard {
   }
 
   _htmlMotor() {
-    const field = (id, label, unit, step, val) => `
-      <div class="wf-param">
-        <label for="${id}">${label}${unit ? ` <span class="tune-unit">${unit}</span>` : ""}</label>
-        <input type="number" id="${id}" step="${step}" value="${val}" />
+    const row = (id, label, unit, step, val) => `
+      <div class="form-row">
+        <label for="${id}">${label}</label>
+        <div class="form-row-trail">
+          <input type="number" id="${id}" step="${step}" value="${val}" />
+          ${unit ? `<span class="form-unit">${unit}</span>` : ""}
+        </div>
       </div>`;
     return `
       <h3 class="wf-h">${t("wf.motor.h")}</h3>
@@ -941,15 +944,19 @@ export class WorkflowWizard {
             <span class="wf-badge" id="wf-param-src">${t("wf.motor.manual")}</span>
           </div>
         </div>
-        <div class="wf-params">
-          ${field("wf-pp", t("wf.motor.pp"), "", "1", "7")}
-          ${field("wf-rs", t("wf.motor.rs"), "Ω", "0.0001", "0.1")}
-          ${field("wf-ls", t("wf.motor.ls"), "µH", "0.01", "20")}
-          ${field("wf-ld", t("wf.motor.ld"), "µH", "0.01", "")}
-          ${field("wf-lq", t("wf.motor.lq"), "µH", "0.01", "")}
-          ${field("wf-flux", t("wf.motor.flux"), "Wb", "0.0001", "")}
-          ${field("wf-maxrpm", t("wf.motor.maxrpm"), "rpm", "1", "12000")}
-          ${field("wf-limit2", t("wf.motor.limit"), "A", "0.1", "5.2")}
+        <div class="form-list-2col">
+          <div class="form-list">
+            ${row("wf-pp", t("wf.motor.pp"), "", "1", "7")}
+            ${row("wf-rs", t("wf.motor.rs"), "Ω", "0.0001", "0.1")}
+            ${row("wf-ls", t("wf.motor.ls"), "µH", "0.01", "20")}
+            ${row("wf-ld", t("wf.motor.ld"), "µH", "0.01", "")}
+          </div>
+          <div class="form-list">
+            ${row("wf-lq", t("wf.motor.lq"), "µH", "0.01", "")}
+            ${row("wf-flux", t("wf.motor.flux"), "Wb", "0.0001", "")}
+            ${row("wf-maxrpm", t("wf.motor.maxrpm"), "rpm", "1", "12000")}
+            ${row("wf-limit2", t("wf.motor.limit"), "A", "0.1", "5.2")}
+          </div>
         </div>
         <p class="wf-note">${t("wf.motor.params_note")}</p>
       </section>
@@ -1112,7 +1119,7 @@ export class WorkflowWizard {
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.pid.title_current")}</h4>
         </div>
-        <div class="wf-tuning-grid">
+        <div class="wf-tuning-grid cols-2">
           <div class="wf-field">
             <div class="wf-field-label">
               <span>${t("wf.pid.current_bw")}</span>
@@ -1137,7 +1144,7 @@ export class WorkflowWizard {
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.pid.title_vel")}</h4>
         </div>
-        <div class="wf-tuning-grid">
+        <div class="wf-tuning-grid cols-3">
           <div class="wf-field">
             <div class="wf-field-label">
               <span>${t("wf.pid.vel_kp")}</span>
@@ -1194,7 +1201,7 @@ export class WorkflowWizard {
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.pid.title_pos")}</h4>
         </div>
-        <div class="wf-tuning-grid">
+        <div class="wf-tuning-grid cols-5">
           <div class="wf-field">
             <div class="wf-field-label">
               <span>${t("wf.pid.pos_kp")}</span>
