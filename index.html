@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FOC Studio</title>
-    <link rel="stylesheet" href="css/app.css?v=0.4.9" />
+    <link rel="stylesheet" href="css/app.css?v=0.4.10" />
   </head>
   <body>
     <div id="app">
@@ -208,41 +208,50 @@
                     <span>Wave: OFF</span>
                   </button>
                 </div>
-                <div class="scope-toolbar">
-                  <label class="field">
-                    <span data-i18n="window">窗口</span>
-                    <select id="window-select">
-                      <option value="0.5">0.5s</option>
-                      <option value="1">1 s</option>
-                      <option value="5" selected>5 s</option>
-                      <option value="10">10 s</option>
-                      <option value="30">30 s</option>
-                    </select>
-                  </label>
-                  <button id="btn-pause" data-i18n="pause">暂停</button>
-                  <button id="btn-clear" data-i18n="clear">清屏</button>
-                  <button id="btn-clear-cursors" data-i18n="clear.cursors">清除游标</button>
-                  <button id="btn-png" data-i18n="png">PNG</button>
-                  <button id="btn-csv" data-i18n="csv">CSV</button>
-                  <label class="field">
-                    <input type="checkbox" id="chk-autoscale" checked /> <span data-i18n="auto">自动</span>
-                  </label>
-                  <label class="field">
-                    <span data-i18n="y">Y</span>
-                    <input type="number" id="y-min" value="-2" step="0.1" disabled style="width: 64px" />
-                    …
-                    <input type="number" id="y-max" value="2" step="0.1" disabled style="width: 64px" />
-                  </label>
+                <div class="scope-bar">
+                  <div class="scope-bar-group">
+                    <label class="field">
+                      <span data-i18n="window">窗口</span>
+                      <select id="window-select">
+                        <option value="0.5">0.5s</option>
+                        <option value="1">1 s</option>
+                        <option value="5" selected>5 s</option>
+                        <option value="10">10 s</option>
+                        <option value="30">30 s</option>
+                      </select>
+                    </label>
+                    <button id="btn-pause" data-i18n="pause">暂停</button>
+                    <button id="btn-clear" data-i18n="clear">清屏</button>
+                    <button id="btn-clear-cursors" class="ghost" data-i18n="clear.cursors">游标</button>
+                  </div>
+                  <div class="scope-bar-group">
+                    <button id="btn-png" class="ghost" data-i18n="png">PNG</button>
+                    <button id="btn-csv" class="ghost" data-i18n="csv">CSV</button>
+                  </div>
+                  <div class="scope-bar-group">
+                    <label class="field chip">
+                      <input type="checkbox" id="chk-autoscale" checked />
+                      <span data-i18n="auto">自动 Y</span>
+                    </label>
+                    <label class="field">
+                      <span data-i18n="y">Y</span>
+                      <input type="number" id="y-min" value="-2" step="0.1" disabled style="width: 56px" />
+                      <span class="dim">–</span>
+                      <input type="number" id="y-max" value="2" step="0.1" disabled style="width: 56px" />
+                    </label>
+                  </div>
                 </div>
-                <div class="scope-toolbar">
-                  <label class="field"><span data-i18n="trig">触发</span>
+                <div class="scope-bar scope-bar-trig">
+                  <span class="scope-bar-tag">触发</span>
+                  <label class="field">
                     <select id="trig-mode">
                       <option value="off">Off</option>
                       <option value="auto">Auto</option>
                       <option value="normal">Normal</option>
                     </select>
                   </label>
-                  <label class="field"><span data-i18n="src">源</span>
+                  <label class="field">
+                    <span data-i18n="src">源</span>
                     <select id="trig-src"></select>
                   </label>
                   <label class="field">
@@ -251,11 +260,12 @@
                       <option value="falling">Fall</option>
                     </select>
                   </label>
-                  <label class="field"><span data-i18n="level">电平</span>
-                    <input type="number" id="trig-level" value="0" step="0.1" style="width: 72px" />
+                  <label class="field">
+                    <span data-i18n="level">电平</span>
+                    <input type="number" id="trig-level" value="0" step="0.1" style="width: 64px" />
                   </label>
-                  <button id="btn-trig-arm" data-i18n="arm">武装</button>
-                  <button id="btn-trig-release" data-i18n="release">解除</button>
+                  <button id="btn-trig-arm" class="ok small" data-i18n="arm">武装</button>
+                  <button id="btn-trig-release" class="small" data-i18n="release">解除</button>
                 </div>
                 <div class="scope-canvas-wrap">
                   <canvas id="scope-canvas"></canvas>
@@ -358,10 +368,10 @@
           <section class="panel" id="panel-terminal">
             <div class="panel-title" data-i18n="panel.terminal.title">ASCII CLI（与遥测同一串口，自动解复用）</div>
             <div class="term-wrap">
-              <div class="term-opts">
-                <label><input type="checkbox" id="chk-autoscroll" checked /> <span data-i18n="term.autoscroll">自动滚动</span></label>
-                <label><input type="checkbox" id="chk-raw" /> <span data-i18n="term.raw">原始 RX</span></label>
-                <button id="btn-term-clear" data-i18n="clear">清屏</button>
+              <div class="term-bar">
+                <label class="chip"><input type="checkbox" id="chk-autoscroll" checked /> <span data-i18n="term.autoscroll">自动滚动</span></label>
+                <label class="chip"><input type="checkbox" id="chk-raw" /> <span data-i18n="term.raw">原始 RX</span></label>
+                <button id="btn-term-clear" class="ghost small" data-i18n="clear">清屏</button>
               </div>
               <div id="term-log"></div>
               <div class="term-input-row">

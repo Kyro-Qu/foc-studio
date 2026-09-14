@@ -751,25 +751,41 @@ export class WorkflowWizard {
 
       <section class="wf-card">
         <h4 class="wf-section">${t("wf.safety.h")}</h4>
-        <div class="wf-row">
-          <label>${t("wf.safety.limit")} (A)</label>
-          <input type="number" id="wf-limit" step="0.1" min="0.1" max="40" value="5.2" style="width:90px" />
-          <button class="ok" id="wf-limit-set">
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span>${t("wf.apply")}</span>
-          </button>
-        </div>
-        <div class="wf-row">
-          <label>${t("wf.safety.trip")} (A)</label>
-          <input type="number" id="wf-trip" step="0.1" min="0.1" max="50" value="6.6" style="width:90px" />
-          <span class="wf-badge">${t("wf.needs_fw")}</span>
-        </div>
-        <div class="wf-row">
-          <label>${t("wf.safety.uv")} (V)</label>
-          <input type="number" id="wf-uv" step="0.1" min="0" max="50" value="10" style="width:70px" />
-          <label>${t("wf.safety.ov")} (V)</label>
-          <input type="number" id="wf-ov" step="0.1" min="0" max="60" value="30" style="width:70px" />
-          <span class="wf-badge">${t("wf.needs_fw")}</span>
+        <div class="safety-grid">
+          <div class="safety-item">
+            <label for="wf-limit">${t("wf.safety.limit")}</label>
+            <div class="safety-input">
+              <input type="number" id="wf-limit" step="0.1" min="0.1" max="40" value="5.2" />
+              <span class="unit">A</span>
+            </div>
+            <button class="ok" id="wf-limit-set">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>${t("wf.apply")}</span>
+            </button>
+          </div>
+          <div class="safety-item">
+            <label for="wf-trip">${t("wf.safety.trip")}</label>
+            <div class="safety-input">
+              <input type="number" id="wf-trip" step="0.1" min="0.1" max="50" value="6.6" />
+              <span class="unit">A</span>
+            </div>
+            <span class="wf-badge">${t("wf.needs_fw")}</span>
+          </div>
+          <div class="safety-item">
+            <label for="wf-uv">${t("wf.safety.uv")}</label>
+            <div class="safety-input">
+              <input type="number" id="wf-uv" step="0.1" min="0" max="50" value="10" />
+              <span class="unit">V</span>
+            </div>
+          </div>
+          <div class="safety-item">
+            <label for="wf-ov">${t("wf.safety.ov")}</label>
+            <div class="safety-input">
+              <input type="number" id="wf-ov" step="0.1" min="0" max="60" value="30" />
+              <span class="unit">V</span>
+            </div>
+            <span class="wf-badge">${t("wf.needs_fw")}</span>
+          </div>
         </div>
         <p class="wf-note">${t("wf.safety.note")}</p>
       </section>`;
