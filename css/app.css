@@ -716,12 +716,17 @@ main {
 .form-list-2col {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 14px;
+  gap: 0 14px;
+}
+
+.form-list-2col .form-list {
+  border-radius: var(--radius-sm);
 }
 
 @media (max-width: 900px) {
   .form-list-2col {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 }
 
@@ -1027,19 +1032,39 @@ button.ghost:hover {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  min-width: 148px;
+  justify-content: flex-end;
+}
+
+.form-row-trail input[type="number"],
+.form-row-trail input[type="text"] {
+  width: 88px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 隐藏数字微调箭头，保持宽度一致、更像 Apple */
+.form-row-trail input[type="number"]::-webkit-outer-spin-button,
+.form-row-trail input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .form-row-trail input[type="number"] {
-  width: 72px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.form-row-trail select {
+  min-width: 120px;
 }
 
 .form-unit {
   font-family: var(--mono);
   font-size: 12px;
   color: var(--text-dim);
-  min-width: 14px;
+  min-width: 28px;
+  text-align: left;
 }
 
 .form-row .wf-badge {
