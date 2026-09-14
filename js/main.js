@@ -305,14 +305,6 @@ function applyModeUI() {
   $("baud").disabled = state.mode !== "serial";
   const baudC = $("baud-custom");
   if (baudC) baudC.disabled = state.mode !== "serial" || $("baud").value !== "custom";
-  const canRe =
-    state.mode === "serial" &&
-    serial.state !== SerialState.CONNECTED &&
-    serial.state !== SerialState.READING &&
-    serial.state !== SerialState.CONNECTING &&
-    serial.state !== SerialState.DISCONNECTING;
-  const rec = $("btn-reconnect");
-  if (rec) rec.hidden = !canRe;
   document.querySelectorAll('input[name="data-mode"]').forEach((r) => {
     r.checked = r.value === state.mode;
   });
