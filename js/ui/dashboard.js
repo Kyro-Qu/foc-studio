@@ -108,23 +108,30 @@ export class Dashboard {
     }
     mid.appendChild(gaugeWrap);
 
-    /* 控制滑条 */
+    /* 运行控制 — 模式卡片 + 目标 + 使能 */
     const ctrl = document.createElement("div");
     ctrl.className = "dash-ctrl";
     ctrl.innerHTML = `
-      <h3 class="dash-group-title">${t("dash.ctrl.title")}</h3>
-      <div class="dash-ctrl-row">
-        <label>${t("dash.ctrl.mode")}</label>
-        <select id="dash-mode">
-          <option value="vel">${t("mode.vel")}</option>
-          <option value="iq">${t("mode.iq")}</option>
-          <option value="vf">${t("mode.vf")}</option>
-          <option value="pos">${t("mode.pos")}</option>
-        </select>
-        <button class="small" id="dash-mode-send">${t("dash.ctrl.set")}</button>
+      <div class="dash-ctrl-head">
+        <h3 class="dash-group-title">${t("dash.ctrl.title")}</h3>
+        <span class="dash-mode-badge" id="dash-mode-badge">—</span>
       </div>
+      <div class="dash-mode-tabs" id="dash-mode-tabs" role="tablist">
+        ${[
+          { id: "vf", key: "mode.vf" },
+          { id: "iq", key: "mode.iq" },
+          { id: "vel", key: "mode.vel" },
+          { id: "pos", key: "mode.pos" },
+        ]
+          .map(
+            (m) =>
+              `<button type="button" class="dash-mode-tab" data-mode="${m.id}" role="tab">${t(m.key)}</button>`
+          )
+          .join("")}
+      </div>
+      <p class="dash-mode-desc" id="dash-mode-desc"></p>
       <div class="dash-ctrl-row" id="dash-target-row">
-        <label><span id="dash-target-label" class="dash-unit-tag">RPM</span></label>
+        <label>${t("dash.ctrl.target")} <span id="dash-target-label" class="dash-unit-tag">RPM</span></label>
         <div class="slider-wrap">
           <input type="range" id="dash-target-range" min="-8000" max="8000" step="10" value="0" />
           <span class="slider-zero" title="0" aria-hidden="true">
@@ -132,24 +139,27 @@ export class Dashboard {
             <span class="slider-zero-label">0</span>
           </span>
         </div>
-        <input type="number" id="dash-target-num" min="-8000" max="8000" step="10" value="0" style="width:90px" />
-        <button class="small" id="dash-target-send">${t("dash.ctrl.send")}</button>
+        <input type="number" id="dash-target-num" min="-8000" max="8000" step="10" value="0" style="width:96px" />
+        <button class="small primary" id="dash-target-send">${t("dash.ctrl.send")}</button>
       </div>
+      <div class="dash-ctrl-row dash-presets" id="dash-presets"></div>
       <div class="dash-ctrl-row" id="dash-vf-row" hidden>
         <label>Vq <span class="dash-unit-tag">V</span></label>
         <input type="number" id="dash-vq-num" min="0" max="12" step="0.1" value="0.5" style="width:80px" />
         <button class="small" id="dash-vq-send">${t("dash.ctrl.send")}</button>
+        <span class="dash-ctrl-note">${t("dash.ctrl.vf_note")}</span>
       </div>
-      <div class="dash-ctrl-row dash-ctrl-actions">
-        <button class="small ok" id="dash-enable">
+      <div class="dash-ctrl-actions">
+        <button class="ok" id="dash-mode-send">${t("dash.ctrl.set")}</button>
+        <button class="ok" id="dash-enable">
           <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><polygon points="4,3 13,8 4,13"/></svg>
           <span>${t("dash.ctrl.enable")}</span>
         </button>
-        <button class="small danger" id="dash-disable">
+        <button class="danger" id="dash-disable">
           <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="1.5"/></svg>
           <span>${t("dash.ctrl.disable")}</span>
         </button>
-        <button class="small" id="dash-fault">
+        <button id="dash-fault">
           <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11.5h.01"/></svg>
           <span>${t("wf.safety.fault")}</span>
         </button>
@@ -201,16 +211,24 @@ export class Dashboard {
   _wireCtrl() {
     const range = this.root.querySelector("#dash-target-range");
     const num = this.root.querySelector("#dash-target-num");
-    const modeSel = this.root.querySelector("#dash-mode");
+    const modeTabs = this.root.querySelector("#dash-mode-tabs");
     const targetLabel = this.root.querySelector("#dash-target-label");
     const targetRow = this.root.querySelector("#dash-target-row");
     const vfRow = this.root.querySelector("#dash-vf-row");
+    const presetBox = this.root.querySelector("#dash-presets");
+    const modeDesc = this.root.querySelector("#dash-mode-desc");
+    let mode = "vel";
+
+    const PRESETS = {
+      vel: [0, 300, 800, 1500, 3000, -300, -800, -1500],
+      iq: [0, 0.5, 1, 2, -0.5, -1, -2],
+      pos: [0, 1.57, 3.14, 6.28, -1.57, -3.14, -6.28],
+      vf: [0, 200, 500, 1000, -200, -500],
+    };
 
     const applyModeMeta = () => {
-      const id = modeSel?.value || "vel";
-      const mc = MODE_CONTROLS[id] || MODE_CONTROLS.vel;
-      // vf：滑条发 rpm，另发 vq；闭环：滑条发 target
-      const useRpm = id === "vf";
+      const mc = MODE_CONTROLS[mode] || MODE_CONTROLS.vel;
+      const useRpm = mode === "vf";
       const meta = useRpm
         ? { unit: "RPM", min: -8000, max: 8000, step: 10 }
         : mc.target || { unit: "RPM", min: -8000, max: 8000, step: 10 };
@@ -232,9 +250,39 @@ export class Dashboard {
         const frac = (0 - meta.min) / (meta.max - meta.min);
         zeroEl.style.left = `${(frac * 100).toFixed(2)}%`;
       }
+      if (modeDesc) modeDesc.textContent = t(`dash.mode.${mode}`);
+      modeTabs?.querySelectorAll(".dash-mode-tab").forEach((b) => {
+        const on = b.getAttribute("data-mode") === mode;
+        b.classList.toggle("active", on);
+        b.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      if (presetBox) {
+        presetBox.innerHTML = "";
+        const label = document.createElement("span");
+        label.className = "dash-presets-label";
+        label.textContent = t("dash.ctrl.presets");
+        presetBox.appendChild(label);
+        for (const v of PRESETS[mode] || []) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "small";
+          b.textContent = String(v);
+          b.addEventListener("click", () => {
+            if (num) num.value = String(v);
+            if (range) range.value = String(v);
+          });
+          presetBox.appendChild(b);
+        }
+      }
     };
+
+    modeTabs?.querySelectorAll(".dash-mode-tab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        mode = btn.getAttribute("data-mode") || "vel";
+        applyModeMeta();
+      });
+    });
     applyModeMeta();
-    if (modeSel) modeSel.addEventListener("change", applyModeMeta);
 
     if (range && num) {
       range.addEventListener("input", () => {
@@ -249,7 +297,6 @@ export class Dashboard {
       send.addEventListener("click", () => {
         const v = Number(num && num.value);
         if (!Number.isFinite(v) || !this.send) return;
-        const mode = modeSel?.value || "vel";
         const cmd = mode === "vf" ? `rpm ${v}` : `target ${v}`;
         Promise.resolve(this.send(cmd)).catch(() => {});
       });
@@ -265,8 +312,7 @@ export class Dashboard {
     const modeSend = this.root.querySelector("#dash-mode-send");
     if (modeSend) {
       modeSend.addEventListener("click", () => {
-        const m = modeSel?.value;
-        if (m && this.send) Promise.resolve(this.send(`mode ${m}`)).catch(() => {});
+        if (mode && this.send) Promise.resolve(this.send(`mode ${mode}`)).catch(() => {});
       });
     }
     const en = this.root.querySelector("#dash-enable");
@@ -323,13 +369,17 @@ export class Dashboard {
     };
 
     // 1. 故障展示：严格由 STATUS 帧驱动
+    const badge = this.root.querySelector("#dash-mode-badge");
     if (isStatusFresh) {
       const s = this._lastStatus;
       const hasFault = (s.motorFault !== 0) || (s.shuntFault !== 0);
       const faultDesc = hasFault ? `M:${s.motorFault} S:${s.shuntFault}` : "OK";
       setStrip("fault", faultDesc, hasFault);
+      const MODE_NAMES = [t("mode.vf"), t("mode.iq"), t("mode.vel"), t("mode.pos")];
+      if (badge) badge.textContent = MODE_NAMES[s.mode] || `mode ${s.mode}`;
     } else {
       setStrip("fault", "—", false);
+      if (badge) badge.textContent = "—";
     }
 
     // 2. 转速与电流：优先使用高频波形，若未订阅波形则平滑回退到 STATUS 低频估计值

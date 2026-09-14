@@ -801,8 +801,88 @@ main {
 
 .dash-mid {
   display: grid;
-  grid-template-columns: minmax(280px, 1.3fr) minmax(220px, 1fr);
+  grid-template-columns: minmax(260px, 1fr) minmax(300px, 1.15fr);
   gap: 12px;
+}
+
+.dash-ctrl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dash-mode-badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid rgba(77, 163, 255, 0.35);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.dash-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.dash-mode-tab {
+  padding: 8px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.dash-mode-tab:hover {
+  border-color: var(--text-faint);
+  color: var(--text);
+}
+
+.dash-mode-tab.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.dash-mode-desc {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.45;
+  min-height: 32px;
+}
+
+.dash-presets {
+  gap: 6px;
+}
+
+.dash-presets-label {
+  color: var(--text-faint);
+  font-size: 11px;
+  margin-right: 2px;
+}
+
+button.primary {
+  border-color: rgba(77, 163, 255, 0.55);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.dash-ctrl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dash-ctrl-actions button {
+  flex: 1 1 90px;
 }
 
 .dash-gauges {
@@ -843,6 +923,10 @@ main {
   align-items: center;
 }
 
+.dash-ctrl-row[hidden] {
+  display: none !important;
+}
+
 .dash-ctrl-row label {
   width: 56px;
   color: var(--text-dim);
@@ -852,10 +936,6 @@ main {
 .dash-ctrl-row input[type="range"] {
   flex: 1;
   min-width: 100px;
-}
-
-.dash-ctrl-actions button {
-  flex: 1;
 }
 
 .dash-ctrl-note {
