@@ -964,13 +964,17 @@ export class WorkflowWizard {
       <section class="wf-card">
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.motor.auto")}</h4>
+          <span id="wf-ident-status" class="wf-badge" style="display:none;"></span>
         </div>
-        <div class="action-grid" style="grid-template-columns: repeat(5, minmax(0, 1fr));">
-          <button data-cmd="ident rs">${t("ident.rs")}</button>
-          <button class="danger" data-cmd="ident full" data-confirm="ident full">${t("ident.full")}</button>
-          <button data-cmd="ident show">${t("ident.show")}</button>
-          <button class="danger" data-cmd="calib full" data-confirm="calib full">${t("wf.calib.full")}</button>
-          <button data-cmd="disable">${t("dash.ctrl.disable")}</button>
+        <div class="action-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+          <button id="btn-action-ident" class="danger">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8.5 1.5l-5 7h4l-1 6 6-8h-4l1.5-5" stroke-linejoin="round"/></svg>
+            <span>${t("ident.full")}</span>
+          </button>
+          <button id="btn-action-calib" class="danger">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/></svg>
+            <span>${t("wf.calib.full")}</span>
+          </button>
         </div>
         <p class="wf-note">${t("wf.calib.note")}</p>
       </section>`;
@@ -1017,8 +1021,130 @@ export class WorkflowWizard {
     if (lsId) set("wf-ls", lsId);
     if (ld) set("wf-ld", ld);
     if (lq) set("wf-lq", lq);
-    if (flux) set("wf-flux", flux);
     if (badge) badge.textContent = t("wf.motor.from_device");
+  }
+
+  /**
+   * 触发一键电机参数辨识：
+   * 1. 自动下发 ident full
+   * 2. 按钮进入 loading 进度状态
+   * 3. 实时/轮询捕获完成回显并自动回填 Rs/Ls/Flux 表单
+   */
+  async _runMotorIdent() {
+    const btn = this.root.querySelector("#btn-action-ident");
+    const statusBadge = this.root.querySelector("#wf-ident-status");
+    if (!btn) return;
+
+    if (!confirm("启动【电机参数辨识】将短暂驱动电机转动以测定相电阻 Rs、电感 Ls 及转子磁链 Flux。\n请确认电机处于空载安全状态。是否继续？")) {
+      return;
+    }
+
+    btn.disabled = true;
+    btn.classList.add("loading");
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = `<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;"></span><span>${t("ident.busy")}</span>`;
+    if (statusBadge) {
+      statusBadge.style.display = "inline-flex";
+      statusBadge.className = "wf-badge warn";
+      statusBadge.textContent = "辨识中 (约 8s)...";
+    }
+
+    try {
+      if (this.sendCapture) {
+        // 下发 ident full，单片机测量 Rs/Ls 约 2s，拖动测磁链约 4~5s，整过程约 7~8 秒
+        const resp = await this.sendCapture("ident full", 8500);
+        // 辨识完成后立刻查询 ident show 提取最新精准结果
+        await this._readMotorParams();
+        if (statusBadge) {
+          statusBadge.className = "wf-badge ok";
+          statusBadge.textContent = "✔ 辨识完成并已回填";
+        }
+      } else {
+        await this._cli("ident full");
+        setTimeout(async () => {
+          await this._readMotorParams();
+          if (statusBadge) {
+            statusBadge.className = "wf-badge ok";
+            statusBadge.textContent = "✔ 辨识完成";
+          }
+        }, 8000);
+      }
+    } catch (e) {
+      if (statusBadge) {
+        statusBadge.className = "wf-badge danger";
+        statusBadge.textContent = "辨识异常";
+      }
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove("loading");
+      btn.innerHTML = origHtml;
+      setTimeout(() => {
+        if (statusBadge && statusBadge.classList.contains("ok")) {
+          statusBadge.style.display = "none";
+        }
+      }, 5000);
+    }
+  }
+
+  /**
+   * 触发一键电机零点校准：
+   * 1. 自动下发 calib full 寻相并测定编码器零位与转向
+   * 2. 按钮进入 loading 进度状态
+   * 3. 校准完成自动刷新板卡信息并提示
+   */
+  async _runMotorCalib() {
+    const btn = this.root.querySelector("#btn-action-calib");
+    const statusBadge = this.root.querySelector("#wf-ident-status");
+    if (!btn) return;
+
+    if (!confirm("启动【电机零点校准】将正反转动电机以标定编码器零位偏差 (Offset) 与旋转方向。\n请确认电机处于空载状态。是否继续？")) {
+      return;
+    }
+
+    btn.disabled = true;
+    btn.classList.add("loading");
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = `<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;"></span><span>零点校准中 (约6s)…</span>`;
+    if (statusBadge) {
+      statusBadge.style.display = "inline-flex";
+      statusBadge.className = "wf-badge warn";
+      statusBadge.textContent = "寻相校准中 (约 6s)...";
+    }
+
+    try {
+      if (this.sendCapture) {
+        // calib full 正反各一圈寻相，耗时约 5~6 秒
+        await this.sendCapture("calib full", 6500);
+        await this._readBoardInfo();
+        if (statusBadge) {
+          statusBadge.className = "wf-badge ok";
+          statusBadge.textContent = "✔ 零点校准成功 (已就绪)";
+        }
+      } else {
+        await this._cli("calib full");
+        setTimeout(async () => {
+          await this._readBoardInfo();
+          if (statusBadge) {
+            statusBadge.className = "wf-badge ok";
+            statusBadge.textContent = "✔ 零点校准完成";
+          }
+        }, 6000);
+      }
+    } catch (e) {
+      if (statusBadge) {
+        statusBadge.className = "wf-badge danger";
+        statusBadge.textContent = "校准异常";
+      }
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove("loading");
+      btn.innerHTML = origHtml;
+      setTimeout(() => {
+        if (statusBadge && statusBadge.classList.contains("ok")) {
+          statusBadge.style.display = "none";
+        }
+      }, 5000);
+    }
   }
 
   _htmlEncoder() {
@@ -1280,6 +1406,8 @@ export class WorkflowWizard {
     this.root.querySelector("#wf-health-check")?.addEventListener("click", () => this._runHealthCheck());
     this.root.querySelector("#wf-copy-report")?.addEventListener("click", () => this._copyHealthReport());
     this.root.querySelector("#wf-read-params")?.addEventListener("click", () => this._readMotorParams());
+    this.root.querySelector("#btn-action-ident")?.addEventListener("click", () => this._runMotorIdent());
+    this.root.querySelector("#btn-action-calib")?.addEventListener("click", () => this._runMotorCalib());
 
     this.root.querySelector("#wf-limit-set")?.addEventListener("click", () => {
       const v = Number(this.root.querySelector("#wf-limit")?.value);
