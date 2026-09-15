@@ -943,13 +943,13 @@ export class WorkflowWizard {
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>${t("wf.motor.read_params")}</span>
             </button>
-            <button id="wf-motor-export" title="${t("wf.motor.export")}">
+            <button id="wf-motor-export" title="${t("wf.motor.export") || "导出参数"}">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 2v9M4 7l4 4 4-4M2 13h12" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span>${t("wf.motor.export")}</span>
+              <span>${t("wf.motor.export") || "导出参数"}</span>
             </button>
-            <button id="wf-motor-import" title="${t("wf.motor.import")}">
+            <button id="wf-motor-import" title="${t("wf.motor.import") || "导入参数"}">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 11V2M4 6l4-4 4 4M2 13h12" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span>${t("wf.motor.import")}</span>
+              <span>${t("wf.motor.import") || "导入参数"}</span>
             </button>
             <input type="file" id="wf-motor-import-file" accept=".json" style="display:none;" />
             <button class="ok" data-cmd="ident apply">
