@@ -1171,7 +1171,8 @@ button.ghost:hover {
   margin: 0;
   text-align: right;
   font-size: 13px;
-  line-height: 32px;
+  /* 不要用 line-height 撑高，交给 flex 垂直居中 */
+  line-height: normal;
   font-variant-numeric: tabular-nums;
   box-shadow: none;
 }
@@ -1187,15 +1188,13 @@ button.ghost:hover {
   flex-shrink: 0;
   font-family: var(--mono);
   font-size: 12px;
-  line-height: 32px;
+  line-height: 1;
   color: var(--text-dim);
   min-width: 16px;
   text-align: left;
-  padding-left: 2px;
+  padding-left: 4px;
   user-select: none;
-  align-self: stretch;
-  display: inline-flex;
-  align-items: center;
+  align-self: center;
 }
 
 /* select 行：占满 trail */
@@ -1659,7 +1658,7 @@ button.primary {
   display: grid;
   grid-template-columns: 1fr auto auto;
   gap: 8px;
-  align-items: baseline;
+  align-items: center;
   padding: 7px 0;
   border-top: 1px solid var(--border-soft);
 }
@@ -1680,6 +1679,7 @@ button.primary {
   font-weight: 600;
   text-align: right;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .dash-row-val.bad { color: var(--err); }
@@ -1689,6 +1689,7 @@ button.primary {
   text-align: left;
   font-family: var(--mono);
   font-size: 11px;
+  line-height: 1;
   color: var(--text-faint);
 }
 
