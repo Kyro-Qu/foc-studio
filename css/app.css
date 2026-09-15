@@ -431,6 +431,77 @@ main {
   margin: 0;
 }
 
+/* ===== 系统诊断 ===== */
+.health-check-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 72px;
+}
+
+.health-empty-state {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 14px;
+  color: var(--text-dim);
+  font-size: 13px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.health-items {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-grouped);
+  overflow: hidden;
+}
+
+.health-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  min-height: 44px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.health-item + .health-item {
+  border-top: 1px solid var(--border-soft);
+}
+
+.diag-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.diag-ok {
+  background: rgba(48, 209, 88, 0.18);
+  color: var(--ok);
+}
+
+.diag-bad {
+  background: rgba(255, 69, 58, 0.2);
+}
+
+.diag-bad::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--err);
+}
+
 /* 页面级：标题+说明在左，操作在右上 */
 .wf-page-head {
   display: flex;

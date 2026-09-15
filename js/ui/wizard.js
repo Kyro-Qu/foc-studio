@@ -632,39 +632,25 @@ export class WorkflowWizard {
     const card = this.root.querySelector("#wf-health-card");
     if (!card) return;
     card.style.display = "flex";
-    const pillClass =
-      diag.overall === "ok"
-        ? "health-score-ok"
-        : diag.overall === "warn"
-        ? "health-score-warn"
-        : "health-score-bad";
 
     const itemsHtml = diag.checks
       .map((c) => {
-        const itemClass =
+        const itemClass = c.status === "ok" ? "item-ok" : c.status === "warn" ? "item-warn" : "item-bad";
+        // ok → 绿对勾；warn/bad → 红点
+        const icon =
           c.status === "ok"
-            ? "item-ok"
-            : c.status === "warn"
-            ? "item-warn"
-            : "item-bad";
-        const icon = c.status === "ok" ? "✔" : c.status === "warn" ? "▲" : "✖";
+            ? `<span class="diag-dot diag-ok">✔</span>`
+            : `<span class="diag-dot diag-bad"></span>`;
         return `
           <div class="health-item ${itemClass}">
-            <span class="ico">${icon}</span>
-            <strong style="min-width:90px">${c.name}:</strong>
+            ${icon}
+            <strong style="min-width:90px">${c.name}</strong>
             <span>${c.msg}</span>
           </div>`;
       })
       .join("");
 
-    card.innerHTML = `
-      <div class="health-summary">
-        <span style="font-size:12px;font-weight:600;color:var(--text-muted)">系统体检综合诊断：</span>
-        <span class="health-score-pill ${pillClass}">得分: ${diag.score} / 100 (${diag.overall.toUpperCase()})</span>
-      </div>
-      <div class="health-items">
-        ${itemsHtml}
-      </div>`;
+    card.innerHTML = `<div class="health-items">${itemsHtml}</div>`;
   }
 
   render() {
@@ -750,7 +736,7 @@ export class WorkflowWizard {
             <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.45;color:var(--accent)">
               <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
             </svg>
-            <span>点击上方「开始体检诊断」，将对硬件电压、校准源、复位状态、电流采样及 CPU 负载进行 6 维健康排查与智能打分</span>
+            <span>点击上方「开始诊断」，检查电压、校准、复位、电流采样与 CPU 负载</span>
           </div>
         </div>
       </section>
