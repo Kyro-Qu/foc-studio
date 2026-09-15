@@ -1408,6 +1408,7 @@ export class WorkflowWizard {
           <div class="form-list">
             ${tuneField("wf-paccel", t("wf.pid.pos_accel"), "RPM/s", 100, 100000, 500, 5000)}
             ${tuneField("wf-pvmax", t("wf.pid.pos_vmax"), "RPM", 100, 10000, 100, 3000)}
+            <div class="form-row form-row-spacer" aria-hidden="true"></div>
           </div>
         </div>
       </div>
