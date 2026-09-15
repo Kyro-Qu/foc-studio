@@ -6,7 +6,6 @@
 import { formatValue, channelLabel } from "../channels.js";
 import { faultText, decodeFault } from "./fault.js";
 import { getLang, t } from "../i18n.js";
-import { Gauge } from "./gauge.js";
 import { RotorGauge } from "./rotor.js";
 import { MODE_CONTROLS } from "./console.js";
 
@@ -78,58 +77,59 @@ export class Dashboard {
       this.rotor.destroy();
       this.rotor = null;
     }
-    const lang = getLang();
 
-    /* 状态条：故障 / 跟踪（模式在运行控制里选，不重复） */
+    /* 紧凑状态条 chips */
     this.strip = document.createElement("div");
-    this.strip.className = "dash-strip";
-    for (const s of [
-      { id: "fault", key: "dash.fault" },
-      { id: "track", key: "dash.track" },
-    ]) {
-      const cell = document.createElement("div");
-      cell.className = `dash-state dash-state-${s.id}`;
-      cell.innerHTML = `
-        <div class="dash-state-label">${t(s.key)}</div>
-        <div class="dash-state-val" data-strip="${s.id}">—</div>
-      `;
-      this.strip.appendChild(cell);
-    }
+    this.strip.className = "dash-chips";
+    this.strip.innerHTML = `
+      <span class="chip chip-fault" data-strip="fault">FAULT —</span>
+      <span class="chip" data-strip="mode">MODE —</span>
+      <span class="chip" data-strip="track">TRACK —</span>
+      <span class="chip" data-strip="vbus">VBUS —</span>
+    `;
     this.root.appendChild(this.strip);
 
     const mid = document.createElement("div");
     mid.className = "dash-mid";
 
-    /* 左：表盘；位置模式时换成转子可视化 */
-    const gaugeWrap = document.createElement("div");
-    gaugeWrap.className = "dash-gauges";
-    const gdefs = [
-      { id: "rpm", label: t("dash.rpm"), unit: "rpm", min: 0, max: 5000, color: "#7fd962", digits: 0 },
-      { id: "iq", label: "Iq", unit: "A", min: -5, max: 5, color: "#ff9f43", digits: 2 },
-      { id: "vbus", label: t("dash.vbus"), unit: "V", min: 0, max: 25, color: "#58a6ff", digits: 1 },
-    ];
-    for (const d of gdefs) {
-      const box = document.createElement("div");
-      box.className = "dash-gauge";
-      const cv = document.createElement("canvas");
-      box.appendChild(cv);
-      gaugeWrap.appendChild(box);
-      this.gauges[d.id] = new Gauge(cv, d);
-    }
-    this.gaugeWrap = gaugeWrap;
+    /* 左主视觉：默认 compact 遥测卡；位置模式切换为转子盘 */
+    const viz = document.createElement("div");
+    viz.className = "dash-viz";
+
+    this.cardsWrap = document.createElement("div");
+    this.cardsWrap.className = "dash-cards";
+    this.cardsWrap.innerHTML = `
+      <div class="tel-card" data-tel="rpm">
+        <div class="tel-k">${t("dash.rpm")}</div>
+        <div class="tel-v" data-tel-v="rpm">—</div>
+        <div class="tel-s"><span data-tel-s="rpm-ref">—</span></div>
+      </div>
+      <div class="tel-card" data-tel="iq">
+        <div class="tel-k">Iq</div>
+        <div class="tel-v" data-tel-v="iq">—</div>
+        <div class="tel-s"><span data-tel-s="iq-ref">—</span></div>
+      </div>
+      <div class="tel-card" data-tel="vbus">
+        <div class="tel-k">${t("dash.vbus")}</div>
+        <div class="tel-v" data-tel-v="vbus">—</div>
+        <div class="tel-s"><span data-tel-s="vbus-state">—</span></div>
+      </div>
+      <div class="tel-card" data-tel="pos">
+        <div class="tel-k">${t("dash.pos")}</div>
+        <div class="tel-v" data-tel-v="pos">—</div>
+        <div class="tel-s"><span data-tel-s="pos-rev">—</span></div>
+      </div>
+    `;
+    viz.appendChild(this.cardsWrap);
 
     this.rotorWrap = document.createElement("div");
     this.rotorWrap.className = "dash-rotor";
     this.rotorWrap.hidden = true;
     this.rotorWrap.innerHTML = `<div class="dash-rotor-host"></div>`;
-
-    const viz = document.createElement("div");
-    viz.className = "dash-viz";
-    viz.appendChild(gaugeWrap);
     viz.appendChild(this.rotorWrap);
     mid.appendChild(viz);
 
-    /* 右：运行控制 — 单选模式 */
+    /* 右：运行控制，固定宽度不撑满 */
     const ctrl = document.createElement("div");
     ctrl.className = "dash-ctrl";
     ctrl.innerHTML = `
@@ -161,7 +161,6 @@ export class Dashboard {
         <label>Vq <span class="dash-unit-tag">V</span></label>
         <input type="number" id="dash-vq-num" min="0" max="12" step="0.1" value="0.5" style="width:80px" />
         <button class="small" id="dash-vq-send">${t("dash.ctrl.send")}</button>
-        <span class="dash-ctrl-note">${t("dash.ctrl.vf_note")}</span>
       </div>
       <div class="dash-ctrl-actions">
         <button class="ok" id="dash-enable">
@@ -194,6 +193,7 @@ export class Dashboard {
       sec.appendChild(title);
       const list = document.createElement("div");
       list.className = "dash-list";
+      const lang = getLang();
       for (const id of g.items) {
         const label = channelLabel(id, lang);
         const ch = this.channels.find((c) => c.id === id);
@@ -241,7 +241,7 @@ export class Dashboard {
 
     const setVizMode = (m) => {
       const isPos = m === "pos";
-      if (this.gaugeWrap) this.gaugeWrap.hidden = isPos;
+      if (this.cardsWrap) this.cardsWrap.hidden = isPos;
       if (this.rotorWrap) this.rotorWrap.hidden = !isPos;
       if (isPos && !this.rotor) {
         const host = this.rotorWrap.querySelector(".dash-rotor-host");
@@ -354,12 +354,7 @@ export class Dashboard {
   }
 
   resizeGauges() {
-    for (const g of Object.values(this.gauges)) {
-      if (g && !g._destroyed) {
-        g._resize();
-        g.draw();
-      }
-    }
+    // 仪表已替换为数字卡 / 转子，无需 canvas resize
   }
 
   start(intervalMs = 100) {
@@ -389,31 +384,49 @@ export class Dashboard {
 
     const badge = this.root.querySelector("#dash-mode-badge");
     const MODE_NAMES = [t("mode.vf"), t("mode.iq"), t("mode.vel"), t("mode.pos")];
-    if (isStatusFresh) {
-      const s = this._lastStatus;
-      const hasFault = (s.motorFault !== 0) || (s.shuntFault !== 0);
-      const faultDesc = hasFault ? `M:${s.motorFault} S:${s.shuntFault}` : "OK";
-      setStrip("fault", faultDesc, hasFault);
-      const modeName = MODE_NAMES[s.mode] || `mode ${s.mode}`;
-      if (badge) badge.textContent = modeName;
-    } else {
-      setStrip("fault", "—", false);
-      if (badge) badge.textContent = "—";
-    }
 
     let rpmVal = Number.isFinite(latest[2]) ? latest[2] : (isStatusFresh ? this._lastStatus.rpmEst : NaN);
     let iqVal = Number.isFinite(latest[5]) ? latest[5] : (isStatusFresh ? this._lastStatus.iqEst : NaN);
     let vbusVal = Number.isFinite(latest[26]) ? latest[26] : (isStatusFresh ? this._lastStatus.vbus : NaN);
-    // ch17 机械位置（多圈 rad）；ch16 位置目标
     const posVal = Number.isFinite(latest[17]) ? latest[17] : NaN;
     const posRef = Number.isFinite(latest[16]) ? latest[16] : NaN;
+    const velRef = Number.isFinite(latest[3]) ? latest[3] : NaN;
+    const iqRef = Number.isFinite(latest[6]) ? latest[6] : NaN;
+
+    if (isStatusFresh) {
+      const s = this._lastStatus;
+      const hasFault = (s.motorFault !== 0) || (s.shuntFault !== 0);
+      setStrip("fault", hasFault ? `FAULT M:${s.motorFault} S:${s.shuntFault}` : "FAULT OK", hasFault);
+      const modeName = MODE_NAMES[s.mode] || `mode ${s.mode}`;
+      setStrip("mode", `MODE ${modeName}`, false);
+      if (badge) badge.textContent = modeName;
+    } else {
+      setStrip("fault", "FAULT —", false);
+      setStrip("mode", "MODE —", false);
+      if (badge) badge.textContent = "—";
+    }
 
     const track = latest[2] - latest[3];
-    setStrip("track", Number.isFinite(track) ? track.toFixed(1) : "—");
+    setStrip("track", Number.isFinite(track) ? `TRACK ${track.toFixed(1)} rpm` : "TRACK —");
+    setStrip("vbus", Number.isFinite(vbusVal) ? `VBUS ${vbusVal.toFixed(1)} V` : "VBUS —");
 
-    if (this.gauges.rpm && Number.isFinite(rpmVal)) this.gauges.rpm.setValue(rpmVal);
-    if (this.gauges.iq && Number.isFinite(iqVal)) this.gauges.iq.setValue(iqVal);
-    if (this.gauges.vbus && Number.isFinite(vbusVal)) this.gauges.vbus.setValue(vbusVal);
+    const setTel = (k, v) => {
+      const el = this.root.querySelector(`[data-tel-v="${k}"]`);
+      if (el) el.textContent = v;
+    };
+    const setSub = (k, v) => {
+      const el = this.root.querySelector(`[data-tel-s="${k}"]`);
+      if (el) el.textContent = v;
+    };
+    setTel("rpm", Number.isFinite(rpmVal) ? rpmVal.toFixed(0) : "—");
+    setSub("rpm-ref", Number.isFinite(velRef) ? `ref ${velRef.toFixed(0)}` : "ref —");
+    setTel("iq", Number.isFinite(iqVal) ? iqVal.toFixed(2) : "—");
+    setSub("iq-ref", Number.isFinite(iqRef) ? `ref ${iqRef.toFixed(2)} A` : "ref —");
+    setTel("vbus", Number.isFinite(vbusVal) ? vbusVal.toFixed(1) : "—");
+    setSub("vbus-state", Number.isFinite(vbusVal) && vbusVal > 8 ? "ok" : "—");
+    setTel("pos", Number.isFinite(posVal) ? posVal.toFixed(2) : "—");
+    setSub("pos-rev", Number.isFinite(posVal) ? `${(posVal / (2 * Math.PI)).toFixed(2)} rev` : "—");
+
     if (this.rotor) {
       if (Number.isFinite(posVal)) this.rotor.setActualRad(posVal);
       if (Number.isFinite(posRef)) this.rotor.setTargetRad(posRef);

@@ -123,18 +123,18 @@ console.log("\n[2. Dashboard 故障显示与状态解耦 (针对缺陷 3)]");
   });
 
   const faultEl = root.querySelector('[data-strip="fault"]');
-  check("Status update sets fault string correctly", faultEl.textContent === "M:12 S:0");
+  check("Status update sets fault string correctly", faultEl.textContent === "FAULT M:12 S:0");
 
   // 执行 5 次 refresh()（模拟波形关闭或波形未包含旧通道时的定时刷新）
   for (let i = 0; i < 5; i++) {
     dash.refresh();
   }
-  check("Refresh DOES NOT overwrite active fault with OK", faultEl.textContent === "M:12 S:0");
+  check("Refresh DOES NOT overwrite active fault with OK", faultEl.textContent === "FAULT M:12 S:0");
 
   // 模拟超时 (超过 3.5s 未收到 STATUS)
   dash._lastStatusTime = (typeof performance !== "undefined" && performance.now) ? performance.now() - 4000 : Date.now() - 4000;
   dash.refresh();
-  check("Stale status (timeout) shows dash instead of OK", faultEl.textContent === "—");
+  check("Stale status (timeout) shows dash instead of OK", faultEl.textContent === "FAULT —");
 }
 
 console.log("\n[3. 稀疏通道展开与录制、触发对齐 (针对缺陷 4)]");
