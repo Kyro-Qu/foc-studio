@@ -1292,14 +1292,15 @@ export class WorkflowWizard {
   }
 
   _htmlPid() {
-    const tuneField = (id, label, unit, min, max, step, val, hint) => `
-      <div class="wf-field">
-        <div class="wf-field-label"><span>${label}</span></div>
-        <div class="num-field">
-          <input type="number" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}" />
-          <span class="num-unit">${unit}</span>
+    const tuneField = (id, label, unit, min, max, step, val) => `
+      <div class="form-row">
+        <label for="${id}">${label}</label>
+        <div class="form-row-trail">
+          <div class="num-field">
+            <input type="number" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}" />
+            <span class="num-unit">${unit}</span>
+          </div>
         </div>
-        <span class="wf-field-hint">${hint}</span>
       </div>`;
     return `
       <div class="wf-page-head">
@@ -1333,9 +1334,9 @@ export class WorkflowWizard {
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.pid.title_current")}</h4>
         </div>
-        <div class="wf-tuning-grid cols-2">
-          ${tuneField("wf-bw", t("wf.pid.current_bw"), "rad/s", 100, 3000, 50, 2000, "自动整定 d/q 轴 Kp/Ki (100~3000)")}
-          ${tuneField("wf-limit-val", t("wf.pid.limit"), "A", 0.1, 15.0, 0.1, 2.0, "电机运行相电流软保护限幅 (limit)")}
+        <div class="form-list">
+          ${tuneField("wf-bw", t("wf.pid.current_bw"), "rad/s", 100, 3000, 50, 2000)}
+          ${tuneField("wf-limit-val", t("wf.pid.limit"), "A", 0.1, 15.0, 0.1, 2.0)}
         </div>
       </div>
 
@@ -1344,13 +1345,13 @@ export class WorkflowWizard {
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.pid.title_vel")}</h4>
         </div>
-        <div class="wf-tuning-grid cols-3">
-          ${tuneField("wf-vkp", t("wf.pid.vel_kp"), "A/RPM", 0, 2.0, 0.005, 0.02, "比例增益，响应刚度")}
-          ${tuneField("wf-vki", t("wf.pid.vel_ki"), "A/(RPM·s)", 0, 5.0, 0.005, 0.02, "积分增益，消除稳态转速静差")}
-          ${tuneField("wf-vramp", t("wf.pid.vel_ramp"), "RPM/s", 0, 100000, 500, 10000, "速度斜坡率，0=直通无斜坡")}
-          ${tuneField("wf-vfilt", t("wf.pid.vel_filter"), "Hz", 5, 200, 5, 50, "测速反馈一阶低通截止频率")}
-          ${tuneField("wf-vff", t("wf.pid.vel_ff"), "A", 0, 2.0, 0.01, 0.0, "静摩擦阻力矩前馈补偿")}
-          ${tuneField("wf-vtrack", t("wf.pid.vel_track"), "A/rad", 0, 100, 0.1, 0.0, "抗扰动角度跟踪刚度")}
+        <div class="form-list">
+          ${tuneField("wf-vkp", t("wf.pid.vel_kp"), "A/RPM", 0, 2.0, 0.005, 0.02)}
+          ${tuneField("wf-vki", t("wf.pid.vel_ki"), "A/(RPM·s)", 0, 5.0, 0.005, 0.02)}
+          ${tuneField("wf-vramp", t("wf.pid.vel_ramp"), "RPM/s", 0, 100000, 500, 10000)}
+          ${tuneField("wf-vfilt", t("wf.pid.vel_filter"), "Hz", 5, 200, 5, 50)}
+          ${tuneField("wf-vff", t("wf.pid.vel_ff"), "A", 0, 2.0, 0.01, 0.0)}
+          ${tuneField("wf-vtrack", t("wf.pid.vel_track"), "A/rad", 0, 100, 0.1, 0.0)}
         </div>
       </div>
 
@@ -1359,12 +1360,12 @@ export class WorkflowWizard {
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.pid.title_pos")}</h4>
         </div>
-        <div class="wf-tuning-grid cols-5">
-          ${tuneField("wf-pkp", t("wf.pid.pos_kp"), "A/rad", 0, 500, 0.5, 10, "位置环比例刚度")}
-          ${tuneField("wf-pki", t("wf.pid.pos_ki"), "A/(rad·s)", 0, 50, 0.05, 0, "位置积分，消除稳态位置误差")}
-          ${tuneField("wf-pvkp", t("wf.pid.pos_vkp"), "A/RPM", 0, 0.5, 0.002, 0.02, "速度微分阻尼，抑制位置强摆晃动")}
-          ${tuneField("wf-paccel", t("wf.pid.pos_accel"), "RPM/s", 100, 100000, 500, 5000, "梯形加减速轨迹规划加速度")}
-          ${tuneField("wf-pvmax", t("wf.pid.pos_vmax"), "RPM", 100, 10000, 100, 3000, "位置运动过程中的最高巡航转速")}
+        <div class="form-list">
+          ${tuneField("wf-pkp", t("wf.pid.pos_kp"), "A/rad", 0, 500, 0.5, 10)}
+          ${tuneField("wf-pki", t("wf.pid.pos_ki"), "A/(rad·s)", 0, 50, 0.05, 0)}
+          ${tuneField("wf-pvkp", t("wf.pid.pos_vkp"), "A/RPM", 0, 0.5, 0.002, 0.02)}
+          ${tuneField("wf-paccel", t("wf.pid.pos_accel"), "RPM/s", 100, 100000, 500, 5000)}
+          ${tuneField("wf-pvmax", t("wf.pid.pos_vmax"), "RPM", 100, 10000, 100, 3000)}
         </div>
       </div>
       <p class="wf-note">${t("wf.pid.note")}</p>`;
