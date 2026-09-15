@@ -949,6 +949,15 @@ export class WorkflowWizard {
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>${t("wf.motor.read_params")}</span>
             </button>
+            <button id="wf-motor-export" title="${t("wf.motor.export")}">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 2v9M4 7l4 4 4-4M2 13h12" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>${t("wf.motor.export")}</span>
+            </button>
+            <button id="wf-motor-import" title="${t("wf.motor.import")}">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 11V2M4 6l4-4 4 4M2 13h12" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>${t("wf.motor.import")}</span>
+            </button>
+            <input type="file" id="wf-motor-import-file" accept=".json" style="display:none;" />
             <button class="ok" data-cmd="ident apply">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>${t("wf.apply")}</span>
@@ -962,13 +971,28 @@ export class WorkflowWizard {
         </div>
         <div class="form-list-2col">
           <div class="form-list">
+            <div class="form-row">
+              <label for="wf-motor-name">${t("wf.motor.name")}</label>
+              <div class="form-row-trail">
+                <input type="text" id="wf-motor-name" placeholder="${t("wf.motor.name_ph")}" value="DJI_2312S" style="width:100%;max-width:180px;box-sizing:border-box;" />
+              </div>
+            </div>
             ${row("wf-pp", t("wf.motor.pp"), "", "1", "7")}
             ${row("wf-rs", t("wf.motor.rs"), "Ω", "0.0001", "0.1")}
             ${row("wf-ls", t("wf.motor.ls"), "µH", "0.01", "20")}
             ${row("wf-ld", t("wf.motor.ld"), "µH", "0.01", "")}
+            ${row("wf-lq", t("wf.motor.lq"), "µH", "0.01", "")}
           </div>
           <div class="form-list">
-            ${row("wf-lq", t("wf.motor.lq"), "µH", "0.01", "")}
+            <div class="form-row">
+              <label for="wf-saliency">${t("wf.motor.saliency")}</label>
+              <div class="form-row-trail">
+                <div class="num-field">
+                  <input type="number" id="wf-saliency" step="0.001" readonly placeholder="1.000" style="background:var(--bg-subtle, rgba(255,255,255,0.03));cursor:default;" />
+                  <span class="num-unit" id="wf-saliency-unit">比值</span>
+                </div>
+              </div>
+            </div>
             ${row("wf-flux", t("wf.motor.flux"), "Wb", "0.0001", "")}
             ${row("wf-maxrpm", t("wf.motor.maxrpm"), "rpm", "1", "12000")}
             ${row("wf-limit2", t("wf.motor.limit"), "A", "0.1", "5.2")}
@@ -1334,9 +1358,13 @@ export class WorkflowWizard {
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.pid.title_current")}</h4>
         </div>
-        <div class="form-list">
-          ${tuneField("wf-bw", t("wf.pid.current_bw"), "rad/s", 100, 3000, 50, 2000)}
-          ${tuneField("wf-limit-val", t("wf.pid.limit"), "A", 0.1, 15.0, 0.1, 2.0)}
+        <div class="form-list-2col">
+          <div class="form-list">
+            ${tuneField("wf-bw", t("wf.pid.current_bw"), "rad/s", 100, 3000, 50, 2000)}
+          </div>
+          <div class="form-list">
+            ${tuneField("wf-limit-val", t("wf.pid.limit"), "A", 0.1, 15.0, 0.1, 2.0)}
+          </div>
         </div>
       </div>
 
@@ -1345,13 +1373,17 @@ export class WorkflowWizard {
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.pid.title_vel")}</h4>
         </div>
-        <div class="form-list">
-          ${tuneField("wf-vkp", t("wf.pid.vel_kp"), "A/RPM", 0, 2.0, 0.005, 0.02)}
-          ${tuneField("wf-vki", t("wf.pid.vel_ki"), "A/(RPM·s)", 0, 5.0, 0.005, 0.02)}
-          ${tuneField("wf-vramp", t("wf.pid.vel_ramp"), "RPM/s", 0, 100000, 500, 10000)}
-          ${tuneField("wf-vfilt", t("wf.pid.vel_filter"), "Hz", 5, 200, 5, 50)}
-          ${tuneField("wf-vff", t("wf.pid.vel_ff"), "A", 0, 2.0, 0.01, 0.0)}
-          ${tuneField("wf-vtrack", t("wf.pid.vel_track"), "A/rad", 0, 100, 0.1, 0.0)}
+        <div class="form-list-2col">
+          <div class="form-list">
+            ${tuneField("wf-vkp", t("wf.pid.vel_kp"), "A/RPM", 0, 2.0, 0.005, 0.02)}
+            ${tuneField("wf-vki", t("wf.pid.vel_ki"), "A/(RPM·s)", 0, 5.0, 0.005, 0.02)}
+            ${tuneField("wf-vramp", t("wf.pid.vel_ramp"), "RPM/s", 0, 100000, 500, 10000)}
+          </div>
+          <div class="form-list">
+            ${tuneField("wf-vfilt", t("wf.pid.vel_filter"), "Hz", 5, 200, 5, 50)}
+            ${tuneField("wf-vff", t("wf.pid.vel_ff"), "A", 0, 2.0, 0.01, 0.0)}
+            ${tuneField("wf-vtrack", t("wf.pid.vel_track"), "A/rad", 0, 100, 0.1, 0.0)}
+          </div>
         </div>
       </div>
 
@@ -1360,12 +1392,16 @@ export class WorkflowWizard {
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.pid.title_pos")}</h4>
         </div>
-        <div class="form-list">
-          ${tuneField("wf-pkp", t("wf.pid.pos_kp"), "A/rad", 0, 500, 0.5, 10)}
-          ${tuneField("wf-pki", t("wf.pid.pos_ki"), "A/(rad·s)", 0, 50, 0.05, 0)}
-          ${tuneField("wf-pvkp", t("wf.pid.pos_vkp"), "A/RPM", 0, 0.5, 0.002, 0.02)}
-          ${tuneField("wf-paccel", t("wf.pid.pos_accel"), "RPM/s", 100, 100000, 500, 5000)}
-          ${tuneField("wf-pvmax", t("wf.pid.pos_vmax"), "RPM", 100, 10000, 100, 3000)}
+        <div class="form-list-2col">
+          <div class="form-list">
+            ${tuneField("wf-pkp", t("wf.pid.pos_kp"), "A/rad", 0, 500, 0.5, 10)}
+            ${tuneField("wf-pki", t("wf.pid.pos_ki"), "A/(rad·s)", 0, 50, 0.05, 0)}
+            ${tuneField("wf-pvkp", t("wf.pid.pos_vkp"), "A/RPM", 0, 0.5, 0.002, 0.02)}
+          </div>
+          <div class="form-list">
+            ${tuneField("wf-paccel", t("wf.pid.pos_accel"), "RPM/s", 100, 100000, 500, 5000)}
+            ${tuneField("wf-pvmax", t("wf.pid.pos_vmax"), "RPM", 100, 10000, 100, 3000)}
+          </div>
         </div>
       </div>
       <p class="wf-note">${t("wf.pid.note")}</p>`;
