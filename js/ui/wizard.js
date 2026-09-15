@@ -765,40 +765,44 @@ export class WorkflowWizard {
             </button>
           </div>
         </div>
-        <div class="form-list">
-          <div class="form-row">
-            <label for="wf-limit">${t("wf.safety.limit")}</label>
-            <div class="form-row-trail">
-              <div class="num-field">
-                <input type="number" id="wf-limit" step="0.1" min="0.1" max="40" value="5.2" />
-                <span class="num-unit">A</span>
+        <div class="form-list-2col">
+          <div class="form-list">
+            <div class="form-row">
+              <label for="wf-limit">${t("wf.safety.limit")}</label>
+              <div class="form-row-trail">
+                <div class="num-field">
+                  <input type="number" id="wf-limit" step="0.1" min="0.1" max="40" value="5.2" />
+                  <span class="num-unit">A</span>
+                </div>
+              </div>
+            </div>
+            <div class="form-row">
+              <label for="wf-trip">${t("wf.safety.trip")}</label>
+              <div class="form-row-trail">
+                <div class="num-field">
+                  <input type="number" id="wf-trip" step="0.1" min="0.1" max="50" value="6.6" />
+                  <span class="num-unit">A</span>
+                </div>
               </div>
             </div>
           </div>
-          <div class="form-row">
-            <label for="wf-trip">${t("wf.safety.trip")}</label>
-            <div class="form-row-trail">
-              <div class="num-field">
-                <input type="number" id="wf-trip" step="0.1" min="0.1" max="50" value="6.6" />
-                <span class="num-unit">A</span>
+          <div class="form-list">
+            <div class="form-row">
+              <label for="wf-uv">${t("wf.safety.uv")}</label>
+              <div class="form-row-trail">
+                <div class="num-field">
+                  <input type="number" id="wf-uv" step="0.1" min="0" max="50" value="10" />
+                  <span class="num-unit">V</span>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="form-row">
-            <label for="wf-uv">${t("wf.safety.uv")}</label>
-            <div class="form-row-trail">
-              <div class="num-field">
-                <input type="number" id="wf-uv" step="0.1" min="0" max="50" value="10" />
-                <span class="num-unit">V</span>
-              </div>
-            </div>
-          </div>
-          <div class="form-row">
-            <label for="wf-ov">${t("wf.safety.ov")}</label>
-            <div class="form-row-trail">
-              <div class="num-field">
-                <input type="number" id="wf-ov" step="0.1" min="0" max="60" value="30" />
-                <span class="num-unit">V</span>
+            <div class="form-row">
+              <label for="wf-ov">${t("wf.safety.ov")}</label>
+              <div class="form-row-trail">
+                <div class="num-field">
+                  <input type="number" id="wf-ov" step="0.1" min="0" max="60" value="30" />
+                  <span class="num-unit">V</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1145,6 +1149,9 @@ export class WorkflowWizard {
     const curLq = this.root.querySelector("#wf-lq")?.value;
     if (curLs && (!curLd || curLd === "")) set("wf-ld", curLs, 2);
     if (curLs && (!curLq || curLq === "")) set("wf-lq", curLs, 2);
+
+    // 计算并更新凸极比 (Lq/Ld)
+    this._updateSaliencyRatio();
 
     if (badge) badge.textContent = t("wf.motor.from_device");
   }
