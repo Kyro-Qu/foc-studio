@@ -1408,6 +1408,9 @@ export class WorkflowWizard {
           <div class="form-list">
             ${tuneField("wf-paccel", t("wf.pid.pos_accel"), "RPM/s", 100, 100000, 500, 5000)}
             ${tuneField("wf-pvmax", t("wf.pid.pos_vmax"), "RPM", 100, 10000, 100, 3000)}
+            <div class="form-row form-row-hint">
+              <span class="wf-note" style="flex:1">${t("wf.pid.pos_tip")}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1447,8 +1450,18 @@ export class WorkflowWizard {
     this.root.querySelector("#wf-health-check")?.addEventListener("click", () => this._runHealthCheck());
     this.root.querySelector("#wf-copy-report")?.addEventListener("click", () => this._copyHealthReport());
     this.root.querySelector("#wf-read-params")?.addEventListener("click", () => this._readMotorParams());
+    this.root.querySelector("#wf-motor-export")?.addEventListener("click", () => this._exportMotorParams());
+    this.root.querySelector("#wf-motor-import")?.addEventListener("click", () => {
+      this.root.querySelector("#wf-motor-import-file")?.click();
+    });
+    this.root.querySelector("#wf-motor-import-file")?.addEventListener("change", (e) => this._importMotorParams(e));
     this.root.querySelector("#btn-action-ident")?.addEventListener("click", () => this._runMotorIdent());
     this.root.querySelector("#btn-action-calib")?.addEventListener("click", () => this._runMotorCalib());
+
+    // 监听 Ld / Lq 输入变化动态更新凸极比
+    ["wf-ld", "wf-lq", "wf-ls"].forEach((id) => {
+      this.root.querySelector(`#${id}`)?.addEventListener("input", () => this._updateSaliencyRatio());
+    });
 
     this.root.querySelector("#wf-limit-set")?.addEventListener("click", () => {
       const v = Number(this.root.querySelector("#wf-limit")?.value);
@@ -1592,6 +1605,100 @@ export class WorkflowWizard {
     if (badge) {
       badge.style.display = "none";
     }
+  }
+
+  /** 计算并更新凸极比 (Lq / Ld) */
+  _updateSaliencyRatio() {
+    const ldEl = this.root.querySelector("#wf-ld");
+    const lqEl = this.root.querySelector("#wf-lq");
+    const salEl = this.root.querySelector("#wf-saliency");
+    const unitEl = this.root.querySelector("#wf-saliency-unit");
+    if (!salEl) return;
+
+    const ld = Number(ldEl?.value);
+    const lq = Number(lqEl?.value);
+
+    if (Number.isFinite(ld) && ld > 0 && Number.isFinite(lq) && lq > 0) {
+      const ratio = lq / ld;
+      salEl.value = ratio.toFixed(3);
+      if (unitEl) {
+        if (Math.abs(ratio - 1.0) < 0.08) {
+          unitEl.textContent = "SPMSM (≈1.0)";
+          unitEl.style.color = "var(--ok, #7fd962)";
+        } else {
+          unitEl.textContent = "IPMSM (凸极)";
+          unitEl.style.color = "var(--primary, #58a6ff)";
+        }
+      }
+    } else {
+      salEl.value = "";
+      if (unitEl) {
+        unitEl.textContent = "比值";
+        unitEl.style.color = "";
+      }
+    }
+  }
+
+  /** 导出当前电机参数为 JSON 文件 */
+  _exportMotorParams() {
+    const getVal = (id) => this.root.querySelector(`#${id}`)?.value || "";
+    const name = getVal("wf-motor-name") || "motor";
+    const data = {
+      motor_name: name,
+      exported_at: new Date().toISOString(),
+      pole_pairs: Number(getVal("wf-pp")) || 7,
+      rs_ohm: Number(getVal("wf-rs")) || 0,
+      ls_uh: Number(getVal("wf-ls")) || 0,
+      ld_uh: Number(getVal("wf-ld")) || 0,
+      lq_uh: Number(getVal("wf-lq")) || 0,
+      saliency_ratio: Number(getVal("wf-saliency")) || 1.0,
+      flux_linkage_wb: Number(getVal("wf-flux")) || 0,
+      max_rpm: Number(getVal("wf-maxrpm")) || 12000,
+      current_limit_a: Number(getVal("wf-limit2")) || 5.2,
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `motor_${name.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    this._toast(`✔ 已导出 ${a.download}`, "ok");
+  }
+
+  /** 从 JSON 文件导入电机参数 */
+  _importMotorParams(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const d = JSON.parse(e.target?.result);
+        const setVal = (id, val) => {
+          const el = this.root.querySelector(`#${id}`);
+          if (el && val !== undefined && val !== null) el.value = String(val);
+        };
+        if (d.motor_name) setVal("wf-motor-name", d.motor_name);
+        if (d.pole_pairs !== undefined) setVal("wf-pp", d.pole_pairs);
+        if (d.rs_ohm !== undefined) setVal("wf-rs", Number(d.rs_ohm).toFixed(4));
+        if (d.ls_uh !== undefined) setVal("wf-ls", Number(d.ls_uh).toFixed(2));
+        if (d.ld_uh !== undefined) setVal("wf-ld", Number(d.ld_uh).toFixed(2));
+        if (d.lq_uh !== undefined) setVal("wf-lq", Number(d.lq_uh).toFixed(2));
+        if (d.flux_linkage_wb !== undefined) setVal("wf-flux", Number(d.flux_linkage_wb).toFixed(5));
+        if (d.max_rpm !== undefined) setVal("wf-maxrpm", d.max_rpm);
+        if (d.current_limit_a !== undefined) setVal("wf-limit2", Number(d.current_limit_a).toFixed(2));
+
+        this._updateSaliencyRatio();
+        this._toast(`✔ 成功导入电机参数 [${d.motor_name || file.name}]`, "ok");
+      } catch (err) {
+        this._toast("✖ 导入失败：JSON 格式不正确", "err");
+      } finally {
+        event.target.value = "";
+      }
+    };
+    reader.readAsText(file);
   }
 }
 
