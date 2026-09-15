@@ -1158,7 +1158,7 @@ export class WorkflowWizard {
     const btn = this.root.querySelector("#btn-action-ident");
     if (!btn) return;
 
-    if (!confirm("启动【电机参数辨识】将短暂驱动电机转动以测定相电阻 Rs、电感 Ls 及转子磁链 Flux。\n请确认电机处于空载安全状态。是否继续？")) {
+    if (!confirm("电机将短暂转动（约 8s），请确认空载。继续？")) {
       return;
     }
 
@@ -1209,7 +1209,7 @@ export class WorkflowWizard {
     const btn = this.root.querySelector("#btn-action-calib");
     if (!btn) return;
 
-    if (!confirm("启动【电机零点校准】将正反转动电机以标定编码器零位偏差 (Offset) 与旋转方向。\n请确认电机处于空载状态。是否继续？")) {
+    if (!confirm("电机将正反转动（约 6s）标定零点，请确认空载。继续？")) {
       return;
     }
 
