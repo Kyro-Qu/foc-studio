@@ -769,29 +769,37 @@ export class WorkflowWizard {
           <div class="form-row">
             <label for="wf-limit">${t("wf.safety.limit")}</label>
             <div class="form-row-trail">
-              <input type="number" id="wf-limit" step="0.1" min="0.1" max="40" value="5.2" />
-              <span class="form-unit">A</span>
+              <div class="num-field">
+                <input type="number" id="wf-limit" step="0.1" min="0.1" max="40" value="5.2" />
+                <span class="num-unit">A</span>
+              </div>
             </div>
           </div>
           <div class="form-row">
             <label for="wf-trip">${t("wf.safety.trip")}</label>
             <div class="form-row-trail">
-              <input type="number" id="wf-trip" step="0.1" min="0.1" max="50" value="6.6" />
-              <span class="form-unit">A</span>
+              <div class="num-field">
+                <input type="number" id="wf-trip" step="0.1" min="0.1" max="50" value="6.6" />
+                <span class="num-unit">A</span>
+              </div>
             </div>
           </div>
           <div class="form-row">
             <label for="wf-uv">${t("wf.safety.uv")}</label>
             <div class="form-row-trail">
-              <input type="number" id="wf-uv" step="0.1" min="0" max="50" value="10" />
-              <span class="form-unit">V</span>
+              <div class="num-field">
+                <input type="number" id="wf-uv" step="0.1" min="0" max="50" value="10" />
+                <span class="num-unit">V</span>
+              </div>
             </div>
           </div>
           <div class="form-row">
             <label for="wf-ov">${t("wf.safety.ov")}</label>
             <div class="form-row-trail">
-              <input type="number" id="wf-ov" step="0.1" min="0" max="60" value="30" />
-              <span class="form-unit">V</span>
+              <div class="num-field">
+                <input type="number" id="wf-ov" step="0.1" min="0" max="60" value="30" />
+                <span class="num-unit">V</span>
+              </div>
             </div>
           </div>
         </div>
@@ -923,8 +931,10 @@ export class WorkflowWizard {
       <div class="form-row">
         <label for="${id}">${label}</label>
         <div class="form-row-trail">
-          <input type="number" id="${id}" step="${step}" value="${val}" />
-          <span class="form-unit">${unit || ""}</span>
+          <div class="num-field">
+            <input type="number" id="${id}" step="${step}" value="${val}" />
+            <span class="num-unit">${unit || ""}</span>
+          </div>
         </div>
       </div>`;
     return `
@@ -1104,6 +1114,13 @@ export class WorkflowWizard {
     if (ld) set("wf-ld", ld, 2);
     if (lq) set("wf-lq", lq, 2);
     if (flux) set("wf-flux", flux, 5);
+
+    // 兜底补齐：若测得综合相电感 Ls，但未测双轴凸极电感时，自动用 Ls 填入 Ld/Lq
+    const curLs = this.root.querySelector("#wf-ls")?.value;
+    const curLd = this.root.querySelector("#wf-ld")?.value;
+    const curLq = this.root.querySelector("#wf-lq")?.value;
+    if (curLs && (!curLd || curLd === "")) set("wf-ld", curLs, 2);
+    if (curLs && (!curLq || curLq === "")) set("wf-lq", curLs, 2);
 
     if (badge) badge.textContent = t("wf.motor.from_device");
   }
