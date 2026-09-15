@@ -150,7 +150,6 @@ export class Dashboard {
         <span class="dash-ctrl-note">${t("dash.ctrl.vf_note")}</span>
       </div>
       <div class="dash-ctrl-actions">
-        <button class="ok" id="dash-mode-send">${t("dash.ctrl.set")}</button>
         <button class="ok" id="dash-enable">
           <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><polygon points="4,3 13,8 4,13"/></svg>
           <span>${t("dash.ctrl.enable")}</span>
@@ -278,8 +277,15 @@ export class Dashboard {
 
     modeTabs?.querySelectorAll(".dash-mode-tab").forEach((btn) => {
       btn.addEventListener("click", () => {
-        mode = btn.getAttribute("data-mode") || "vel";
-        applyModeMeta();
+        const nextMode = btn.getAttribute("data-mode") || "vel";
+        if (mode !== nextMode) {
+          mode = nextMode;
+          applyModeMeta();
+          // 点击切换标签页即刻下发 mode 切换指令
+          if (this.send) {
+            Promise.resolve(this.send(`mode ${mode}`)).catch(() => {});
+          }
+        }
       });
     });
     applyModeMeta();
@@ -307,12 +313,6 @@ export class Dashboard {
         const v = Number(this.root.querySelector("#dash-vq-num")?.value);
         if (!Number.isFinite(v) || !this.send) return;
         Promise.resolve(this.send(`vq ${v}`)).catch(() => {});
-      });
-    }
-    const modeSend = this.root.querySelector("#dash-mode-send");
-    if (modeSend) {
-      modeSend.addEventListener("click", () => {
-        if (mode && this.send) Promise.resolve(this.send(`mode ${mode}`)).catch(() => {});
       });
     }
     const en = this.root.querySelector("#dash-enable");
