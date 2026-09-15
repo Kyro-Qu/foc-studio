@@ -214,6 +214,10 @@ input[type="range"] {
 }
 
 button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   background: var(--bg-elev);
   color: var(--text);
   border: 1px solid var(--border);
@@ -221,9 +225,16 @@ button {
   padding: 6px 14px;
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.2;
   cursor: pointer;
+  vertical-align: middle;
   transition: background var(--transition), border-color var(--transition),
     color var(--transition), transform var(--transition);
+}
+
+button svg {
+  flex-shrink: 0;
+  display: block;
 }
 
 button:hover:not(:disabled) {
@@ -477,12 +488,27 @@ main {
 
 .action-grid button {
   width: 100%;
-  min-height: 34px;
-  padding: 6px 8px;
-  font-size: 12px;
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.action-grid button svg {
+  flex-shrink: 0;
+  display: block;
+}
+
+.action-grid button span {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
 }
 
 @media (max-width: 900px) {
