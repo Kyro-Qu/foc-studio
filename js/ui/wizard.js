@@ -966,9 +966,11 @@ export class WorkflowWizard {
         <div class="form-list-2col">
           <div class="form-list">
             <div class="form-row">
-              <label for="wf-motor-name">${t("wf.motor.name") || "电机型号/名称"}</label>
+              <label for="wf-motor-name">${t("wf.motor.name") || "电机型号"}</label>
               <div class="form-row-trail">
-                <input type="text" id="wf-motor-name" placeholder="${t("wf.motor.name_ph") || "如 DJI_2312S、F40"}" value="DJI_2312S" style="width:100%;max-width:180px;box-sizing:border-box;" />
+                <div class="num-field">
+                  <input type="text" id="wf-motor-name" placeholder="${t("wf.motor.name_ph") || "如 DJI_2312S、F40"}" value="DJI_2312S" style="text-align:center;padding:0 8px;" />
+                </div>
               </div>
             </div>
             ${row("wf-pp", t("wf.motor.pp") || "极对数", "", "1", "7")}
