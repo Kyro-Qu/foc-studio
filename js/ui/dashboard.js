@@ -7,6 +7,7 @@ import { formatValue, channelLabel } from "../channels.js";
 import { faultText, decodeFault } from "./fault.js";
 import { getLang, t } from "../i18n.js";
 import { Gauge } from "./gauge.js";
+import { RotorGauge } from "./rotor.js";
 import { MODE_CONTROLS } from "./console.js";
 
 const ROW_GROUPS = [
@@ -28,6 +29,13 @@ const ROW_GROUPS = [
   },
 ];
 
+const MODE_LIST = [
+  { id: "vf", key: "mode.vf" },
+  { id: "iq", key: "mode.iq" },
+  { id: "vel", key: "mode.vel" },
+  { id: "pos", key: "mode.pos" },
+];
+
 export class Dashboard {
   /**
    * @param {HTMLElement} root
@@ -42,9 +50,11 @@ export class Dashboard {
     this.send = opts.send || null;
     this._timer = null;
     this.gauges = {};
+    this.rotor = null;
     this._cells = new Map();
     this._lastStatus = null;
     this._lastStatusTime = 0;
+    this._mode = "vel";
     this._build();
   }
 
@@ -64,15 +74,18 @@ export class Dashboard {
       if (g && g.destroy) g.destroy();
     }
     this.gauges = {};
+    if (this.rotor) {
+      this.rotor.destroy();
+      this.rotor = null;
+    }
     const lang = getLang();
 
-    /* 状态条：只放状态类，读数交给下方表盘，避免重复 */
+    /* 状态条：故障 / 跟踪（模式在运行控制里选，不重复） */
     this.strip = document.createElement("div");
     this.strip.className = "dash-strip";
     for (const s of [
-      { id: "fault", key: "dash.fault", unit: "" },
-      { id: "mode", key: "dash.mode", unit: "" },
-      { id: "track", key: "dash.track", unit: "" },
+      { id: "fault", key: "dash.fault" },
+      { id: "track", key: "dash.track" },
     ]) {
       const cell = document.createElement("div");
       cell.className = `dash-state dash-state-${s.id}`;
@@ -84,17 +97,16 @@ export class Dashboard {
     }
     this.root.appendChild(this.strip);
 
-    /* 表盘 + 控制 */
     const mid = document.createElement("div");
     mid.className = "dash-mid";
 
+    /* 左：表盘；位置模式时换成转子可视化 */
     const gaugeWrap = document.createElement("div");
     gaugeWrap.className = "dash-gauges";
     const gdefs = [
       { id: "rpm", label: t("dash.rpm"), unit: "rpm", min: 0, max: 5000, color: "#7fd962", digits: 0 },
       { id: "iq", label: "Iq", unit: "A", min: -5, max: 5, color: "#ff9f43", digits: 2 },
       { id: "vbus", label: t("dash.vbus"), unit: "V", min: 0, max: 25, color: "#58a6ff", digits: 1 },
-      { id: "pos", label: t("dash.pos"), unit: "rad", min: -12.57, max: 12.57, color: "#c3a6ff", digits: 2 },
     ];
     for (const d of gdefs) {
       const box = document.createElement("div");
@@ -104,9 +116,20 @@ export class Dashboard {
       gaugeWrap.appendChild(box);
       this.gauges[d.id] = new Gauge(cv, d);
     }
-    mid.appendChild(gaugeWrap);
+    this.gaugeWrap = gaugeWrap;
 
-    /* 运行控制 — 模式卡片 + 目标 + 使能 */
+    this.rotorWrap = document.createElement("div");
+    this.rotorWrap.className = "dash-rotor";
+    this.rotorWrap.hidden = true;
+    this.rotorWrap.innerHTML = `<div class="dash-rotor-host"></div>`;
+
+    const viz = document.createElement("div");
+    viz.className = "dash-viz";
+    viz.appendChild(gaugeWrap);
+    viz.appendChild(this.rotorWrap);
+    mid.appendChild(viz);
+
+    /* 右：运行控制 — 单选模式 */
     const ctrl = document.createElement("div");
     ctrl.className = "dash-ctrl";
     ctrl.innerHTML = `
@@ -114,18 +137,11 @@ export class Dashboard {
         <h3 class="dash-group-title">${t("dash.ctrl.title")}</h3>
         <span class="dash-mode-badge" id="dash-mode-badge">—</span>
       </div>
-      <div class="dash-mode-tabs" id="dash-mode-tabs" role="tablist">
-        ${[
-          { id: "vf", key: "mode.vf" },
-          { id: "iq", key: "mode.iq" },
-          { id: "vel", key: "mode.vel" },
-          { id: "pos", key: "mode.pos" },
-        ]
-          .map(
-            (m) =>
-              `<button type="button" class="dash-mode-tab" data-mode="${m.id}" role="tab">${t(m.key)}</button>`
-          )
-          .join("")}
+      <div class="dash-ctrl-row">
+        <label>${t("dash.ctrl.mode")}</label>
+        <select id="dash-mode" class="dash-mode-select">
+          ${MODE_LIST.map((m) => `<option value="${m.id}">${t(m.key)}</option>`).join("")}
+        </select>
       </div>
       <p class="dash-mode-desc" id="dash-mode-desc"></p>
       <div class="dash-ctrl-row" id="dash-target-row">
@@ -208,19 +224,29 @@ export class Dashboard {
   _wireCtrl() {
     const range = this.root.querySelector("#dash-target-range");
     const num = this.root.querySelector("#dash-target-num");
-    const modeTabs = this.root.querySelector("#dash-mode-tabs");
+    const modeSel = this.root.querySelector("#dash-mode");
     const targetLabel = this.root.querySelector("#dash-target-label");
     const targetRow = this.root.querySelector("#dash-target-row");
     const vfRow = this.root.querySelector("#dash-vf-row");
     const presetBox = this.root.querySelector("#dash-presets");
     const modeDesc = this.root.querySelector("#dash-mode-desc");
-    let mode = "vel";
+    let mode = this._mode || "vel";
 
     const PRESETS = {
       vel: [0, 300, 800, 1500, 3000, -300, -800, -1500],
       iq: [0, 0.5, 1, 2, -0.5, -1, -2],
       pos: [0, 1.57, 3.14, 6.28, -1.57, -3.14, -6.28],
       vf: [0, 200, 500, 1000, -200, -500],
+    };
+
+    const setVizMode = (m) => {
+      const isPos = m === "pos";
+      if (this.gaugeWrap) this.gaugeWrap.hidden = isPos;
+      if (this.rotorWrap) this.rotorWrap.hidden = !isPos;
+      if (isPos && !this.rotor) {
+        const host = this.rotorWrap.querySelector(".dash-rotor-host");
+        if (host) this.rotor = new RotorGauge(host);
+      }
     };
 
     const applyModeMeta = () => {
@@ -248,11 +274,8 @@ export class Dashboard {
         zeroEl.style.left = `${(frac * 100).toFixed(2)}%`;
       }
       if (modeDesc) modeDesc.textContent = t(`dash.mode.${mode}`);
-      modeTabs?.querySelectorAll(".dash-mode-tab").forEach((b) => {
-        const on = b.getAttribute("data-mode") === mode;
-        b.classList.toggle("active", on);
-        b.setAttribute("aria-selected", on ? "true" : "false");
-      });
+      if (modeSel && modeSel.value !== mode) modeSel.value = mode;
+      setVizMode(mode);
       if (presetBox) {
         presetBox.innerHTML = "";
         const label = document.createElement("span");
@@ -273,18 +296,16 @@ export class Dashboard {
       }
     };
 
-    modeTabs?.querySelectorAll(".dash-mode-tab").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const nextMode = btn.getAttribute("data-mode") || "vel";
-        if (mode !== nextMode) {
-          mode = nextMode;
-          applyModeMeta();
-          // 点击切换标签页即刻下发 mode 切换指令
-          if (this.send) {
-            Promise.resolve(this.send(`mode ${mode}`)).catch(() => {});
-          }
+    modeSel?.addEventListener("change", () => {
+      const nextMode = modeSel.value || "vel";
+      if (mode !== nextMode) {
+        mode = nextMode;
+        this._mode = mode;
+        applyModeMeta();
+        if (this.send) {
+          Promise.resolve(this.send(`mode ${mode}`)).catch(() => {});
         }
-      });
+      }
     });
     applyModeMeta();
 
@@ -366,7 +387,6 @@ export class Dashboard {
       el.classList.toggle("bad", !!bad);
     };
 
-    // 1. 故障 / 模式：严格由 STATUS 帧驱动
     const badge = this.root.querySelector("#dash-mode-badge");
     const MODE_NAMES = [t("mode.vf"), t("mode.iq"), t("mode.vel"), t("mode.pos")];
     if (isStatusFresh) {
@@ -375,21 +395,18 @@ export class Dashboard {
       const faultDesc = hasFault ? `M:${s.motorFault} S:${s.shuntFault}` : "OK";
       setStrip("fault", faultDesc, hasFault);
       const modeName = MODE_NAMES[s.mode] || `mode ${s.mode}`;
-      setStrip("mode", modeName, false);
       if (badge) badge.textContent = modeName;
     } else {
       setStrip("fault", "—", false);
-      setStrip("mode", "—", false);
       if (badge) badge.textContent = "—";
     }
 
-    // 2. 转速与电流：优先使用高频波形，若未订阅波形则平滑回退到 STATUS 低频估计值
     let rpmVal = Number.isFinite(latest[2]) ? latest[2] : (isStatusFresh ? this._lastStatus.rpmEst : NaN);
     let iqVal = Number.isFinite(latest[5]) ? latest[5] : (isStatusFresh ? this._lastStatus.iqEst : NaN);
-    // 3. 母线电压：优先使用实时波形 ch26，若未订阅则使用 STATUS 中的 vbus
     let vbusVal = Number.isFinite(latest[26]) ? latest[26] : (isStatusFresh ? this._lastStatus.vbus : NaN);
-    // 4. 机械位置 ch17（多圈累计 rad）
-    let posVal = Number.isFinite(latest[17]) ? latest[17] : NaN;
+    // ch17 机械位置（多圈 rad）；ch16 位置目标
+    const posVal = Number.isFinite(latest[17]) ? latest[17] : NaN;
+    const posRef = Number.isFinite(latest[16]) ? latest[16] : NaN;
 
     const track = latest[2] - latest[3];
     setStrip("track", Number.isFinite(track) ? track.toFixed(1) : "—");
@@ -397,7 +414,10 @@ export class Dashboard {
     if (this.gauges.rpm && Number.isFinite(rpmVal)) this.gauges.rpm.setValue(rpmVal);
     if (this.gauges.iq && Number.isFinite(iqVal)) this.gauges.iq.setValue(iqVal);
     if (this.gauges.vbus && Number.isFinite(vbusVal)) this.gauges.vbus.setValue(vbusVal);
-    if (this.gauges.pos && Number.isFinite(posVal)) this.gauges.pos.setValue(posVal);
+    if (this.rotor) {
+      if (Number.isFinite(posVal)) this.rotor.setActualRad(posVal);
+      if (Number.isFinite(posRef)) this.rotor.setTargetRad(posRef);
+    }
 
     for (const [id, el] of this._cells) {
       const ch = this.channels.find((c) => c.id === id);
