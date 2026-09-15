@@ -12,7 +12,6 @@ import { ControlConsole, PRESET_COMMANDS, MODES, IDENT_COMMANDS, FEEDBACK_COMMAN
 import { WorkflowWizard } from "./ui/wizard.js";
 import { MathChannels, MATH_OPS } from "./ui/math.js";
 import { TriggerEngine, TriggerMode } from "./ui/trigger.js";
-import { measureChannel } from "./ui/measure.js";
 import { ScopeLegend } from "./ui/legend.js";
 import { TuningPanel } from "./ui/tuning.js";
 import { ExpertPanel } from "./ui/expert.js";
@@ -558,49 +557,7 @@ function updateChannelValues() {
 }
 
 function updateMeasures() {
-  const bar = $("measure-bar");
-  const n = Math.min(Math.floor(state.windowSec * state.sampleRate), store.length);
-  if (n < 2) {
-    bar.textContent = "—";
-    return;
-  }
-  // 触发冻结时按冻结窗测；否则 live last-n
-  const frozen = trigger.frozen && trigger.triggerIndex >= 0;
-  const parts = [];
-  for (const ch of state.channels) {
-    if (!ch.visible) continue;
-    const label = channelLabel(ch.id, getLang());
-    let m;
-    if (frozen) {
-      const vw = trigger.viewWindow(n, store.latestIndex);
-      if (vw) {
-        const p = store.getSeriesPeaksByRange(ch.id, vw.startIdx, vw.endIdx, 64);
-        let mn = Infinity;
-        let mx = -Infinity;
-        let sum = 0;
-        let sumSq = 0;
-        let cnt = 0;
-        for (let i = 0; i < p.n; i++) {
-          if (!Number.isFinite(p.minY[i])) continue;
-          mn = Math.min(mn, p.minY[i]);
-          mx = Math.max(mx, p.maxY[i]);
-          const mid = (p.minY[i] + p.maxY[i]) * 0.5;
-          sum += mid;
-          sumSq += mid * mid;
-          cnt += 1;
-        }
-        m = cnt
-          ? { min: mn, max: mx, mean: sum / cnt, rms: Math.sqrt(sumSq / cnt), p2p: mx - mn }
-          : null;
-      }
-    }
-    if (!m) m = measureChannel(store, ch.id, n);
-    if (!m || !Number.isFinite(m.min)) continue;
-    parts.push(
-      `<span><span class="m-name" style="color:${ch.color}">${label}</span> min ${m.min.toFixed(3)} max ${m.max.toFixed(3)} avg ${m.mean.toFixed(3)} rms ${m.rms.toFixed(3)} p2p ${m.p2p.toFixed(3)} last ${Number.isFinite(m.last) ? m.last.toFixed(3) : "—"}</span>`
-    );
-  }
-  bar.innerHTML = parts.join("") || "—";
+  // 通道统计条已移除；保留函数占位避免其它引用报错
 }
 
 async function switchMode(next) {
@@ -1243,7 +1200,6 @@ setInterval(() => {
   state.lastStats = now;
   if ($("chk-raw").checked) $("term-raw").textContent = terminal.renderRaw().slice(-2000);
   if ($("panel-scope").classList.contains("active")) {
-    updateMeasures();
     updateChannelValues();
   }
   const empty = $("scope-empty");

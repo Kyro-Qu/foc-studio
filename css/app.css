@@ -769,6 +769,10 @@ main {
   min-width: 0;
 }
 
+.wf-field .num-field {
+  width: 100%;
+}
+
 .wf-field-label {
   display: flex;
   justify-content: space-between;
@@ -1152,6 +1156,11 @@ button.ghost:hover {
   color: var(--text-dim);
   font-size: 13px;
   pointer-events: none;
+  background: transparent;
+}
+
+.scope-empty[hidden] {
+  display: none !important;
 }
 
 #scope-canvas {

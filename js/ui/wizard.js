@@ -1292,6 +1292,15 @@ export class WorkflowWizard {
   }
 
   _htmlPid() {
+    const tuneField = (id, label, unit, min, max, step, val, hint) => `
+      <div class="wf-field">
+        <div class="wf-field-label"><span>${label}</span></div>
+        <div class="num-field">
+          <input type="number" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}" />
+          <span class="num-unit">${unit}</span>
+        </div>
+        <span class="wf-field-hint">${hint}</span>
+      </div>`;
     return `
       <div class="wf-page-head">
         <div>
@@ -1325,22 +1334,8 @@ export class WorkflowWizard {
           <h4 class="wf-section">${t("wf.pid.title_current")}</h4>
         </div>
         <div class="wf-tuning-grid cols-2">
-          <div class="wf-field">
-            <div class="wf-field-label">
-              <span>${t("wf.pid.current_bw")}</span>
-              <span class="wf-field-unit">rad/s</span>
-            </div>
-            <input type="number" id="wf-bw" min="100" max="3000" step="50" value="2000" />
-            <span class="wf-field-hint">自动整定 d/q 轴 Kp/Ki (100~3000)</span>
-          </div>
-          <div class="wf-field">
-            <div class="wf-field-label">
-              <span>${t("wf.pid.limit")}</span>
-              <span class="wf-field-unit">A</span>
-            </div>
-            <input type="number" id="wf-limit-val" min="0.1" max="15.0" step="0.1" value="2.0" />
-            <span class="wf-field-hint">电机运行相电流软保护限幅 (limit)</span>
-          </div>
+          ${tuneField("wf-bw", t("wf.pid.current_bw"), "rad/s", 100, 3000, 50, 2000, "自动整定 d/q 轴 Kp/Ki (100~3000)")}
+          ${tuneField("wf-limit-val", t("wf.pid.limit"), "A", 0.1, 15.0, 0.1, 2.0, "电机运行相电流软保护限幅 (limit)")}
         </div>
       </div>
 
@@ -1350,54 +1345,12 @@ export class WorkflowWizard {
           <h4 class="wf-section">${t("wf.pid.title_vel")}</h4>
         </div>
         <div class="wf-tuning-grid cols-3">
-          <div class="wf-field">
-            <div class="wf-field-label">
-              <span>${t("wf.pid.vel_kp")}</span>
-              <span class="wf-field-unit">A/RPM</span>
-            </div>
-            <input type="number" id="wf-vkp" min="0" max="2.0" step="0.005" value="0.02" />
-            <span class="wf-field-hint">比例增益，响应刚度</span>
-          </div>
-          <div class="wf-field">
-            <div class="wf-field-label">
-              <span>${t("wf.pid.vel_ki")}</span>
-              <span class="wf-field-unit">A/(RPM·s)</span>
-            </div>
-            <input type="number" id="wf-vki" min="0" max="5.0" step="0.005" value="0.02" />
-            <span class="wf-field-hint">积分增益，消除稳态转速静差</span>
-          </div>
-          <div class="wf-field">
-            <div class="wf-field-label">
-              <span>${t("wf.pid.vel_ramp")}</span>
-              <span class="wf-field-unit">RPM/s</span>
-            </div>
-            <input type="number" id="wf-vramp" min="0" max="100000" step="500" value="10000" />
-            <span class="wf-field-hint">速度斜坡率，0=直通无斜坡</span>
-          </div>
-          <div class="wf-field">
-            <div class="wf-field-label">
-              <span>${t("wf.pid.vel_filter")}</span>
-              <span class="wf-field-unit">Hz</span>
-            </div>
-            <input type="number" id="wf-vfilt" min="5" max="200" step="5" value="50" />
-            <span class="wf-field-hint">测速反馈一阶低通截止频率</span>
-          </div>
-          <div class="wf-field">
-            <div class="wf-field-label">
-              <span>${t("wf.pid.vel_ff")}</span>
-              <span class="wf-field-unit">A</span>
-            </div>
-            <input type="number" id="wf-vff" min="0" max="2.0" step="0.01" value="0.0" />
-            <span class="wf-field-hint">静摩擦阻力矩前馈补偿</span>
-          </div>
-          <div class="wf-field">
-            <div class="wf-field-label">
-              <span>${t("wf.pid.vel_track")}</span>
-              <span class="wf-field-unit">A/rad</span>
-            </div>
-            <input type="number" id="wf-vtrack" min="0" max="100" step="0.1" value="0.0" />
-            <span class="wf-field-hint">抗扰动角度跟踪刚度</span>
-          </div>
+          ${tuneField("wf-vkp", t("wf.pid.vel_kp"), "A/RPM", 0, 2.0, 0.005, 0.02, "比例增益，响应刚度")}
+          ${tuneField("wf-vki", t("wf.pid.vel_ki"), "A/(RPM·s)", 0, 5.0, 0.005, 0.02, "积分增益，消除稳态转速静差")}
+          ${tuneField("wf-vramp", t("wf.pid.vel_ramp"), "RPM/s", 0, 100000, 500, 10000, "速度斜坡率，0=直通无斜坡")}
+          ${tuneField("wf-vfilt", t("wf.pid.vel_filter"), "Hz", 5, 200, 5, 50, "测速反馈一阶低通截止频率")}
+          ${tuneField("wf-vff", t("wf.pid.vel_ff"), "A", 0, 2.0, 0.01, 0.0, "静摩擦阻力矩前馈补偿")}
+          ${tuneField("wf-vtrack", t("wf.pid.vel_track"), "A/rad", 0, 100, 0.1, 0.0, "抗扰动角度跟踪刚度")}
         </div>
       </div>
 
@@ -1407,46 +1360,11 @@ export class WorkflowWizard {
           <h4 class="wf-section">${t("wf.pid.title_pos")}</h4>
         </div>
         <div class="wf-tuning-grid cols-5">
-          <div class="wf-field">
-            <div class="wf-field-label">
-              <span>${t("wf.pid.pos_kp")}</span>
-              <span class="wf-field-unit">A/rad</span>
-            </div>
-            <input type="number" id="wf-pkp" min="0" max="500" step="0.5" value="10" />
-            <span class="wf-field-hint">位置环比例刚度</span>
-          </div>
-          <div class="wf-field">
-            <div class="wf-field-label">
-              <span>${t("wf.pid.pos_ki")}</span>
-              <span class="wf-field-unit">A/(rad·s)</span>
-            </div>
-            <input type="number" id="wf-pki" min="0" max="50" step="0.05" value="0" />
-            <span class="wf-field-hint">位置积分，消除稳态位置误差</span>
-          </div>
-          <div class="wf-field">
-            <div class="wf-field-label">
-              <span>${t("wf.pid.pos_vkp")}</span>
-              <span class="wf-field-unit">A/RPM</span>
-            </div>
-            <input type="number" id="wf-pvkp" min="0" max="0.5" step="0.002" value="0.02" />
-            <span class="wf-field-hint">速度微分阻尼，抑制位置强摆晃动</span>
-          </div>
-          <div class="wf-field">
-            <div class="wf-field-label">
-              <span>${t("wf.pid.pos_accel")}</span>
-              <span class="wf-field-unit">RPM/s</span>
-            </div>
-            <input type="number" id="wf-paccel" min="100" max="100000" step="500" value="5000" />
-            <span class="wf-field-hint">梯形加减速轨迹规划加速度</span>
-          </div>
-          <div class="wf-field">
-            <div class="wf-field-label">
-              <span>${t("wf.pid.pos_vmax")}</span>
-              <span class="wf-field-unit">RPM</span>
-            </div>
-            <input type="number" id="wf-pvmax" min="100" max="10000" step="100" value="3000" />
-            <span class="wf-field-hint">位置运动过程中的最高巡航转速</span>
-          </div>
+          ${tuneField("wf-pkp", t("wf.pid.pos_kp"), "A/rad", 0, 500, 0.5, 10, "位置环比例刚度")}
+          ${tuneField("wf-pki", t("wf.pid.pos_ki"), "A/(rad·s)", 0, 50, 0.05, 0, "位置积分，消除稳态位置误差")}
+          ${tuneField("wf-pvkp", t("wf.pid.pos_vkp"), "A/RPM", 0, 0.5, 0.002, 0.02, "速度微分阻尼，抑制位置强摆晃动")}
+          ${tuneField("wf-paccel", t("wf.pid.pos_accel"), "RPM/s", 100, 100000, 500, 5000, "梯形加减速轨迹规划加速度")}
+          ${tuneField("wf-pvmax", t("wf.pid.pos_vmax"), "RPM", 100, 10000, 100, 3000, "位置运动过程中的最高巡航转速")}
         </div>
       </div>
       <p class="wf-note">${t("wf.pid.note")}</p>`;
