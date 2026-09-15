@@ -1155,6 +1155,12 @@ button.ghost:hover {
   padding: 0;
 }
 
+/* 与左侧列表等高对齐的空行（只显示分隔线） */
+.form-row-spacer {
+  min-height: 44px;
+  padding: 0;
+}
+
 .scope-canvas-wrap {
   flex: 1;
   min-height: 280px;
