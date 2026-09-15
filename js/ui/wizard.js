@@ -763,6 +763,10 @@ export class WorkflowWizard {
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>${t("wf.apply")}</span>
             </button>
+            <button class="danger" data-cmd="conf write" data-confirm="conf write" title="${t("wf.motor.conf_write_tip")}">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h8l2 2v8H3V3zM5 3v4h6V3M5 13v-4h6v4" stroke-linejoin="round"/></svg>
+              <span>${t("wf.motor.conf_write")}</span>
+            </button>
           </div>
         </div>
         <div class="form-list-2col">
@@ -807,7 +811,6 @@ export class WorkflowWizard {
             </div>
           </div>
         </div>
-        <p class="wf-note">${t("wf.safety.note")}</p>
       </section>`;
   }
 
