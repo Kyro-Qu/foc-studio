@@ -937,7 +937,7 @@ export class WorkflowWizard {
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>${t("wf.apply")}</span>
             </button>
-            <button class="danger" data-cmd="conf write" data-confirm="conf write">
+            <button class="danger" data-cmd="conf write" data-confirm="conf write" title="${t("wf.motor.conf_write_tip")}">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h8l2 2v8H3V3zM5 3v4h6V3M5 13v-4h6v4" stroke-linejoin="round"/></svg>
               <span>${t("wf.motor.conf_write")}</span>
             </button>
@@ -990,8 +990,8 @@ export class WorkflowWizard {
     }
     let text = "";
     try {
-      text += await this.sendCapture("conf read", 450);
-      text += "\n" + (await this.sendCapture("ident show", 350));
+      text += await this.sendCapture("conf read", 500);
+      text += "\n" + (await this.sendCapture("ident show", 500));
     } catch {
       /* ignore */
     }
@@ -999,28 +999,42 @@ export class WorkflowWizard {
       const m = text.match(re);
       return m ? m[1] : null;
     };
-    const set = (id, v, scale = 1) => {
+    const set = (id, v, decimals = null) => {
       const el = this.root.querySelector(`#${id}`);
-      if (el && v != null) el.value = (Number(v) * scale).toFixed(scale === 1 ? 0 : 4);
+      if (el && v != null && v !== "") {
+        const num = Number(v);
+        if (Number.isFinite(num)) {
+          el.value = decimals != null ? num.toFixed(decimals) : String(num);
+        }
+      }
     };
-    set("wf-pp", pick(/pp=([0-9.]+)/));
-    // conf: Rs ohm, Ls uH
-    const rsConf = pick(/Rs=([0-9.]+)/);
-    const lsConf = pick(/Ls=([0-9.]+)/);
-    set("wf-rs", rsConf);
-    set("wf-ls", lsConf);
-    set("wf-maxrpm", pick(/max_rpm=([0-9.]+)/));
-    set("wf-limit2", pick(/limit=([0-9.]+)/));
-    // ident show 优先覆盖 Rs/Ls
-    const rsId = pick(/Rs=([0-9.]+)\s*ohm/i) || pick(/Rs=([0-9.]+)/);
-    const lsId = pick(/Ls=([0-9.]+)\s*uH/i) || pick(/Ls=([0-9.]+)/i);
-    const ld = pick(/Ld=([0-9.]+)/i);
-    const lq = pick(/Lq=([0-9.]+)/i);
-    const flux = pick(/flux[^\n=]*=([0-9.]+)/i) || pick(/Ke=([0-9.]+)/i);
-    if (rsId) set("wf-rs", rsId);
-    if (lsId) set("wf-ls", lsId);
-    if (ld) set("wf-ld", ld);
-    if (lq) set("wf-lq", lq);
+    // 基础参数解析
+    set("wf-pp", pick(/pp=([0-9.]+)/i) || pick(/Pole Pairs=([0-9.]+)/i), 0);
+    set("wf-maxrpm", pick(/max_rpm=([0-9.]+)/i), 0);
+    set("wf-limit2", pick(/limit=([0-9.]+)/i), 2);
+
+    // conf read: Rs ohm, Ls uH
+    const rsConf = pick(/Rs=([0-9.]+)/i);
+    const lsConf = pick(/Ls=([0-9.]+)/i);
+    if (rsConf) set("wf-rs", rsConf, 4);
+    if (lsConf) set("wf-ls", lsConf, 2);
+
+    // ident show:
+    // "Rs=0.4018 ohm, Ls=320.55 uH"
+    // "Ld=320.55 uH, Lq=320.55 uH"
+    // "Flux=0.00095 Wb, Ke=0.90 V/krpm"
+    const rsId = pick(/Rs=([0-9.]+)\s*ohm/i);
+    const lsId = pick(/Ls=([0-9.]+)\s*uH/i);
+    const ld = pick(/Ld=([0-9.]+)\s*uH/i) || pick(/Ld=([0-9.]+)/i);
+    const lq = pick(/Lq=([0-9.]+)\s*uH/i) || pick(/Lq=([0-9.]+)/i);
+    const flux = pick(/Flux=([0-9.]+)\s*Wb/i) || pick(/Flux=([0-9.]+)/i) || pick(/flux[^\n=]*=([0-9.]+)/i);
+
+    if (rsId) set("wf-rs", rsId, 4);
+    if (lsId) set("wf-ls", lsId, 2);
+    if (ld) set("wf-ld", ld, 2);
+    if (lq) set("wf-lq", lq, 2);
+    if (flux) set("wf-flux", flux, 5);
+
     if (badge) badge.textContent = t("wf.motor.from_device");
   }
 
@@ -1228,7 +1242,7 @@ export class WorkflowWizard {
             <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span>${t("wf.pid.read")}</span>
           </button>
-          <button class="danger" id="wf-pid-save" data-confirm="conf write">
+          <button class="danger" id="wf-pid-save" data-confirm="conf write" title="${t("wf.pid.save_flash_tip")}">
             <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h8l2 2v8H3V3zM5 3v4h6V3M5 13v-4h6v4" stroke-linejoin="round"/></svg>
             <span>${t("wf.pid.save_flash")}</span>
           </button>
