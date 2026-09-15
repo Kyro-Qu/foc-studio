@@ -1282,7 +1282,7 @@ button.ghost:hover {
 /* ===== Dashboard (in console) ===== */
 .dash-strip {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 12px;
 }
@@ -1687,7 +1687,7 @@ footer strong {
     grid-template-columns: 1fr;
   }
   .dash-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
   .dash-gauges {
     grid-template-columns: repeat(2, minmax(0, 1fr));

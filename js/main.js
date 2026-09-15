@@ -946,6 +946,14 @@ function syncChannelMaskToDevice() {
     let mask = 0;
     let count = 0;
     const dropped = [];
+    // 仪表盘依赖的通道强制订阅（用户未勾选时也下发）
+    const essential = [2, 5, 26, 17]; // vel, iq_filt, vbus_fast, position
+    for (const id of essential) {
+      if ((mask & (1 << id)) === 0) {
+        mask |= (1 << id);
+        count++;
+      }
+    }
     for (const ch of state.channels) {
       if (!ch.visible) continue;
       if (count < 16) {

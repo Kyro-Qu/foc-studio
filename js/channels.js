@@ -23,7 +23,7 @@ export const DEFAULT_CHANNELS = [
   { id: 14, name: "id_ref",      unit: "A",    color: "#a8dadc", visible: false },
   { id: 15, name: "vel_raw",     unit: "rpm",  color: "#fcbf49", visible: false },
   { id: 16, name: "pos_ref",     unit: "rad",  color: "#3a86ff", visible: false },
-  { id: 17, name: "position",    unit: "rad",  color: "#8338ec", visible: false },
+  { id: 17, name: "position",    unit: "rad",  color: "#8338ec", visible: true  },
   { id: 18, name: "duty_b",      unit: "0-1",  color: "#ff006e", visible: false },
   { id: 19, name: "duty_c",      unit: "0-1",  color: "#fb5607", visible: false },
   { id: 20, name: "obs_theta",   unit: "rad",  color: "#ffbe0b", visible: false },

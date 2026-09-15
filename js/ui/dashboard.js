@@ -66,20 +66,18 @@ export class Dashboard {
     this.gauges = {};
     const lang = getLang();
 
-    /* 状态条 */
+    /* 状态条：只放状态类，读数交给下方表盘，避免重复 */
     this.strip = document.createElement("div");
     this.strip.className = "dash-strip";
     for (const s of [
       { id: "fault", key: "dash.fault", unit: "" },
-      { id: "rpm", key: "dash.rpm", unit: "rpm" },
-      { id: "iq", key: "dash.iq", unit: "A" },
-      { id: "vbus", key: "dash.vbus", unit: "V" },
-      { id: "track", key: "dash.track", unit: "rpm" },
+      { id: "mode", key: "dash.mode", unit: "" },
+      { id: "track", key: "dash.track", unit: "" },
     ]) {
       const cell = document.createElement("div");
       cell.className = `dash-state dash-state-${s.id}`;
       cell.innerHTML = `
-        <div class="dash-state-label">${t(s.key)}${s.unit ? ` <span class="dash-state-unit">${s.unit}</span>` : ""}</div>
+        <div class="dash-state-label">${t(s.key)}</div>
         <div class="dash-state-val" data-strip="${s.id}">—</div>
       `;
       this.strip.appendChild(cell);
@@ -96,7 +94,7 @@ export class Dashboard {
       { id: "rpm", label: t("dash.rpm"), unit: "rpm", min: 0, max: 5000, color: "#7fd962", digits: 0 },
       { id: "iq", label: "Iq", unit: "A", min: -5, max: 5, color: "#ff9f43", digits: 2 },
       { id: "vbus", label: t("dash.vbus"), unit: "V", min: 0, max: 25, color: "#58a6ff", digits: 1 },
-      { id: "duty", label: channelLabel(12, lang), unit: "", min: 0, max: 1, color: "#c3a6ff", digits: 2 },
+      { id: "pos", label: t("dash.pos"), unit: "rad", min: -12.57, max: 12.57, color: "#c3a6ff", digits: 2 },
     ];
     for (const d of gdefs) {
       const box = document.createElement("div");
@@ -368,17 +366,20 @@ export class Dashboard {
       el.classList.toggle("bad", !!bad);
     };
 
-    // 1. 故障展示：严格由 STATUS 帧驱动
+    // 1. 故障 / 模式：严格由 STATUS 帧驱动
     const badge = this.root.querySelector("#dash-mode-badge");
+    const MODE_NAMES = [t("mode.vf"), t("mode.iq"), t("mode.vel"), t("mode.pos")];
     if (isStatusFresh) {
       const s = this._lastStatus;
       const hasFault = (s.motorFault !== 0) || (s.shuntFault !== 0);
       const faultDesc = hasFault ? `M:${s.motorFault} S:${s.shuntFault}` : "OK";
       setStrip("fault", faultDesc, hasFault);
-      const MODE_NAMES = [t("mode.vf"), t("mode.iq"), t("mode.vel"), t("mode.pos")];
-      if (badge) badge.textContent = MODE_NAMES[s.mode] || `mode ${s.mode}`;
+      const modeName = MODE_NAMES[s.mode] || `mode ${s.mode}`;
+      setStrip("mode", modeName, false);
+      if (badge) badge.textContent = modeName;
     } else {
       setStrip("fault", "—", false);
+      setStrip("mode", "—", false);
       if (badge) badge.textContent = "—";
     }
 
@@ -387,10 +388,8 @@ export class Dashboard {
     let iqVal = Number.isFinite(latest[5]) ? latest[5] : (isStatusFresh ? this._lastStatus.iqEst : NaN);
     // 3. 母线电压：优先使用实时波形 ch26，若未订阅则使用 STATUS 中的 vbus
     let vbusVal = Number.isFinite(latest[26]) ? latest[26] : (isStatusFresh ? this._lastStatus.vbus : NaN);
-
-    setStrip("rpm", Number.isFinite(rpmVal) ? rpmVal.toFixed(1) : "—");
-    setStrip("iq", Number.isFinite(iqVal) ? iqVal.toFixed(2) : "—");
-    setStrip("vbus", Number.isFinite(vbusVal) ? vbusVal.toFixed(2) : "—");
+    // 4. 机械位置 ch17（多圈累计 rad）
+    let posVal = Number.isFinite(latest[17]) ? latest[17] : NaN;
 
     const track = latest[2] - latest[3];
     setStrip("track", Number.isFinite(track) ? track.toFixed(1) : "—");
@@ -398,7 +397,7 @@ export class Dashboard {
     if (this.gauges.rpm && Number.isFinite(rpmVal)) this.gauges.rpm.setValue(rpmVal);
     if (this.gauges.iq && Number.isFinite(iqVal)) this.gauges.iq.setValue(iqVal);
     if (this.gauges.vbus && Number.isFinite(vbusVal)) this.gauges.vbus.setValue(vbusVal);
-    if (this.gauges.duty && Number.isFinite(latest[12])) this.gauges.duty.setValue(latest[12]);
+    if (this.gauges.pos && Number.isFinite(posVal)) this.gauges.pos.setValue(posVal);
 
     for (const [id, el] of this._cells) {
       const ch = this.channels.find((c) => c.id === id);
