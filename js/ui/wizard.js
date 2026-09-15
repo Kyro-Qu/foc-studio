@@ -1001,29 +1001,25 @@ export class WorkflowWizard {
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.motor.auto")}</h4>
         </div>
-        <div class="action-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+        <div class="action-grid" style="grid-template-columns: 1fr;">
           <button id="btn-action-ident" class="danger">
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8.5 1.5l-5 7h4l-1 6 6-8h-4l1.5-5" stroke-linejoin="round"/></svg>
             <span>${t("ident.full")}</span>
           </button>
-          <button id="btn-action-calib" class="danger">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/></svg>
-            <span>${t("wf.calib.full")}</span>
-          </button>
         </div>
-        <div id="wf-ident-status" class="task-progress" hidden>
-          <div class="task-progress-bar"><i id="wf-ident-progress-fill"></i></div>
-          <span id="wf-ident-progress-text" class="task-progress-text"></span>
+        <div id="wf-ident-status" class="task-progress" data-task="ident" hidden>
+          <div class="task-progress-bar"><i></i></div>
+          <span class="task-progress-text"></span>
         </div>
         <p class="wf-note">${t("wf.calib.note")}</p>
       </section>`;
   }
 
   /** 任务进度：倒计时 + 进度条 + 完成 Toast */
-  _startTaskProgress(label, durationMs) {
-    const box = this.root.querySelector("#wf-ident-status");
-    const fill = this.root.querySelector("#wf-ident-progress-fill");
-    const text = this.root.querySelector("#wf-ident-progress-text");
+  _startTaskProgress(label, durationMs, boxSelector = "#wf-ident-status") {
+    const box = this.root.querySelector(boxSelector);
+    const fill = box?.querySelector(".task-progress-bar i");
+    const text = box?.querySelector(".task-progress-text");
     if (!box || !fill || !text) {
       return { tick: () => {}, done: () => {}, fail: () => {} };
     }
@@ -1217,7 +1213,7 @@ export class WorkflowWizard {
     btn.classList.add("loading");
     const origHtml = btn.innerHTML;
     btn.innerHTML = `<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;"></span><span>零点校准中…</span>`;
-    const prog = this._startTaskProgress("零点校准中", 6500);
+    const prog = this._startTaskProgress("零点校准中", 6500, "#wf-calib-status");
 
     try {
       if (this.sendCapture) {
@@ -1294,6 +1290,23 @@ export class WorkflowWizard {
           <button data-cmd="angle">${t("wf.encoder.query")}</button>
         </div>
         <p class="wf-note">${t("wf.encoder.source_note")}</p>
+      </section>
+
+      <section class="wf-card">
+        <div class="wf-card-head">
+          <h4 class="wf-section">${t("wf.calib.full")}</h4>
+        </div>
+        <div class="action-grid" style="grid-template-columns: 1fr;">
+          <button id="btn-action-calib" class="danger">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/></svg>
+            <span>${t("wf.calib.full")}</span>
+          </button>
+        </div>
+        <div id="wf-calib-status" class="task-progress" data-task="calib" hidden>
+          <div class="task-progress-bar"><i></i></div>
+          <span class="task-progress-text"></span>
+        </div>
+        <p class="wf-note">${t("wf.calib.note")}</p>
       </section>
 
       <section class="wf-card">
