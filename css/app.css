@@ -1142,7 +1142,7 @@ button.ghost:hover {
 /* 数值 + 单位一体控件：单位在框内右侧，像系统设置 */
 .num-field {
   display: inline-flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: flex-end;
   width: 120px;
   height: 32px;
@@ -1152,6 +1152,7 @@ button.ghost:hover {
   border-radius: 8px;
   transition: border-color var(--transition), box-shadow var(--transition);
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .num-field:focus-within {
@@ -1171,10 +1172,11 @@ button.ghost:hover {
   margin: 0;
   text-align: right;
   font-size: 13px;
-  /* 不要用 line-height 撑高，交给 flex 垂直居中 */
-  line-height: normal;
+  /* 与单位同一行盒高度，避免数字偏上 */
+  line-height: 30px;
   font-variant-numeric: tabular-nums;
   box-shadow: none;
+  box-sizing: border-box;
 }
 
 .num-field input[type="number"]:focus,
@@ -1188,13 +1190,15 @@ button.ghost:hover {
   flex-shrink: 0;
   font-family: var(--mono);
   font-size: 12px;
-  line-height: 1;
+  /* 与 input 同 line-height，保证基线一致 */
+  line-height: 30px;
   color: var(--text-dim);
   min-width: 16px;
   text-align: left;
   padding-left: 4px;
   user-select: none;
-  align-self: center;
+  display: flex;
+  align-items: center;
 }
 
 /* select 行：占满 trail */
