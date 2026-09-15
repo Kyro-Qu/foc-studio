@@ -2039,3 +2039,110 @@ footer strong {
   color: var(--text-dim);
   font-family: var(--mono);
 }
+
+/* ===== Task progress (ident / calib) ===== */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.task-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--bg-grouped);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+}
+
+.task-progress[hidden] {
+  display: none !important;
+}
+
+.task-progress-bar {
+  height: 6px;
+  background: var(--bg);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+}
+
+.task-progress-bar i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--warn), var(--accent));
+  transition: width 0.2s linear;
+}
+
+.task-progress.is-ok .task-progress-bar i {
+  background: var(--ok);
+}
+
+.task-progress.is-err .task-progress-bar i {
+  background: var(--err);
+}
+
+.task-progress-text {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.task-progress.is-ok .task-progress-text { color: var(--ok); }
+.task-progress.is-err .task-progress-text { color: var(--err); }
+
+/* ===== Toast ===== */
+#wf-toast-host {
+  position: fixed;
+  top: 56px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.wf-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  max-width: 360px;
+}
+
+.wf-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.wf-toast-ico {
+  font-weight: 700;
+}
+
+.wf-toast-ok {
+  border-color: rgba(48, 209, 88, 0.45);
+  background: rgba(48, 209, 88, 0.14);
+}
+
+.wf-toast-ok .wf-toast-ico { color: var(--ok); }
+
+.wf-toast-err {
+  border-color: rgba(255, 69, 58, 0.45);
+  background: rgba(255, 69, 58, 0.14);
+}
+
+.wf-toast-err .wf-toast-ico { color: var(--err); }

@@ -970,7 +970,6 @@ export class WorkflowWizard {
       <section class="wf-card">
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.motor.auto")}</h4>
-          <span id="wf-ident-status" class="wf-badge" style="display:none;"></span>
         </div>
         <div class="action-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
           <button id="btn-action-ident" class="danger">
@@ -982,8 +981,73 @@ export class WorkflowWizard {
             <span>${t("wf.calib.full")}</span>
           </button>
         </div>
+        <div id="wf-ident-status" class="task-progress" hidden>
+          <div class="task-progress-bar"><i id="wf-ident-progress-fill"></i></div>
+          <span id="wf-ident-progress-text" class="task-progress-text"></span>
+        </div>
         <p class="wf-note">${t("wf.calib.note")}</p>
       </section>`;
+  }
+
+  /** 任务进度：倒计时 + 进度条 + 完成 Toast */
+  _startTaskProgress(label, durationMs) {
+    const box = this.root.querySelector("#wf-ident-status");
+    const fill = this.root.querySelector("#wf-ident-progress-fill");
+    const text = this.root.querySelector("#wf-ident-progress-text");
+    if (!box || !fill || !text) {
+      return { tick: () => {}, done: () => {}, fail: () => {} };
+    }
+    box.hidden = false;
+    box.classList.remove("is-ok", "is-err");
+    box.classList.add("is-run");
+    fill.style.width = "0%";
+    const t0 = Date.now();
+    const total = Math.max(1, durationMs);
+    text.textContent = `${label} 0%`;
+    const timer = setInterval(() => {
+      const el = Math.min(1, (Date.now() - t0) / total);
+      const pct = Math.floor(el * 100);
+      fill.style.width = `${pct}%`;
+      const left = Math.max(0, Math.ceil((total - (Date.now() - t0)) / 1000));
+      text.textContent = `${label} ${pct}% · 剩余约 ${left}s`;
+    }, 200);
+    const stop = () => clearInterval(timer);
+    return {
+      done: (msg) => {
+        stop();
+        box.classList.remove("is-run");
+        box.classList.add("is-ok");
+        fill.style.width = "100%";
+        text.textContent = msg || "✔ 完成";
+        this._toast(msg || "完成", "ok");
+      },
+      fail: (msg) => {
+        stop();
+        box.classList.remove("is-run");
+        box.classList.add("is-err");
+        text.textContent = msg || "✖ 失败";
+        this._toast(msg || "失败", "err");
+      },
+      tick: stop,
+    };
+  }
+
+  _toast(msg, kind = "ok") {
+    let host = document.getElementById("wf-toast-host");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "wf-toast-host";
+      document.body.appendChild(host);
+    }
+    const el = document.createElement("div");
+    el.className = `wf-toast wf-toast-${kind}`;
+    el.innerHTML = `<span class="wf-toast-ico">${kind === "ok" ? "✔" : "✖"}</span><span>${msg}</span>`;
+    host.appendChild(el);
+    requestAnimationFrame(() => el.classList.add("show"));
+    setTimeout(() => {
+      el.classList.remove("show");
+      setTimeout(() => el.remove(), 280);
+    }, 4200);
   }
 
   /** 读取 conf read + ident show，填入参数表 */
@@ -1052,7 +1116,6 @@ export class WorkflowWizard {
    */
   async _runMotorIdent() {
     const btn = this.root.querySelector("#btn-action-ident");
-    const statusBadge = this.root.querySelector("#wf-ident-status");
     if (!btn) return;
 
     if (!confirm("启动【电机参数辨识】将短暂驱动电机转动以测定相电阻 Rs、电感 Ls 及转子磁链 Flux。\n请确认电机处于空载安全状态。是否继续？")) {
@@ -1063,46 +1126,36 @@ export class WorkflowWizard {
     btn.classList.add("loading");
     const origHtml = btn.innerHTML;
     btn.innerHTML = `<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;"></span><span>${t("ident.busy")}</span>`;
-    if (statusBadge) {
-      statusBadge.style.display = "inline-flex";
-      statusBadge.className = "wf-badge warn";
-      statusBadge.textContent = "辨识中 (约 8s)...";
-    }
+    const prog = this._startTaskProgress("参数辨识中", 8500);
 
     try {
       if (this.sendCapture) {
         // 下发 ident full，单片机测量 Rs/Ls 约 2s，拖动测磁链约 4~5s，整过程约 7~8 秒
-        const resp = await this.sendCapture("ident full", 8500);
+        await this.sendCapture("ident full", 8500);
         // 辨识完成后立刻查询 ident show 提取最新精准结果
         await this._readMotorParams();
-        if (statusBadge) {
-          statusBadge.className = "wf-badge ok";
-          statusBadge.textContent = "✔ 辨识完成并已回填";
-        }
+        prog.done("✔ 辨识完成，参数已回填上方表单");
       } else {
         await this._cli("ident full");
         setTimeout(async () => {
           await this._readMotorParams();
-          if (statusBadge) {
-            statusBadge.className = "wf-badge ok";
-            statusBadge.textContent = "✔ 辨识完成";
-          }
+          prog.done("✔ 辨识完成，请点「读取参数」核对");
         }, 8000);
       }
     } catch (e) {
-      if (statusBadge) {
-        statusBadge.className = "wf-badge danger";
-        statusBadge.textContent = "辨识异常";
-      }
+      prog.fail("✖ 辨识异常，请查看终端");
     } finally {
-      btn.disabled = false;
-      btn.classList.remove("loading");
-      btn.innerHTML = origHtml;
-      setTimeout(() => {
-        if (statusBadge && statusBadge.classList.contains("ok")) {
-          statusBadge.style.display = "none";
-        }
-      }, 5000);
+      if (this.sendCapture) {
+        btn.disabled = false;
+        btn.classList.remove("loading");
+        btn.innerHTML = origHtml;
+      } else {
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.classList.remove("loading");
+          btn.innerHTML = origHtml;
+        }, 8200);
+      }
     }
   }
 
@@ -1114,7 +1167,6 @@ export class WorkflowWizard {
    */
   async _runMotorCalib() {
     const btn = this.root.querySelector("#btn-action-calib");
-    const statusBadge = this.root.querySelector("#wf-ident-status");
     if (!btn) return;
 
     if (!confirm("启动【电机零点校准】将正反转动电机以标定编码器零位偏差 (Offset) 与旋转方向。\n请确认电机处于空载状态。是否继续？")) {
@@ -1124,46 +1176,36 @@ export class WorkflowWizard {
     btn.disabled = true;
     btn.classList.add("loading");
     const origHtml = btn.innerHTML;
-    btn.innerHTML = `<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;"></span><span>零点校准中 (约6s)…</span>`;
-    if (statusBadge) {
-      statusBadge.style.display = "inline-flex";
-      statusBadge.className = "wf-badge warn";
-      statusBadge.textContent = "寻相校准中 (约 6s)...";
-    }
+    btn.innerHTML = `<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;"></span><span>零点校准中…</span>`;
+    const prog = this._startTaskProgress("零点校准中", 6500);
 
     try {
       if (this.sendCapture) {
         // calib full 正反各一圈寻相，耗时约 5~6 秒
         await this.sendCapture("calib full", 6500);
         await this._readBoardInfo();
-        if (statusBadge) {
-          statusBadge.className = "wf-badge ok";
-          statusBadge.textContent = "✔ 零点校准成功 (已就绪)";
-        }
+        prog.done("✔ 零点校准完成，板卡信息已刷新");
       } else {
         await this._cli("calib full");
         setTimeout(async () => {
           await this._readBoardInfo();
-          if (statusBadge) {
-            statusBadge.className = "wf-badge ok";
-            statusBadge.textContent = "✔ 零点校准完成";
-          }
-        }, 6000);
+          prog.done("✔ 零点校准完成");
+        }, 6500);
       }
     } catch (e) {
-      if (statusBadge) {
-        statusBadge.className = "wf-badge danger";
-        statusBadge.textContent = "校准异常";
-      }
+      prog.fail("✖ 校准异常，请查看终端");
     } finally {
-      btn.disabled = false;
-      btn.classList.remove("loading");
-      btn.innerHTML = origHtml;
-      setTimeout(() => {
-        if (statusBadge && statusBadge.classList.contains("ok")) {
-          statusBadge.style.display = "none";
-        }
-      }, 5000);
+      if (this.sendCapture) {
+        btn.disabled = false;
+        btn.classList.remove("loading");
+        btn.innerHTML = origHtml;
+      } else {
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.classList.remove("loading");
+          btn.innerHTML = origHtml;
+        }, 6700);
+      }
     }
   }
 
