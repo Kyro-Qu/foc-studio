@@ -21,8 +21,6 @@ export class Scope {
     /** 相对最新样本的时间偏移（0=贴最新；负值=回看历史） */
     this.viewOffset = 0;
     this.cursor = null;
-    this.cursorT1 = null;
-    this.cursorT2 = null;
     this.trigger = null;
     this.math = null;
     this.onCursor = null;
@@ -31,7 +29,6 @@ export class Scope {
     this.onYRange = null;
     /** 自动 Y 被手动关闭时回调 */
     this.onAutoScale = null;
-    this._pendingClick = null;
     this._raf = 0;
     this._running = false;
     this._needsDraw = true;
@@ -159,14 +156,14 @@ export class Scope {
 
   clear() {
     this.store.clear();
-    this.cursorT1 = null;
-    this.cursorT2 = null;
+    this.cursor = null;
+    if (this.onCursor) this.onCursor(null);
     this._needsDraw = true;
   }
 
   clearCursors() {
-    this.cursorT1 = null;
-    this.cursorT2 = null;
+    this.cursor = null;
+    if (this.onCursor) this.onCursor(null);
     this._needsDraw = true;
   }
 
@@ -296,25 +293,7 @@ export class Scope {
   }
 
   _endDrag() {
-    if (!this._drag) return;
-    const wasClick = !this._drag.moved;
     this._drag = null;
-    if (wasClick && this._pendingClick) {
-      const { x, modifiers } = this._pendingClick;
-      if (modifiers.shift) this.cursorT2 = x;
-      else if (modifiers.alt) this.cursorT1 = x;
-      else {
-        if (this.cursorT1 === null) this.cursorT1 = x;
-        else if (this.cursorT2 === null) this.cursorT2 = x;
-        else {
-          this.cursorT1 = x;
-          this.cursorT2 = null;
-        }
-      }
-      this._pendingClick = null;
-      this._needsDraw = true;
-      this._emitCursor();
-    }
   }
 
   _onWheelEvent(e) {
@@ -362,7 +341,6 @@ export class Scope {
         moved: false,
         button: e.button,
       };
-      this._pendingClick = { x, modifiers: { shift: e.shiftKey, alt: e.altKey } };
       this.canvas.setPointerCapture?.(e.pointerId);
       this._needsDraw = true;
       this._emitCursor();
@@ -375,7 +353,6 @@ export class Scope {
       const dy = e.clientY - this._drag.y;
       if (!this._drag.moved && Math.hypot(dx, dy) < 4) return;
       this._drag.moved = true;
-      this._pendingClick = null;
       this._panX(dx);
       this._panY(dy);
       this._drag.x = e.clientX;
@@ -431,71 +408,9 @@ export class Scope {
       }
     }
 
-    let cursorDelta = null;
-    if (this.cursorT1 !== null && this.cursorT2 !== null) {
-      const i1 = Math.round(this._xToSampleIndex(area, this.cursorT1, range));
-      const i2 = Math.round(this._xToSampleIndex(area, this.cursorT2, range));
-      const s1 = this._sampleNear(i1);
-      const s2 = this._sampleNear(i2);
-      if (s1 && s2) {
-        const dt = (s2.sampleIndex - s1.sampleIndex) / this.sampleRate;
-        const absDt = Math.abs(dt);
-        const freqHz = absDt > 1e-6 ? 1 / absDt : 0;
-        const minIdx = Math.min(s1.sampleIndex, s2.sampleIndex);
-        const maxIdx = Math.max(s1.sampleIndex, s2.sampleIndex);
-
-        const deltas = [];
-        for (const ch of this.channels) {
-          if (!ch.visible) continue;
-          const v1 = s1.values[ch.id];
-          const v2 = s2.values[ch.id];
-          const deltaY = v2 - v1;
-          let overshoot = null;
-
-          // 若区间样本数适中，计算区间的峰值超调量（常见于速度/电流阶跃）
-          if (maxIdx - minIdx >= 2 && Math.abs(deltaY) > 1e-4) {
-            let peakVal = v1;
-            const startOff = this.store.offsetOf(minIdx);
-            const endOff = this.store.offsetOf(maxIdx);
-            if (startOff >= 0 && endOff >= startOff) {
-              const step = Math.max(1, Math.floor((endOff - startOff) / 100));
-              for (let off = startOff; off <= endOff; off += step) {
-                const samp = this.store.sampleAt(off);
-                if (!samp) continue;
-                const val = samp.values[ch.id];
-                if (!Number.isFinite(val)) continue;
-                if (deltaY > 0) {
-                  if (val > peakVal) peakVal = val;
-                } else {
-                  if (val < peakVal) peakVal = val;
-                }
-              }
-              if (deltaY > 0 && peakVal > v2) {
-                overshoot = ((peakVal - v2) / deltaY) * 100;
-              } else if (deltaY < 0 && peakVal < v2) {
-                overshoot = ((v2 - peakVal) / Math.abs(deltaY)) * 100;
-              }
-            }
-          }
-
-          deltas.push({
-            id: ch.id,
-            name: channelLabel(ch.id, getLang()),
-            unit: ch.unit,
-            v1,
-            v2,
-            delta: deltaY,
-            overshoot: overshoot !== null ? overshoot : undefined,
-          });
-        }
-        cursorDelta = { dt, absDt, freqHz, deltas };
-      }
-    }
-
     this.onCursor({
       t: s.sampleIndex / this.sampleRate,
       samples,
-      delta: cursorDelta,
     });
   }
 
@@ -861,12 +776,25 @@ export class Scope {
       ctx.textBaseline = "top";
       ctx.fillText(label, x + 3, area.y + area.h - 16);
     };
-    drawVLine(this.cursorT1, "#58a6ff", "t1");
-    drawVLine(this.cursorT2, "#f07178", "t2");
+    // 单游标：跟随鼠标 X，读数栏显示各通道 Y
     if (this.cursor) {
       const frac = (this.cursor.x - area.x) / area.w;
       if (frac >= 0 && frac <= 1) {
-        drawVLine(this.cursor.x, "rgba(230,237,243,0.35)", "");
+        drawVLine(this.cursor.x, "rgba(230,237,243,0.55)", "");
+        // 游标点上打点，便于对准波形
+        for (const ch of this.channels) {
+          if (!ch.visible) continue;
+          const s = this._sampleNear(Math.round(this._xToSampleIndex(area, this.cursor.x, range)));
+          if (!s) continue;
+          const v = s.values[ch.id];
+          if (!Number.isFinite(v)) continue;
+          const y = yToPx(v);
+          if (y < area.y || y > area.y + area.h) continue;
+          ctx.fillStyle = ch.color;
+          ctx.beginPath();
+          ctx.arc(this.cursor.x, y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
 

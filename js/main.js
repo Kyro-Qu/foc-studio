@@ -964,7 +964,7 @@ document.querySelectorAll("[data-preset]").forEach((btn) => {
   btn.addEventListener("click", () => applyChannelPreset(btn.dataset.preset));
 });
 
-/* cursor readout */
+/* cursor readout：单游标，显示当前时刻各通道 Y 值 */
 scope.onCursor = (info) => {
   const el = $("cursor-readout");
   if (!info) {
@@ -972,28 +972,10 @@ scope.onCursor = (info) => {
     return;
   }
   const parts = info.samples.map(
-    (s) => `${s.name}=${Number.isFinite(s.value) ? s.value.toFixed(3) : "—"}${s.unit ? " " + s.unit : ""}`
+    (s) =>
+      `<span style="color:${s.color}">${s.name}</span> ${Number.isFinite(s.value) ? s.value.toFixed(3) : "—"}${s.unit ? " " + s.unit : ""}`
   );
-  let text = `t=${info.t.toFixed(3)}s  ${parts.join("  ")}`;
-  if (info.delta) {
-    const d = info.delta.deltas
-      .map((x) => {
-        let s = `Δ${x.name}=${x.delta >= 0 ? "+" : ""}${x.delta.toFixed(3)}${x.unit ? x.unit : ""}`;
-        if (x.overshoot !== undefined) {
-          s += ` [超调 ${x.overshoot.toFixed(1)}%]`;
-        }
-        return s;
-      })
-      .join(" ");
-
-    const freqStr =
-      info.delta.freqHz >= 1000
-        ? `${(info.delta.freqHz / 1000).toFixed(2)} kHz`
-        : `${info.delta.freqHz.toFixed(1)} Hz`;
-
-    text += `  |  Δt=${(info.delta.absDt * 1000).toFixed(2)}ms (f=${freqStr})  ${d}`;
-  }
-  el.textContent = text;
+  el.innerHTML = `t=${info.t.toFixed(3)}s&nbsp;&nbsp;${parts.join("&nbsp;&nbsp;")}`;
 };
 
 /* terminal extras */
