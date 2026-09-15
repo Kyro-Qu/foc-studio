@@ -668,6 +668,12 @@ export class WorkflowWizard {
   }
 
   render() {
+    // 保护：Dashboard 会被挂到 #wf-dashboard-host，清空前先挪回隐藏容器，
+    // 否则 innerHTML="" 会销毁节点，再进控制台就空白。
+    const dash = this.root.querySelector("#dashboard");
+    if (dash) {
+      document.getElementById("panel-dashboard-hidden")?.appendChild(dash);
+    }
     this.root.innerHTML = "";
     // 步骤在左侧栏切换；页内不显示步骤条或上一步/下一步
     const body = document.createElement("div");
