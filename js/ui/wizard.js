@@ -559,7 +559,7 @@ export class WorkflowWizard {
       {
         id: "motor",
         label: t("wf.motor.pp"),
-        val: info.pole_pairs !== "—" ? `${info.pole_pairs} 极对 (CPR: ${info.encoder_cpr})` : "—",
+        val: info.pole_pairs !== "—" ? `${info.pole_pairs} (CPR: ${info.encoder_cpr})` : "—",
         tag: "ROTOR",
         highlight: info.pole_pairs !== "—",
         icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/></svg>`,
@@ -574,8 +574,8 @@ export class WorkflowWizard {
       },
       {
         id: "cpu",
-        label: "CPU 负荷",
-        val: info.cpu !== "—" ? `${info.cpu}% (峰值 ${info.cpuMax || "—"}%)` : "—",
+        label: t("board.cpu"),
+        val: info.cpu !== "—" ? `${info.cpu}% (peak ${info.cpuMax || "—" }%)` : "—",
         tag: "PERF",
         highlight: info.cpu !== "—",
         valClass: Number(info.cpu) < 80 ? "text-ok" : "text-warn",
@@ -583,7 +583,7 @@ export class WorkflowWizard {
       },
       {
         id: "reset",
-        label: "复位来源",
+        label: t("board.reset"),
         val: info.rstDesc,
         tag: "BOOT",
         highlight: info.rstDesc !== "—",
@@ -591,8 +591,8 @@ export class WorkflowWizard {
       },
       {
         id: "cs",
-        label: "电流采样",
-        val: info.csReady !== null ? `就绪: ${info.csReady} | 故障: ${info.csFault} | 丢拍: ${info.rejected ?? 0}` : "—",
+        label: t("board.cs"),
+        val: info.csReady !== null ? `ready ${info.csReady} | fault ${info.csFault} | drop ${info.rejected ?? 0}` : "—",
         tag: "SENSE",
         highlight: info.csReady !== null,
         valClass: (info.csFault === 0 && (info.rejected ?? 0) === 0) ? "text-ok" : "text-warn",
@@ -600,8 +600,8 @@ export class WorkflowWizard {
       },
       {
         id: "cli",
-        label: "通信吞吐",
-        val: info.cliRxOverflow !== null ? `溢出: ${info.cliRxOverflow} B | 构建: ${info.build}` : "—",
+        label: t("board.comm"),
+        val: info.cliRxOverflow !== null ? `ovf ${info.cliRxOverflow} B | ${info.build}` : "—",
         tag: "COMM",
         highlight: info.cliRxOverflow !== null,
         valClass: info.cliRxOverflow === 0 ? "text-ok" : "text-warn",
@@ -795,7 +795,7 @@ export class WorkflowWizard {
             <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.45;color:var(--accent)">
               <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
             </svg>
-            <span>点击上方「开始诊断」，检查电压、校准、复位、电流采样与 CPU 负载</span>
+            <span>${t("wf.diag.empty")}</span>
           </div>
         </div>
       </section>`;
@@ -869,7 +869,7 @@ export class WorkflowWizard {
       },
       {
         id: "cpu",
-        label: "CPU 负荷",
+        label: t("board.cpu"),
         val: "—",
         tag: "PERF",
         highlight: false,
@@ -877,7 +877,7 @@ export class WorkflowWizard {
       },
       {
         id: "reset",
-        label: "复位来源",
+        label: t("board.reset"),
         val: "—",
         tag: "BOOT",
         highlight: false,
@@ -885,7 +885,7 @@ export class WorkflowWizard {
       },
       {
         id: "cs",
-        label: "电流采样",
+        label: t("board.cs"),
         val: "—",
         tag: "SENSE",
         highlight: false,
@@ -893,7 +893,7 @@ export class WorkflowWizard {
       },
       {
         id: "cli",
-        label: "通信吞吐",
+        label: t("board.comm"),
         val: "—",
         tag: "COMM",
         highlight: false,
@@ -1035,7 +1035,7 @@ export class WorkflowWizard {
       const pct = Math.floor(el * 100);
       fill.style.width = `${pct}%`;
       const left = Math.max(0, Math.ceil((total - (Date.now() - t0)) / 1000));
-      text.textContent = `${label} ${pct}% · 剩余约 ${left}s`;
+      text.textContent = `${label} ${pct}% · ${t("wf.task.left", { n: left })}`;
     }, 200);
     const stop = () => clearInterval(timer);
     return {
@@ -1044,15 +1044,15 @@ export class WorkflowWizard {
         box.classList.remove("is-run");
         box.classList.add("is-ok");
         fill.style.width = "100%";
-        text.textContent = msg || "✔ 完成";
-        this._toast(msg || "完成", "ok");
+        text.textContent = msg || `✔ ${t("wf.task.done")}`;
+        this._toast(msg || t("wf.task.done"), "ok");
       },
       fail: (msg) => {
         stop();
         box.classList.remove("is-run");
         box.classList.add("is-err");
-        text.textContent = msg || "✖ 失败";
-        this._toast(msg || "失败", "err");
+        text.textContent = msg || `✖ ${t("wf.task.fail")}`;
+        this._toast(msg || t("wf.task.fail"), "err");
       },
       tick: stop,
     };
@@ -1154,7 +1154,7 @@ export class WorkflowWizard {
     const btn = this.root.querySelector("#btn-action-ident");
     if (!btn) return;
 
-    if (!confirm("电机将短暂转动（约 8s），请确认空载。继续？")) {
+    if (!confirm(t("wf.confirm.ident"))) {
       return;
     }
 
@@ -1162,7 +1162,7 @@ export class WorkflowWizard {
     btn.classList.add("loading");
     const origHtml = btn.innerHTML;
     btn.innerHTML = `<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;"></span><span>${t("ident.busy")}</span>`;
-    const prog = this._startTaskProgress("参数辨识中", 8500);
+    const prog = this._startTaskProgress(t("wf.task.ident"), 8500);
 
     try {
       if (this.sendCapture) {
@@ -1170,16 +1170,16 @@ export class WorkflowWizard {
         await this.sendCapture("ident full", 8500);
         // 辨识完成后立刻查询 ident show 提取最新精准结果
         await this._readMotorParams();
-        prog.done("✔ 辨识完成，参数已回填上方表单");
+        prog.done(t("wf.ident.done"));
       } else {
         await this._cli("ident full");
         setTimeout(async () => {
           await this._readMotorParams();
-          prog.done("✔ 辨识完成，请点「读取参数」核对");
+          prog.done(t("wf.ident.done2"));
         }, 8000);
       }
     } catch (e) {
-      prog.fail("✖ 辨识异常，请查看终端");
+      prog.fail(t("wf.ident.fail"));
     } finally {
       if (this.sendCapture) {
         btn.disabled = false;
@@ -1205,31 +1205,31 @@ export class WorkflowWizard {
     const btn = this.root.querySelector("#btn-action-calib");
     if (!btn) return;
 
-    if (!confirm("电机将正反转动（约 6s）标定零点，请确认空载。继续？")) {
+    if (!confirm(t("wf.confirm.calib"))) {
       return;
     }
 
     btn.disabled = true;
     btn.classList.add("loading");
     const origHtml = btn.innerHTML;
-    btn.innerHTML = `<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;"></span><span>零点校准中…</span>`;
-    const prog = this._startTaskProgress("零点校准中", 6500, "#wf-calib-status");
+    btn.innerHTML = `<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;"></span><span>${t("wf.calib.busy")}</span>`;
+    const prog = this._startTaskProgress(t("wf.task.calib"), 6500, "#wf-calib-status");
 
     try {
       if (this.sendCapture) {
         // calib full 正反各一圈寻相，耗时约 5~6 秒
         await this.sendCapture("calib full", 6500);
         await this._readBoardInfo();
-        prog.done("✔ 零点校准完成，板卡信息已刷新");
+        prog.done(t("wf.calib.done"));
       } else {
         await this._cli("calib full");
         setTimeout(async () => {
           await this._readBoardInfo();
-          prog.done("✔ 零点校准完成");
+          prog.done(t("wf.calib.done2"));
         }, 6500);
       }
     } catch (e) {
-      prog.fail("✖ 校准异常，请查看终端");
+      prog.fail(t("wf.calib.fail"));
     } finally {
       if (this.sendCapture) {
         btn.disabled = false;
