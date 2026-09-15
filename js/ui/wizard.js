@@ -716,31 +716,7 @@ export class WorkflowWizard {
         </div>
       </section>
 
-      <!-- 独立卡片 2：系统健康体检与智能诊断 -->
-      <section class="wf-card">
-        <div class="wf-card-head">
-          <h4 class="wf-section">${t("wf.device.health_title")}</h4>
-          <div class="wf-card-actions">
-            <button class="btn-primary" id="wf-health-check">
-              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8.5l3.5 3.5L14 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span>${t("wf.device.self_check")}</span>
-            </button>
-            <button id="wf-copy-report">
-              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="8" height="10" rx="1.5"/><path d="M4 2.5h6.5a1.5 1.5 0 0 1 1.5 1.5v6" stroke-linecap="round"/></svg>
-              <span>${t("wf.device.copy_report")}</span>
-            </button>
-          </div>
-        </div>
-        <div id="wf-health-card" class="health-check-card">
-          <div class="health-empty-state">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.45;color:var(--accent)">
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-            </svg>
-            <span>点击上方「开始诊断」，检查电压、校准、复位、电流采样与 CPU 负载</span>
-          </div>
-        </div>
-      </section>
-
+      <!-- 安全与保护 -->
       <section class="wf-card">
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.safety.h")}</h4>
@@ -795,6 +771,31 @@ export class WorkflowWizard {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 系统诊断 -->
+      <section class="wf-card">
+        <div class="wf-card-head">
+          <h4 class="wf-section">${t("wf.device.health_title")}</h4>
+          <div class="wf-card-actions">
+            <button class="btn-primary" id="wf-health-check">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8.5l3.5 3.5L14 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>${t("wf.device.self_check")}</span>
+            </button>
+            <button id="wf-copy-report">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="8" height="10" rx="1.5"/><path d="M4 2.5h6.5a1.5 1.5 0 0 1 1.5 1.5v6" stroke-linecap="round"/></svg>
+              <span>${t("wf.device.copy_report")}</span>
+            </button>
+          </div>
+        </div>
+        <div id="wf-health-card" class="health-check-card">
+          <div class="health-empty-state">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.45;color:var(--accent)">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            </svg>
+            <span>点击上方「开始诊断」，检查电压、校准、复位、电流采样与 CPU 负载</span>
           </div>
         </div>
       </section>`;
@@ -965,20 +966,21 @@ export class WorkflowWizard {
         <div class="form-list-2col">
           <div class="form-list">
             <div class="form-row">
-              <label for="wf-motor-name">${t("wf.motor.name")}</label>
+              <label for="wf-motor-name">${t("wf.motor.name") || "电机型号/名称"}</label>
               <div class="form-row-trail">
-                <input type="text" id="wf-motor-name" placeholder="${t("wf.motor.name_ph")}" value="DJI_2312S" style="width:100%;max-width:180px;box-sizing:border-box;" />
+                <input type="text" id="wf-motor-name" placeholder="${t("wf.motor.name_ph") || "如 DJI_2312S、F40"}" value="DJI_2312S" style="width:100%;max-width:180px;box-sizing:border-box;" />
               </div>
             </div>
-            ${row("wf-pp", t("wf.motor.pp"), "", "1", "7")}
-            ${row("wf-rs", t("wf.motor.rs"), "Ω", "0.0001", "0.1")}
-            ${row("wf-ls", t("wf.motor.ls"), "µH", "0.01", "20")}
-            ${row("wf-ld", t("wf.motor.ld"), "µH", "0.01", "")}
-            ${row("wf-lq", t("wf.motor.lq"), "µH", "0.01", "")}
+            ${row("wf-pp", t("wf.motor.pp") || "极对数", "", "1", "7")}
+            ${row("wf-rs", t("wf.motor.rs") || "相电阻", "Ω", "0.0001", "0.1")}
+            ${row("wf-ls", t("wf.motor.ls") || "相电感", "µH", "0.01", "20")}
+            ${row("wf-maxrpm", t("wf.motor.maxrpm") || "最大转速", "rpm", "1", "12000")}
           </div>
           <div class="form-list">
+            ${row("wf-ld", t("wf.motor.ld") || "d 轴电感", "µH", "0.01", "")}
+            ${row("wf-lq", t("wf.motor.lq") || "q 轴电感", "µH", "0.01", "")}
             <div class="form-row">
-              <label for="wf-saliency">${t("wf.motor.saliency")}</label>
+              <label for="wf-saliency">${t("wf.motor.saliency") || "凸极比 (Lq/Ld)"}</label>
               <div class="form-row-trail">
                 <div class="num-field">
                   <input type="number" id="wf-saliency" step="0.001" readonly placeholder="1.000" style="background:var(--bg-subtle, rgba(255,255,255,0.03));cursor:default;" />
@@ -986,9 +988,8 @@ export class WorkflowWizard {
                 </div>
               </div>
             </div>
-            ${row("wf-flux", t("wf.motor.flux"), "Wb", "0.0001", "")}
-            ${row("wf-maxrpm", t("wf.motor.maxrpm"), "rpm", "1", "12000")}
-            ${row("wf-limit2", t("wf.motor.limit"), "A", "0.1", "5.2")}
+            ${row("wf-flux", t("wf.motor.flux") || "磁链", "Wb", "0.0001", "")}
+            ${row("wf-limit2", t("wf.motor.limit") || "电流限幅", "A", "0.1", "5.2")}
           </div>
         </div>
         <p class="wf-note">${t("wf.motor.params_note")}</p>
