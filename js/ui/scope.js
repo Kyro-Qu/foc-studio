@@ -18,6 +18,8 @@ export class Scope {
     this.autoScale = true;
     this.yMin = -1;
     this.yMax = 1;
+    /** 相对最新样本的时间偏移（0=贴最新；负值=回看历史） */
+    this.viewOffset = 0;
     this.cursor = null;
     this.cursorT1 = null;
     this.cursorT2 = null;
@@ -25,6 +27,11 @@ export class Scope {
     this.math = null;
     this.onCursor = null;
     this.onWheelWindow = null;
+    /** Y 范围被手动缩放/平移时回调，用于关掉自动 Y 并同步输入框 */
+    this.onYRange = null;
+    /** 自动 Y 被手动关闭时回调 */
+    this.onAutoScale = null;
+    this._pendingClick = null;
     this._raf = 0;
     this._running = false;
     this._needsDraw = true;
@@ -34,14 +41,18 @@ export class Scope {
     this._mathBuf = new Map();
     this._destroyed = false;
     this._resizePending = 0;
+    this._drag = null;
 
     this._onPointerMove = (e) => this._onPointer(e, false);
     this._onPointerLeave = () => {
-      this.cursor = null;
-      if (this.onCursor) this.onCursor(null);
-      this._needsDraw = true;
+      if (!this._drag) {
+        this.cursor = null;
+        if (this.onCursor) this.onCursor(null);
+        this._needsDraw = true;
+      }
     };
     this._onPointerDown = (e) => this._onPointer(e, true);
+    this._onPointerUp = () => this._endDrag();
     this._onWheel = (e) => this._onWheelEvent(e);
     this._onResize = () => {
       if (this._resizePending) return;
@@ -58,6 +69,8 @@ export class Scope {
     canvas.addEventListener("pointermove", this._onPointerMove);
     canvas.addEventListener("pointerleave", this._onPointerLeave);
     canvas.addEventListener("pointerdown", this._onPointerDown);
+    canvas.addEventListener("pointerup", this._onPointerUp);
+    canvas.addEventListener("pointercancel", this._onPointerUp);
     canvas.addEventListener("wheel", this._onWheel, { passive: false });
   }
 
@@ -73,6 +86,8 @@ export class Scope {
     c.removeEventListener("pointermove", this._onPointerMove);
     c.removeEventListener("pointerleave", this._onPointerLeave);
     c.removeEventListener("pointerdown", this._onPointerDown);
+    c.removeEventListener("pointerup", this._onPointerUp);
+    c.removeEventListener("pointercancel", this._onPointerUp);
     c.removeEventListener("wheel", this._onWheel);
   }
 
@@ -213,7 +228,7 @@ export class Scope {
       const vw = this.trigger.viewWindow(n, this.store.latestIndex);
       if (vw) return vw;
     }
-    const latest = this.store.latestIndex;
+    const latest = this.store.latestIndex + this.viewOffset;
     return { startIdx: latest - n + 1, endIdx: latest, triggerIndex: this.trigger ? this.trigger.triggerIndex : -1 };
   }
 
@@ -227,23 +242,68 @@ export class Scope {
     return range.startIdx + ((x - area.x) / area.w) * span;
   }
 
-  _onWheelEvent(e) {
-    e.preventDefault();
-    const factor = e.deltaY > 0 ? 1.15 : 1 / 1.15;
-    this.setWindowSec(this.windowSec * factor);
-    if (this.onWheelWindow) this.onWheelWindow(this.windowSec);
+  /** Y 缩放：以锚点值为中心缩放；自动关掉自动 Y */
+  _zoomY(factor, anchorClientY) {
+    const area = this._plotArea();
+    let anchor = (this.yMin + this.yMax) / 2;
+    if (Number.isFinite(anchorClientY)) {
+      const rect = this.canvas.getBoundingClientRect();
+      const py = anchorClientY - rect.top;
+      const t = 1 - (py - area.y) / Math.max(1, area.h);
+      anchor = this.yMin + (this.yMax - this.yMin) * Math.max(0, Math.min(1, t));
+    }
+    const half = ((this.yMax - this.yMin) / 2) * factor;
+    if (!(half > 1e-12) || !Number.isFinite(half)) return;
+    this.yMin = anchor - (anchor - this.yMin) * factor;
+    this.yMax = anchor + (this.yMax - anchor) * factor;
+    if (this.autoScale) {
+      this.autoScale = false;
+      if (this.onAutoScale) this.onAutoScale(false);
+    }
+    this._needsDraw = true;
+    if (this.onYRange) this.onYRange(this.yMin, this.yMax);
   }
 
-  _onPointer(e, isDown) {
-    const rect = this.canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    this.cursor = { x, y };
-    if (isDown) {
-      if (e.shiftKey) this.cursorT2 = x;
-      else if (e.altKey) this.cursorT1 = x;
+  /** Y 平移：dy 像素（向下为正 → 波形上移，范围上移） */
+  _panY(dyPx) {
+    const area = this._plotArea();
+    if (!area.h) return;
+    const span = this.yMax - this.yMin;
+    if (!(span > 0)) return;
+    const dv = (dyPx / area.h) * span;
+    this.yMin += dv;
+    this.yMax += dv;
+    if (this.autoScale) {
+      this.autoScale = false;
+      if (this.onAutoScale) this.onAutoScale(false);
+    }
+    this._needsDraw = true;
+    if (this.onYRange) this.onYRange(this.yMin, this.yMax);
+  }
+
+  /** X 平移：dx 像素（向右为正 → 看更旧数据，offset 更负） */
+  _panX(dxPx) {
+    const area = this._plotArea();
+    const n = this._windowPoints();
+    if (!area.w || n < 1) return;
+    const dSamples = Math.round((dxPx / area.w) * n);
+    if (!dSamples) return;
+    const minOff = Math.min(0, this.store.length - n - this.store.latestIndex);
+    // 允许贴到最新（0）或回看历史
+    this.viewOffset = Math.min(0, Math.max(minOff, this.viewOffset - dSamples));
+    if (this.onWheelWindow) this.onWheelWindow(this.windowSec, this.viewOffset);
+    this._needsDraw = true;
+  }
+
+  _endDrag() {
+    if (!this._drag) return;
+    const wasClick = !this._drag.moved;
+    this._drag = null;
+    if (wasClick && this._pendingClick) {
+      const { x, modifiers } = this._pendingClick;
+      if (modifiers.shift) this.cursorT2 = x;
+      else if (modifiers.alt) this.cursorT1 = x;
       else {
-        // 普通点击：交替设置 t1/t2
         if (this.cursorT1 === null) this.cursorT1 = x;
         else if (this.cursorT2 === null) this.cursorT2 = x;
         else {
@@ -251,7 +311,80 @@ export class Scope {
           this.cursorT2 = null;
         }
       }
+      this._pendingClick = null;
+      this._needsDraw = true;
+      this._emitCursor();
     }
+  }
+
+  _onWheelEvent(e) {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 1.15 : 1 / 1.15;
+    // Ctrl+滚轮：Y 缩放（围绕光标）
+    if (e.ctrlKey || e.metaKey) {
+      this._zoomY(factor, e.clientY);
+      return;
+    }
+    // Shift+滚轮：X 平移
+    if (e.shiftKey) {
+      const area = this._plotArea();
+      const n = this._windowPoints();
+      if (!area.w || n < 1) return;
+      const dx = (e.deltaY > 0 ? 1 : -1) * area.w * 0.08;
+      this._panX(dx);
+      return;
+    }
+    // 普通滚轮：X 缩放（以视图中心为锚，避免跳到最新）
+    const range = this._viewRange();
+    const n = this._windowPoints();
+    const center = range ? (range.startIdx + range.endIdx) / 2 : this.store.latestIndex;
+    this.setWindowSec(this.windowSec * factor);
+    const n2 = this._windowPoints();
+    if (n2 > 0 && n > 0) {
+      // 保持中心样本位置
+      this.viewOffset = Math.round(center - this.store.latestIndex - (n2 - 1) / 2);
+      const minOff = Math.min(0, this.store.length - n2 - this.store.latestIndex);
+      this.viewOffset = Math.min(0, Math.max(minOff, this.viewOffset));
+    }
+    if (this.onWheelWindow) this.onWheelWindow(this.windowSec, this.viewOffset);
+  }
+
+  _onPointer(e, isDown) {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    this.cursor = { x, y };
+
+    if (isDown) {
+      this._drag = {
+        x: e.clientX,
+        y: e.clientY,
+        moved: false,
+        button: e.button,
+      };
+      this._pendingClick = { x, modifiers: { shift: e.shiftKey, alt: e.altKey } };
+      this.canvas.setPointerCapture?.(e.pointerId);
+      this._needsDraw = true;
+      this._emitCursor();
+      return;
+    }
+
+    // 拖拽平移（左键且已移动超过阈值）
+    if (this._drag && (e.buttons & 1) !== 0) {
+      const dx = e.clientX - this._drag.x;
+      const dy = e.clientY - this._drag.y;
+      if (!this._drag.moved && Math.hypot(dx, dy) < 4) return;
+      this._drag.moved = true;
+      this._pendingClick = null;
+      this._panX(dx);
+      this._panY(dy);
+      this._drag.x = e.clientX;
+      this._drag.y = e.clientY;
+      this._needsDraw = true;
+      this._emitCursor();
+      return;
+    }
+
     this._needsDraw = true;
     this._emitCursor();
   }

@@ -145,6 +145,21 @@ const adapter = new TelemetryAdapter({
 adapter.attach(decoder);
 
 const scope = new Scope($("scope-canvas"), store, state.channels);
+// 手动 Y 缩放/平移：关掉自动 Y，并回写 y-min/y-max 输入框
+scope.onYRange = (mn, mx) => {
+  const yMinEl = $("y-min");
+  const yMaxEl = $("y-max");
+  if (yMinEl) yMinEl.value = mn.toFixed(3);
+  if (yMaxEl) yMaxEl.value = mx.toFixed(3);
+};
+scope.onAutoScale = (on) => {
+  const chk = $("chk-autoscale");
+  if (chk) chk.checked = !!on;
+  const yMinEl = $("y-min");
+  const yMaxEl = $("y-max");
+  if (yMinEl) yMinEl.disabled = !!on;
+  if (yMaxEl) yMaxEl.disabled = !!on;
+};
 const dashboard = new Dashboard($("dashboard"), store, state.channels, {
   send: (cmd) => consoleCtl.run(cmd),
 });
