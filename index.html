@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FOC Studio</title>
-    <link rel="stylesheet" href="css/app.css?v=0.4.21" />
+    <link rel="stylesheet" href="css/app.css?v=0.5.2" />
   </head>
   <body>
     <div id="app">
@@ -67,6 +67,15 @@
 
           <div class="tb-sep" aria-hidden="true"></div>
 
+          <!-- 顶栏实时监控：母线电压 + 运行时间 + 心跳指示 -->
+          <div id="tb-telemetry-hud" class="tb-cluster" style="font-size:12px;display:flex;align-items:center;gap:8px;">
+            <span id="tb-vbus" class="tb-badge" title="母线供电电压" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;color:var(--text-muted, #8b949e);">🔋 — V</span>
+            <span id="tb-uptime" class="tb-badge" title="单片机运行时间" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text-muted, #8b949e);">⏱ —</span>
+            <span id="tb-cpu" class="tb-badge" title="CPU负荷率" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text-muted, #8b949e);">💻 —%</span>
+          </div>
+
+          <div class="tb-sep" aria-hidden="true"></div>
+
           <div class="tb-cluster">
             <select id="lang-select" class="tb-select" title="Language" aria-label="语言">
               <option value="zh" selected>中文</option>
@@ -75,7 +84,10 @@
           </div>
         </div>
 
-        <div id="conn-status" class="status-pill off" data-i18n="status.off">未连接</div>
+        <div id="conn-status" class="status-pill off" data-i18n="status.off">
+          <span class="status-dot"></span>
+          <span class="status-text">未连接</span>
+        </div>
       </header>
 
       <div class="body">
@@ -276,7 +288,12 @@
                 <div id="cursor-readout" class="readout" data-i18n="cursor.hint">拖拽平移 · 滚轮 X 缩放 · Ctrl+滚轮 Y 缩放 · 悬停读通道值</div>
                 <div id="scope-fab" class="scope-fab">
                   <button type="button" id="scope-fab-toggle" class="scope-fab-btn" title="控制" aria-label="控制">
-                    <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><polygon points="5,3 13,8 5,13"/></svg>
+                    <svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+                      <path d="M3 4.5h10M3 8h10M3 11.5h10"/>
+                      <circle cx="6" cy="4.5" r="1.8" fill="currentColor" stroke="none"/>
+                      <circle cx="10.5" cy="8" r="1.8" fill="currentColor" stroke="none"/>
+                      <circle cx="7.5" cy="11.5" r="1.8" fill="currentColor" stroke="none"/>
+                    </svg>
                   </button>
                   <div id="scope-fab-panel" class="scope-fab-panel" hidden>
                     <div class="scope-fab-head" id="scope-fab-drag">
