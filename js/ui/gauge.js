@@ -57,30 +57,29 @@ export class Gauge {
   }
 
   _resize() {
-    const parent = this.canvas && this.canvas.parentElement;
     const dpr = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
-    const w = Math.max(120, (parent && parent.clientWidth) || 160);
-    const h = Math.max(120, (parent && parent.clientHeight) || 150);
+    // 固定 160px 正方形，三表盘圆心/半径完全一致
+    const size = 160;
     if (this.canvas) {
-      this.canvas.width = Math.floor(w * dpr);
-      this.canvas.height = Math.floor(h * dpr);
+      this.canvas.width = Math.floor(size * dpr);
+      this.canvas.height = Math.floor(size * dpr);
       if (this.canvas.style) {
-        this.canvas.style.width = `${w}px`;
-        this.canvas.style.height = `${h}px`;
+        this.canvas.style.width = `${size}px`;
+        this.canvas.style.height = `${size}px`;
       }
       if (this.ctx && this.ctx.setTransform) this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
-    this.cssW = w;
-    this.cssH = h;
+    this.cssW = size;
+    this.cssH = size;
   }
 
   draw() {
     if (this._destroyed || !this.ctx) return;
     const ctx = this.ctx;
     const w = this.cssW || 160;
-    const h = this.cssH || 150;
+    const h = this.cssH || 160;
     const cx = w / 2;
-    const cy = h * 0.58;
+    const cy = h * 0.52;
     const r = Math.min(w, h) * 0.38;
 
     ctx.clearRect(0, 0, w, h);
