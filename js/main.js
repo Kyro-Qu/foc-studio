@@ -112,6 +112,7 @@ const adapter = new TelemetryAdapter({
   onSample: ({ values, sampleIndex, mask, tick }) => onSample(values, sampleIndex, mask, tick),
   onText: queueText,
   onStatus: (status) => {
+    updateTopBarTelemetry(status);
     dashboard.handleStatusUpdate(status);
     scope.updateMiniHud(status);
   },
@@ -285,8 +286,69 @@ scope.setTrigger(trigger);
 
 function setConnStatus(text, cls) {
   const el = $("conn-status");
-  el.textContent = text;
-  el.className = `status-pill ${cls}`;
+  const dot = el?.querySelector(".status-dot");
+  const txt = el?.querySelector(".status-text");
+  if (txt) {
+    txt.textContent = text;
+  } else if (el) {
+    el.textContent = text;
+  }
+  if (el) el.className = `status-pill ${cls}`;
+}
+
+/** 将毫秒转换为时分秒可读格式：01:23:45 或 12.3s */
+function formatUptime(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return "—";
+  const secTotal = Math.floor(ms / 1000);
+  const hours = Math.floor(secTotal / 3600);
+  const minutes = Math.floor((secTotal % 3600) / 60);
+  const seconds = secTotal % 60;
+  if (hours > 0) {
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  }
+  return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+}
+
+/** 顶栏与全局遥测微状态刷新 */
+function updateTopBarTelemetry(status) {
+  if (!status) return;
+
+  // 1. 母线电压
+  const vbusEl = $("tb-vbus");
+  if (vbusEl && Number.isFinite(status.vbus)) {
+    vbusEl.textContent = `🔋 ${status.vbus.toFixed(1)}V`;
+    if (status.vbus < 10.0 || status.vbus > 28.0) {
+      vbusEl.style.color = "#f85149"; // 警告红
+    } else if (status.vbus < 11.5) {
+      vbusEl.style.color = "#d29922"; // 预警橙
+    } else {
+      vbusEl.style.color = "#3fb950"; // 正常绿
+    }
+  }
+
+  // 2. 开机运行时长
+  const uptimeEl = $("tb-uptime");
+  if (uptimeEl && Number.isFinite(status.timestampMs)) {
+    uptimeEl.textContent = `⏱ ${formatUptime(status.timestampMs)}`;
+  }
+
+  // 3. CPU 负荷率
+  const cpuEl = $("tb-cpu");
+  if (cpuEl && Number.isFinite(status.cpuPct)) {
+    cpuEl.textContent = `💻 ${status.cpuPct}%`;
+    cpuEl.style.color = status.cpuPct > 80 ? "#f85149" : (status.cpuPct > 60 ? "#d29922" : "var(--text-muted)");
+  }
+
+  // 4. 连接状态心跳微动
+  const dot = $("conn-status")?.querySelector(".status-dot");
+  if (dot) {
+    dot.style.opacity = "1";
+    dot.style.transform = "scale(1.25)";
+    setTimeout(() => {
+      dot.style.opacity = "0.75";
+      dot.style.transform = "scale(1)";
+    }, 120);
+  }
 }
 
 const STATUS_KEYS = {
@@ -846,14 +908,6 @@ $("btn-clear-cursors").addEventListener("click", () => scope.clearCursors());
     if (panel) panel.hidden = !open;
     fab.classList.toggle("is-open", open);
   };
-  toggle?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    setOpen(panel?.hidden !== false);
-  });
-  closeBtn?.addEventListener("click", () => setOpen(false));
-  document.addEventListener("click", (e) => {
-    if (!fab.contains(e.target)) setOpen(false);
-  });
 
   const send = (cmd) => consoleCtl.run(cmd).catch(() => {});
   $("fab-send")?.addEventListener("click", () => {
@@ -864,32 +918,67 @@ $("btn-clear-cursors").addEventListener("click", () => scope.clearCursors());
   });
   $("fab-enable")?.addEventListener("click", () => send("enable"));
   $("fab-disable")?.addEventListener("click", () => send("disable"));
-
-  // 拖拽：按住标题栏移动整个 fab
-  let dragState = null;
-  drag?.addEventListener("pointerdown", (e) => {
-    if (e.target.closest("button")) return;
-    const rect = fab.getBoundingClientRect();
-    dragState = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
-    drag.setPointerCapture?.(e.pointerId);
-    e.preventDefault();
+  closeBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setOpen(false);
   });
-  drag?.addEventListener("pointermove", (e) => {
+  document.addEventListener("click", (e) => {
+    if (!fab.contains(e.target)) setOpen(false);
+  });
+
+  // 拖拽：按钮本体 + 面板标题栏；移动 <4px 视为点击
+  let dragState = null;
+  const beginDrag = (e, handle) => {
+    const rect = fab.getBoundingClientRect();
+    dragState = {
+      dx: e.clientX - rect.left,
+      dy: e.clientY - rect.top,
+      x0: e.clientX,
+      y0: e.clientY,
+      moved: false,
+      handle,
+    };
+    handle.setPointerCapture?.(e.pointerId);
+    fab.classList.add("is-dragging");
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  const moveDrag = (e) => {
     if (!dragState) return;
+    const dist = Math.hypot(e.clientX - dragState.x0, e.clientY - dragState.y0);
+    if (!dragState.moved && dist < 4) return;
+    dragState.moved = true;
     const parent = fab.offsetParent || document.body;
     const pr = parent.getBoundingClientRect();
     let x = e.clientX - pr.left - dragState.dx;
     let y = e.clientY - pr.top - dragState.dy;
-    x = Math.max(0, Math.min(pr.width - 56, x));
-    y = Math.max(0, Math.min(pr.height - 56, y));
+    x = Math.max(0, Math.min(pr.width - 48, x));
+    y = Math.max(0, Math.min(pr.height - 48, y));
     fab.style.left = `${x}px`;
     fab.style.top = `${y}px`;
     fab.style.right = "auto";
-    fab.style.bottom = "auto";
+  };
+  const endDrag = (e) => {
+    if (!dragState) return;
+    const wasClick = !dragState.moved;
+    dragState.handle?.releasePointerCapture?.(e?.pointerId);
+    dragState = null;
+    fab.classList.remove("is-dragging");
+    if (wasClick && e?.currentTarget === toggle) {
+      setOpen(panel?.hidden !== false);
+    }
+  };
+
+  toggle?.addEventListener("pointerdown", (e) => beginDrag(e, toggle));
+  drag?.addEventListener("pointerdown", (e) => {
+    if (e.target.closest("button")) return;
+    beginDrag(e, drag);
   });
-  const endDrag = () => { dragState = null; };
-  drag?.addEventListener("pointerup", endDrag);
-  drag?.addEventListener("pointercancel", endDrag);
+  for (const h of [toggle, drag]) {
+    h?.addEventListener("pointermove", moveDrag);
+    h?.addEventListener("pointerup", endDrag);
+    h?.addEventListener("pointercancel", endDrag);
+  }
 })();
 
 $("btn-png").addEventListener("click", async () => {
