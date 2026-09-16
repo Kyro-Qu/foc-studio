@@ -452,12 +452,49 @@ export class WorkflowWizard {
     try {
       text += await this.sendCapture("version", 350);
       text += "\n" + (await this.sendCapture("status", 400));
+      text += "\n" + (await this.sendCapture("limit", 300));
+      text += "\n" + (await this.sendCapture("vbus", 300));
     } catch {
       /* ignore */
     }
     this._latestBoardText = text;
     this._renderBoardInfo(text);
+    this._fillSafetyInputs(text);
     if (box) box.classList.remove("loading");
+  }
+
+  /** 从板卡回显文本中提取并回填安全与保护输入框 */
+  _fillSafetyInputs(text) {
+    if (!text) return;
+    const pick = (re) => {
+      const m = text.match(re);
+      return m ? m[1] : null;
+    };
+    const set = (id, v, decimals = null) => {
+      const el = this.root.querySelector(`#${id}`);
+      if (el && v != null && v !== "") {
+        const num = Number(v);
+        if (Number.isFinite(num)) {
+          el.value = decimals != null ? num.toFixed(decimals) : String(num);
+        }
+      }
+    };
+
+    const limitVal = pick(/limit=([0-9.]+)/i);
+    const tripVal = pick(/trip=([0-9.]+)/i);
+    const uvVal = pick(/uv=([0-9.]+)/i);
+    const ovVal = pick(/ov=([0-9.]+)/i);
+
+    if (limitVal) set("wf-limit", limitVal, 1);
+    if (tripVal) {
+      set("wf-trip", tripVal, 2);
+    } else if (limitVal) {
+      const lim = Number(limitVal);
+      const trip = Math.min(Math.max(lim * 1.25 + 0.1, lim), 40.0);
+      set("wf-trip", trip, 2);
+    }
+    if (uvVal) set("wf-uv", uvVal, 1);
+    if (ovVal) set("wf-ov", ovVal, 1);
   }
 
   /** 触发一键系统体检 */
@@ -499,6 +536,13 @@ export class WorkflowWizard {
     const box = this.root.querySelector("#wf-board-info");
     if (!box) return;
     const info = parseBoardAndStatus(text);
+
+    // 联动刷新顶栏 CPU 负荷率（兜底与校准）
+    const topCpu = document.getElementById("tb-cpu");
+    if (topCpu && info.cpu !== "—" && Number.isFinite(Number(info.cpu))) {
+      topCpu.textContent = `${Math.round(Number(info.cpu))}%`;
+    }
+
     const calibSrc = info.calibFromStore ? "Flash" : "RAM";
     const calibVal = info.calibValid
       ? `已校准 (${calibSrc} | ${info.calibOffset || "0rad"})`
@@ -746,7 +790,7 @@ export class WorkflowWizard {
               <label for="wf-trip">${t("wf.safety.trip")}</label>
               <div class="form-row-trail">
                 <div class="num-field">
-                  <input type="number" id="wf-trip" step="0.1" min="0.1" max="50" value="6.6" />
+                  <input type="number" id="wf-trip" step="0.1" min="0.1" max="50" value="6.6" readonly style="opacity:0.85;cursor:not-allowed;background:var(--bg-card-subtle, rgba(255,255,255,0.03));" title="根据电流软限自动推算：clamp(limit * 1.25 + 0.1, limit, hard_limit)" />
                   <span class="num-unit">A</span>
                 </div>
               </div>
@@ -952,6 +996,10 @@ export class WorkflowWizard {
               <span>${t("wf.motor.import") || "导入参数"}</span>
             </button>
             <input type="file" id="wf-motor-import-file" accept=".json" style="display:none;" />
+            <button class="danger" id="btn-action-ident" title="${t("ident.full")}">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8.5 1.5l-5 7h4l-1 6 6-8h-4l1.5-5" stroke-linejoin="round"/></svg>
+              <span>${t("ident.full")}</span>
+            </button>
             <button class="ok" data-cmd="ident apply">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>${t("wf.apply")}</span>
@@ -962,6 +1010,10 @@ export class WorkflowWizard {
             </button>
             <span class="wf-badge" id="wf-param-src">${t("wf.motor.manual")}</span>
           </div>
+        </div>
+        <div id="wf-ident-status" class="task-progress" data-task="ident" hidden>
+          <div class="task-progress-bar"><i></i></div>
+          <span class="task-progress-text"></span>
         </div>
         <div class="form-list-2col">
           <div class="form-list">
@@ -995,23 +1047,6 @@ export class WorkflowWizard {
           </div>
         </div>
         <p class="wf-note">${t("wf.motor.params_note")}</p>
-      </section>
-
-      <section class="wf-card">
-        <div class="wf-card-head">
-          <h4 class="wf-section">${t("wf.motor.auto")}</h4>
-        </div>
-        <div class="action-grid" style="grid-template-columns: 1fr;">
-          <button id="btn-action-ident" class="danger">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8.5 1.5l-5 7h4l-1 6 6-8h-4l1.5-5" stroke-linejoin="round"/></svg>
-            <span>${t("ident.full")}</span>
-          </button>
-        </div>
-        <div id="wf-ident-status" class="task-progress" data-task="ident" hidden>
-          <div class="task-progress-bar"><i></i></div>
-          <span class="task-progress-text"></span>
-        </div>
-        <p class="wf-note">${t("wf.calib.note")}</p>
       </section>`;
   }
 
@@ -1466,9 +1501,40 @@ export class WorkflowWizard {
       this.root.querySelector(`#${id}`)?.addEventListener("input", () => this._updateSaliencyRatio());
     });
 
-    this.root.querySelector("#wf-limit-set")?.addEventListener("click", () => {
-      const v = Number(this.root.querySelector("#wf-limit")?.value);
-      if (Number.isFinite(v)) this._cli(`limit ${v}`);
+    // 监听电流软限输入变化，实时联动计算过流跳闸 trip = clamp(limit * 1.25 + 0.1, limit, hard_limit)
+    const limitInput = this.root.querySelector("#wf-limit");
+    const tripInput = this.root.querySelector("#wf-trip");
+    if (limitInput && tripInput) {
+      limitInput.addEventListener("input", () => {
+        const lim = Number(limitInput.value);
+        if (Number.isFinite(lim) && lim > 0) {
+          const trip = Math.min(Math.max(lim * 1.25 + 0.1, lim), 40.0);
+          tripInput.value = trip.toFixed(2);
+        }
+      });
+    }
+
+    this.root.querySelector("#wf-limit-set")?.addEventListener("click", async () => {
+      const vLimit = Number(this.root.querySelector("#wf-limit")?.value);
+      const vUv = Number(this.root.querySelector("#wf-uv")?.value);
+      const vOv = Number(this.root.querySelector("#wf-ov")?.value);
+
+      if (Number.isFinite(vLimit) && vLimit > 0) {
+        await this._cli(`limit ${vLimit}`);
+      }
+      if (Number.isFinite(vUv) && Number.isFinite(vOv)) {
+        if (vUv >= vOv) {
+          alert("欠压保护门槛必须小于过压保护门槛！");
+          return;
+        }
+        await this._cli(`vbus uv ${vUv}`);
+        await this._cli(`vbus ov ${vOv}`);
+      } else if (Number.isFinite(vUv)) {
+        await this._cli(`vbus uv ${vUv}`);
+      } else if (Number.isFinite(vOv)) {
+        await this._cli(`vbus ov ${vOv}`);
+      }
+      this._toast("安全保护参数已应用至 RAM", "ok");
     });
     // 调参：一次应用全部
     this.root.querySelector("#wf-pid-apply")?.addEventListener("click", async () => {
