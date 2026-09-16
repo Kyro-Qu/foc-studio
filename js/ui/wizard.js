@@ -1456,21 +1456,11 @@ export class WorkflowWizard {
   }
 
   _htmlRun() {
-    const obs = OBS_COMMANDS.map((c) => {
-      const cls = c.danger ? "danger" : "";
-      return `<button class="${cls}" data-cmd="${c.cmd}" title="${c.cmd}">${t(c.key)}</button>`;
-    }).join(" ");
     return `
       <h3 class="wf-h">${t("wf.run.h")}</h3>
       <p class="wf-p">${t("wf.run.p")}</p>
       <div class="wf-card" style="gap:16px">
         <div id="wf-dashboard-host" class="wf-dash-host" style="margin:0"></div>
-        <div class="wf-sep"></div>
-        <div class="wf-card-head">
-          <h4 class="wf-section">${t("obs.title")}</h4>
-        </div>
-        <div class="wf-row">${obs}</div>
-        <p class="wf-note">${t("obs.note")}</p>
         <p class="wf-note">${t("wf.run.note")}</p>
       </div>`;
   }
