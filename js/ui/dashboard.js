@@ -70,7 +70,18 @@ export class Dashboard {
     `;
     this.root.appendChild(this.strip);
 
-    /* 三个指针表：整行对齐，放在运行控制上方，全程显示 */
+    /* 左：转子盘（全程）  右：上三表盘 / 下运行控制 */
+    const mid = document.createElement("div");
+    mid.className = "dash-mid";
+
+    this.rotorWrap = document.createElement("div");
+    this.rotorWrap.className = "dash-rotor";
+    this.rotorWrap.innerHTML = `<div class="dash-rotor-host"></div>`;
+    mid.appendChild(this.rotorWrap);
+
+    const right = document.createElement("div");
+    right.className = "dash-right";
+
     this.gaugeWrap = document.createElement("div");
     this.gaugeWrap.className = "dash-gauges";
     const gdefs = [
@@ -86,18 +97,9 @@ export class Dashboard {
       this.gaugeWrap.appendChild(box);
       this.gauges[d.id] = new Gauge(cv, d);
     }
-    this.root.appendChild(this.gaugeWrap);
+    right.appendChild(this.gaugeWrap);
 
-    /* 转子 + 运行控制 并排；转子全程显示 */
-    const mid = document.createElement("div");
-    mid.className = "dash-mid";
-
-    this.rotorWrap = document.createElement("div");
-    this.rotorWrap.className = "dash-rotor";
-    this.rotorWrap.innerHTML = `<div class="dash-rotor-host"></div>`;
-    mid.appendChild(this.rotorWrap);
-
-    /* 右：运行控制 */
+    /* 右下：运行控制 */
     const ctrl = document.createElement("div");
     ctrl.className = "dash-ctrl";
     ctrl.innerHTML = `
@@ -146,7 +148,8 @@ export class Dashboard {
       </div>
       <p class="dash-ctrl-note">${t("dash.ctrl.note")}</p>
     `;
-    mid.appendChild(ctrl);
+    right.appendChild(ctrl);
+    mid.appendChild(right);
     this.root.appendChild(mid);
 
     this.hint = document.createElement("p");
