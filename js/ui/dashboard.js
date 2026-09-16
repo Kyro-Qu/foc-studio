@@ -70,13 +70,7 @@ export class Dashboard {
     `;
     this.root.appendChild(this.strip);
 
-    const mid = document.createElement("div");
-    mid.className = "dash-mid";
-
-    /* 左：三个指针表（STATUS 回退可用）；位置模式→转子盘 */
-    const viz = document.createElement("div");
-    viz.className = "dash-viz";
-
+    /* 三个指针表：整行对齐，放在运行控制上方，全程显示 */
     this.gaugeWrap = document.createElement("div");
     this.gaugeWrap.className = "dash-gauges";
     const gdefs = [
@@ -92,16 +86,18 @@ export class Dashboard {
       this.gaugeWrap.appendChild(box);
       this.gauges[d.id] = new Gauge(cv, d);
     }
-    viz.appendChild(this.gaugeWrap);
+    this.root.appendChild(this.gaugeWrap);
+
+    /* 转子 + 运行控制 并排；转子全程显示 */
+    const mid = document.createElement("div");
+    mid.className = "dash-mid";
 
     this.rotorWrap = document.createElement("div");
     this.rotorWrap.className = "dash-rotor";
-    this.rotorWrap.hidden = true;
     this.rotorWrap.innerHTML = `<div class="dash-rotor-host"></div>`;
-    viz.appendChild(this.rotorWrap);
-    mid.appendChild(viz);
+    mid.appendChild(this.rotorWrap);
 
-    /* 右：运行控制，固定宽度不撑满 */
+    /* 右：运行控制 */
     const ctrl = document.createElement("div");
     ctrl.className = "dash-ctrl";
     ctrl.innerHTML = `
@@ -179,13 +175,17 @@ export class Dashboard {
       vf: [0, 200, 500, 1000, -200, -500],
     };
 
-    const setVizMode = (m) => {
-      const isPos = m === "pos";
-      if (this.gaugeWrap) this.gaugeWrap.hidden = isPos;
-      if (this.rotorWrap) this.rotorWrap.hidden = !isPos;
-      if (isPos && !this.rotor) {
-        const host = this.rotorWrap.querySelector(".dash-rotor-host");
-        if (host) this.rotor = new RotorGauge(host);
+    const setVizMode = () => {
+      // 转子全程显示；确保已实例化（测试环境可能无 SVG API）
+      if (!this.rotor && typeof document !== "undefined" && document.createElementNS) {
+        const host = this.rotorWrap?.querySelector(".dash-rotor-host");
+        if (host) {
+          try {
+            this.rotor = new RotorGauge(host);
+          } catch {
+            this.rotor = null;
+          }
+        }
       }
     };
 
@@ -215,7 +215,7 @@ export class Dashboard {
       }
       if (modeDesc) modeDesc.textContent = t(`dash.mode.${mode}`);
       if (modeSel && modeSel.value !== mode) modeSel.value = mode;
-      setVizMode(mode);
+      setVizMode();
       if (presetBox) {
         presetBox.innerHTML = "";
         const label = document.createElement("span");
