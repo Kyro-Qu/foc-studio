@@ -110,6 +110,59 @@ header {
   opacity: 0.8;
 }
 
+/* 顶栏遥测 chips */
+.tb-hud {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.tb-hud-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.tb-hud-k {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.tb-hud-item strong {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.tb-hud-item.is-warn {
+  border-color: rgba(245, 165, 36, 0.45);
+}
+
+.tb-hud-item.is-warn strong {
+  color: var(--warn);
+}
+
+.tb-hud-item.is-bad {
+  border-color: rgba(255, 69, 58, 0.5);
+  background: rgba(255, 69, 58, 0.1);
+}
+
+.tb-hud-item.is-bad strong {
+  color: var(--err);
+}
+
 .tb-btn {
   display: inline-flex;
   align-items: center;

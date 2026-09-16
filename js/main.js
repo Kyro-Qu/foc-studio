@@ -313,33 +313,31 @@ function formatUptime(ms) {
 function updateTopBarTelemetry(status) {
   if (!status) return;
 
-  // 1. 母线电压
   const vbusEl = $("tb-vbus");
   if (vbusEl && Number.isFinite(status.vbus)) {
-    vbusEl.textContent = `🔋 ${status.vbus.toFixed(1)}V`;
-    if (status.vbus < 10.0 || status.vbus > 28.0) {
-      vbusEl.style.color = "#f85149"; // 警告红
-    } else if (status.vbus < 11.5) {
-      vbusEl.style.color = "#d29922"; // 预警橙
-    } else {
-      vbusEl.style.color = "#3fb950"; // 正常绿
+    vbusEl.textContent = `${status.vbus.toFixed(1)}V`;
+    const item = vbusEl.closest(".tb-hud-item");
+    if (item) {
+      item.classList.toggle("is-warn", status.vbus < 11.5 || status.vbus > 28);
+      item.classList.toggle("is-bad", status.vbus < 10.0 || status.vbus > 30);
     }
   }
 
-  // 2. 开机运行时长
   const uptimeEl = $("tb-uptime");
   if (uptimeEl && Number.isFinite(status.timestampMs)) {
-    uptimeEl.textContent = `⏱ ${formatUptime(status.timestampMs)}`;
+    uptimeEl.textContent = formatUptime(status.timestampMs);
   }
 
-  // 3. CPU 负荷率
   const cpuEl = $("tb-cpu");
   if (cpuEl && Number.isFinite(status.cpuPct)) {
-    cpuEl.textContent = `💻 ${status.cpuPct}%`;
-    cpuEl.style.color = status.cpuPct > 80 ? "#f85149" : (status.cpuPct > 60 ? "#d29922" : "var(--text-muted)");
+    cpuEl.textContent = `${status.cpuPct}%`;
+    const item = cpuEl.closest(".tb-hud-item");
+    if (item) {
+      item.classList.toggle("is-warn", status.cpuPct > 60);
+      item.classList.toggle("is-bad", status.cpuPct > 80);
+    }
   }
 
-  // 4. 连接状态心跳微动
   const dot = $("conn-status")?.querySelector(".status-dot");
   if (dot) {
     dot.style.opacity = "1";

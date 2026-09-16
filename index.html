@@ -67,11 +67,20 @@
 
           <div class="tb-sep" aria-hidden="true"></div>
 
-          <!-- 顶栏实时监控：母线电压 + 运行时间 + 心跳指示 -->
-          <div id="tb-telemetry-hud" class="tb-cluster" style="font-size:12px;display:flex;align-items:center;gap:8px;">
-            <span id="tb-vbus" class="tb-badge" title="母线供电电压" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;color:var(--text-muted, #8b949e);">🔋 — V</span>
-            <span id="tb-uptime" class="tb-badge" title="单片机运行时间" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text-muted, #8b949e);">⏱ —</span>
-            <span id="tb-cpu" class="tb-badge" title="CPU负荷率" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text-muted, #8b949e);">💻 —%</span>
+          <!-- 顶栏实时监控：Vbus / Uptime / CPU -->
+          <div id="tb-telemetry-hud" class="tb-hud" aria-live="polite">
+            <span class="tb-hud-item" title="母线电压">
+              <span class="tb-hud-k">Vbus</span>
+              <strong id="tb-vbus">—</strong>
+            </span>
+            <span class="tb-hud-item" title="运行时间">
+              <span class="tb-hud-k">Up</span>
+              <strong id="tb-uptime">—</strong>
+            </span>
+            <span class="tb-hud-item" title="CPU 负荷">
+              <span class="tb-hud-k">CPU</span>
+              <strong id="tb-cpu">—</strong>
+            </span>
           </div>
 
           <div class="tb-sep" aria-hidden="true"></div>
