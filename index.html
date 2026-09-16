@@ -273,7 +273,36 @@
                   <canvas id="scope-canvas"></canvas>
                   <div id="scope-empty" class="scope-empty" hidden data-i18n="empty.scope">等待遥测数据… 选择仿真或连接串口</div>
                 </div>
-                <div id="cursor-readout" class="readout" data-i18n="cursor.hint">鼠标移到波形可读值 · 点击设 t1/t2</div>
+                <div id="cursor-readout" class="readout" data-i18n="cursor.hint">拖拽平移 · 滚轮 X 缩放 · Ctrl+滚轮 Y 缩放 · 悬停读通道值</div>
+                <div id="scope-fab" class="scope-fab">
+                  <button type="button" id="scope-fab-toggle" class="scope-fab-btn" title="控制" aria-label="控制">
+                    <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><polygon points="5,3 13,8 5,13"/></svg>
+                  </button>
+                  <div id="scope-fab-panel" class="scope-fab-panel" hidden>
+                    <div class="scope-fab-head" id="scope-fab-drag">
+                      <span>控制</span>
+                      <button type="button" id="scope-fab-close" class="scope-fab-close" aria-label="收起">×</button>
+                    </div>
+                    <label class="scope-fab-row">
+                      <span>模式</span>
+                      <select id="fab-mode">
+                        <option value="vf">开环</option>
+                        <option value="iq">电流</option>
+                        <option value="vel" selected>速度</option>
+                        <option value="pos">位置</option>
+                      </select>
+                    </label>
+                    <label class="scope-fab-row">
+                      <span id="fab-target-label">目标</span>
+                      <input type="number" id="fab-target" value="0" step="1" />
+                    </label>
+                    <div class="scope-fab-actions">
+                      <button type="button" class="ok small" id="fab-send">发送</button>
+                      <button type="button" class="ok small" id="fab-enable">使能</button>
+                      <button type="button" class="danger small" id="fab-disable">停止</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </section>

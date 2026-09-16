@@ -812,6 +812,86 @@ $("btn-clear").addEventListener("click", () => {
 
 $("btn-clear-cursors").addEventListener("click", () => scope.clearCursors());
 
+/* ---- 示波器控制浮窗：展开 / 收起 / 拖拽 ---- */
+(() => {
+  const fab = $("scope-fab");
+  const toggle = $("scope-fab-toggle");
+  const panel = $("scope-fab-panel");
+  const closeBtn = $("scope-fab-close");
+  const drag = $("scope-fab-drag");
+  if (!fab || !toggle || !panel) return;
+
+  const MODE_CMD = { vf: "vf", iq: "iq", vel: "vel", pos: "pos" };
+  const TARGET_META = {
+    vf: { label: "RPM", step: 10 },
+    iq: { label: "A", step: 0.1 },
+    vel: { label: "RPM", step: 10 },
+    pos: { label: "rad", step: 0.01 },
+  };
+
+  const modeSel = $("fab-mode");
+  const target = $("fab-target");
+  const targetLabel = $("fab-target-label");
+
+  const applyMeta = () => {
+    const m = modeSel?.value || "vel";
+    const meta = TARGET_META[m] || TARGET_META.vel;
+    if (targetLabel) targetLabel.textContent = meta.label;
+    if (target) target.step = String(meta.step);
+  };
+  modeSel?.addEventListener("change", applyMeta);
+  applyMeta();
+
+  const setOpen = (open) => {
+    if (panel) panel.hidden = !open;
+    fab.classList.toggle("is-open", open);
+  };
+  toggle?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setOpen(panel?.hidden !== false);
+  });
+  closeBtn?.addEventListener("click", () => setOpen(false));
+  document.addEventListener("click", (e) => {
+    if (!fab.contains(e.target)) setOpen(false);
+  });
+
+  const send = (cmd) => consoleCtl.run(cmd).catch(() => {});
+  $("fab-send")?.addEventListener("click", () => {
+    const m = modeSel?.value || "vel";
+    const v = Number(target?.value);
+    if (!Number.isFinite(v)) return;
+    send(m === "vf" ? `rpm ${v}` : `target ${v}`);
+  });
+  $("fab-enable")?.addEventListener("click", () => send("enable"));
+  $("fab-disable")?.addEventListener("click", () => send("disable"));
+
+  // 拖拽：按住标题栏移动整个 fab
+  let dragState = null;
+  drag?.addEventListener("pointerdown", (e) => {
+    if (e.target.closest("button")) return;
+    const rect = fab.getBoundingClientRect();
+    dragState = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    drag.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+  });
+  drag?.addEventListener("pointermove", (e) => {
+    if (!dragState) return;
+    const parent = fab.offsetParent || document.body;
+    const pr = parent.getBoundingClientRect();
+    let x = e.clientX - pr.left - dragState.dx;
+    let y = e.clientY - pr.top - dragState.dy;
+    x = Math.max(0, Math.min(pr.width - 56, x));
+    y = Math.max(0, Math.min(pr.height - 56, y));
+    fab.style.left = `${x}px`;
+    fab.style.top = `${y}px`;
+    fab.style.right = "auto";
+    fab.style.bottom = "auto";
+  });
+  const endDrag = () => { dragState = null; };
+  drag?.addEventListener("pointerup", endDrag);
+  drag?.addEventListener("pointercancel", endDrag);
+})();
+
 $("btn-png").addEventListener("click", async () => {
   const blob = await scope.toPngBlob();
   if (!blob) return;
@@ -1237,6 +1317,8 @@ try {
       dashboard.setChannels(state.channels);
       legend.setChannels(state.channels);
       renderConsole();
+      // 向导 HTML 由 t() 生成，必须重绘才能切语言
+      wizard.setStep(wizard.step);
       const rateNow = Number($("sim-rate")?.value) || 1000;
       if (state.mode === "sim") setStatusKey(rateNow >= 5000 ? "status.stress" : "status.sim", "sim");
       applyModeUI();
