@@ -89,51 +89,52 @@ header {
   align-items: center;
   flex: 1;
   min-width: 0;
-  justify-content: flex-end;
-  gap: 10px;
+  justify-content: flex-start;
+  gap: 8px;
   flex-wrap: nowrap;
   overflow: hidden;
 }
 
-.tb-cluster {
+.tb-group {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.tb-spacer {
+  flex: 1;
+  min-width: 12px;
 }
 
 .tb-sep {
   width: 1px;
-  height: 20px;
+  height: 16px;
   background: var(--border);
   flex-shrink: 0;
-  opacity: 0.8;
+  opacity: 0.75;
 }
 
-/* 顶栏遥测 chips */
+/* 顶栏遥测：轻量文本，不做成大胶囊 */
 .tb-hud {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 14px;
   flex-shrink: 0;
+  padding: 0 4px;
 }
 
 .tb-hud-item {
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: var(--bg-elev);
-  border: 1px solid var(--border-soft);
   color: var(--text-dim);
   white-space: nowrap;
 }
 
 .tb-hud-k {
   font-size: 10px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-faint);
 }
@@ -146,17 +147,8 @@ header {
   font-variant-numeric: tabular-nums;
 }
 
-.tb-hud-item.is-warn {
-  border-color: rgba(245, 165, 36, 0.45);
-}
-
 .tb-hud-item.is-warn strong {
   color: var(--warn);
-}
-
-.tb-hud-item.is-bad {
-  border-color: rgba(255, 69, 58, 0.5);
-  background: rgba(255, 69, 58, 0.1);
 }
 
 .tb-hud-item.is-bad strong {
@@ -168,8 +160,8 @@ header {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 30px;
-  padding: 0 12px;
+  height: 32px;
+  padding: 0 14px;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--bg-elev);
@@ -216,6 +208,11 @@ header {
 .tb-select {
   min-width: 88px;
   background: var(--bg-elev);
+}
+
+.tb-select-compact {
+  min-width: 72px;
+  width: 72px;
 }
 
 /* legacy selectors kept for JS hooks */
@@ -336,35 +333,56 @@ button.small {
 
 .status-pill {
   margin-left: auto;
-  padding: 4px 12px;
+  padding: 5px 12px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   border: 1px solid var(--border);
   color: var(--text-dim);
   background: var(--bg-elev);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.status-pill::before {
-  content: "";
-  width: 7px;
-  height: 7px;
+.status-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--text-faint);
+  flex-shrink: 0;
 }
 
-.status-pill.ok::before { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
-.status-pill.err::before { background: var(--err); box-shadow: 0 0 8px var(--err); }
-.status-pill.busy::before { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
-.status-pill.sim::before { background: var(--sim); box-shadow: 0 0 8px var(--sim); }
+.status-pill.ok .status-dot,
+.status-pill.ok::before {
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+}
+.status-pill.err .status-dot,
+.status-pill.err::before {
+  background: var(--err);
+  box-shadow: 0 0 8px var(--err);
+}
+.status-pill.busy .status-dot,
+.status-pill.busy::before {
+  background: var(--warn);
+  box-shadow: 0 0 8px var(--warn);
+}
+.status-pill.sim .status-dot,
+.status-pill.sim::before {
+  background: var(--sim);
+  box-shadow: 0 0 8px var(--sim);
+}
 .status-pill.ok { color: var(--ok); border-color: rgba(48, 209, 88, 0.35); }
 .status-pill.err { color: var(--err); border-color: rgba(255, 69, 58, 0.4); }
 .status-pill.busy { color: var(--warn); border-color: rgba(255, 159, 10, 0.4); }
 .status-pill.sim { color: var(--sim); border-color: rgba(191, 90, 242, 0.4); }
+
+.status-pill::before {
+  display: none;
+}
 
 /* ===== Body / sidebar ===== */
 .body {
