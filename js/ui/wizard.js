@@ -389,7 +389,7 @@ export function diagnoseSystemHealth(info) {
 export class WorkflowWizard {
   /**
    * @param {HTMLElement} root
-   * @param {{send:(cmd:string)=>Promise<void>|void, isConnected?:()=>boolean}} opts
+   * @param {{send:(cmd:string)=>Promise<void>|void, isConnected?:()=>boolean, getStatus?:()=>object|null}} opts
    */
   constructor(root, opts) {
     this.root = root;
@@ -397,6 +397,7 @@ export class WorkflowWizard {
     /** @type {(cmd:string,ms?:number)=>Promise<string>|undefined} */
     this.sendCapture = opts.sendCapture;
     this.isConnected = opts.isConnected || (() => true);
+    this.getStatus = opts.getStatus || (() => null);
     this.step = "device";
     /** @type {Record<string, string>} 调参基准值，用于脏状态感知 */
     this.pidBaseline = {};
@@ -1000,7 +1001,7 @@ export class WorkflowWizard {
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8.5 1.5l-5 7h4l-1 6 6-8h-4l1.5-5" stroke-linejoin="round"/></svg>
               <span>${t("ident.full")}</span>
             </button>
-            <button class="ok" data-cmd="ident apply">
+            <button class="ok" data-cmd="ident apply" data-toast="wf.motor.apply_done">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>${t("wf.apply")}</span>
             </button>
@@ -1061,10 +1062,13 @@ export class WorkflowWizard {
     box.hidden = false;
     box.classList.remove("is-ok", "is-err");
     box.classList.add("is-run");
+    const bar0 = box.querySelector(".task-progress-bar");
+    if (bar0) bar0.hidden = false;
     fill.style.width = "0%";
     const t0 = Date.now();
     const total = Math.max(1, durationMs);
     text.textContent = `${label} 0%`;
+    const bar = box?.querySelector(".task-progress-bar");
     const timer = setInterval(() => {
       const el = Math.min(1, (Date.now() - t0) / total);
       const pct = Math.floor(el * 100);
@@ -1078,7 +1082,8 @@ export class WorkflowWizard {
         stop();
         box.classList.remove("is-run");
         box.classList.add("is-ok");
-        fill.style.width = "100%";
+        // 完成后收起进度条，只保留文案
+        if (bar) bar.hidden = true;
         text.textContent = msg || `✔ ${t("wf.task.done")}`;
         this._toast(msg || t("wf.task.done"), "ok");
       },
@@ -1086,6 +1091,7 @@ export class WorkflowWizard {
         stop();
         box.classList.remove("is-run");
         box.classList.add("is-err");
+        if (bar) bar.hidden = true;
         text.textContent = msg || `✖ ${t("wf.task.fail")}`;
         this._toast(msg || t("wf.task.fail"), "err");
       },
@@ -1112,7 +1118,8 @@ export class WorkflowWizard {
   }
 
   /** 读取 conf read + ident show，填入参数表 */
-  async _readMotorParams() {
+  async _readMotorParams(opts = {}) {
+    const silent = !!opts.silent;
     const badge = this.root.querySelector("#wf-param-src");
     if (!this.sendCapture) {
       await this._cli("conf read");
@@ -1177,6 +1184,7 @@ export class WorkflowWizard {
     this._updateSaliencyRatio();
 
     if (badge) badge.textContent = t("wf.motor.from_device");
+    if (!silent) this._toast(t("wf.motor.read_done"), "ok");
   }
 
   /**
@@ -1204,12 +1212,12 @@ export class WorkflowWizard {
         // 下发 ident full，单片机测量 Rs/Ls 约 2s，拖动测磁链约 4~5s，整过程约 7~8 秒
         await this.sendCapture("ident full", 8500);
         // 辨识完成后立刻查询 ident show 提取最新精准结果
-        await this._readMotorParams();
+        await this._readMotorParams({ silent: true });
         prog.done(t("wf.ident.done"));
       } else {
         await this._cli("ident full");
         setTimeout(async () => {
-          await this._readMotorParams();
+          await this._readMotorParams({ silent: true });
           prog.done(t("wf.ident.done2"));
         }, 8000);
       }
@@ -1285,6 +1293,61 @@ export class WorkflowWizard {
       <h3 class="wf-h">${t("wf.encoder.h")}</h3>
       <p class="wf-p">${t("wf.encoder.p")}</p>
 
+      <!-- 1. 实时状态看板 -->
+      <section class="wf-card">
+        <div class="wf-card-head">
+          <h4 class="wf-section">${t("enc.status")}</h4>
+          <div class="wf-card-actions">
+            <button id="enc-refresh-status" class="small">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>${t("enc.refresh")}</span>
+            </button>
+          </div>
+        </div>
+        <div class="metric-tiles">
+          <div class="metric-tile">
+            <span class="metric-lbl">${t("enc.mode")}</span>
+            <strong id="enc-st-mode" class="metric-val">—</strong>
+          </div>
+          <div class="metric-tile">
+            <span class="metric-lbl">${t("enc.calib")}</span>
+            <strong id="enc-st-calib" class="metric-val">—</strong>
+          </div>
+          <div class="metric-tile">
+            <span class="metric-lbl">${t("enc.offset")}</span>
+            <strong id="enc-st-offset" class="metric-val">—</strong>
+          </div>
+          <div class="metric-tile">
+            <span class="metric-lbl">${t("enc.rpm")}</span>
+            <strong id="enc-st-rpm" class="metric-val">—</strong>
+          </div>
+        </div>
+        <p class="wf-note" id="enc-status-note">${t("enc.status_hint")}</p>
+      </section>
+
+      <!-- 2. 反馈模式 -->
+      <section class="wf-card">
+        <div class="wf-card-head">
+          <h4 class="wf-section">${t("enc.feedback")}</h4>
+        </div>
+        <div class="enc-mode-grid" id="enc-mode-grid">
+          <button type="button" class="enc-mode-card" data-mode="sensored">
+            <span class="enc-mode-title">${t("fb.sensored")}</span>
+            <span class="enc-mode-desc">${t("enc.mode.sensored")}</span>
+          </button>
+          <button type="button" class="enc-mode-card" data-mode="sensorless">
+            <span class="enc-mode-title">${t("fb.sensorless")}</span>
+            <span class="enc-mode-desc">${t("enc.mode.sensorless")}</span>
+          </button>
+          <button type="button" class="enc-mode-card" data-mode="auto">
+            <span class="enc-mode-title">${t("fb.auto")}</span>
+            <span class="enc-mode-desc">${t("enc.mode.auto")}</span>
+          </button>
+        </div>
+        <p class="wf-note">${t("enc.feedback_note")}</p>
+      </section>
+
+      <!-- 3. 传感器配置 -->
       <section class="wf-card">
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.encoder.type")}</h4>
@@ -1308,25 +1371,34 @@ export class WorkflowWizard {
           <div class="form-row">
             <label for="wf-enc-cpr">CPR</label>
             <div class="form-row-trail">
-              <input type="number" id="wf-enc-cpr" step="1" min="16" max="65536" value="2048" />
+              <div class="num-field">
+                <input type="number" id="wf-enc-cpr" step="1" min="16" max="65536" value="2048" />
+                <span class="num-unit">cnt</span>
+              </div>
             </div>
           </div>
         </div>
-        <p class="wf-note">${t("wf.encoder.note")}</p>
       </section>
 
+      <!-- 4. 角度源 -->
       <section class="wf-card">
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.encoder.source")}</h4>
         </div>
-        <div class="action-grid" style="grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 480px;">
-          <button class="ok" data-cmd="angle enc">${t("obs.enc")}</button>
-          <button data-cmd="angle ol">${t("obs.ol")}</button>
-          <button data-cmd="angle">${t("wf.encoder.query")}</button>
+        <div class="enc-mode-grid" id="enc-angle-grid">
+          <button type="button" class="enc-mode-card" data-angle="enc">
+            <span class="enc-mode-title">${t("obs.enc")}</span>
+            <span class="enc-mode-desc">${t("enc.angle.enc")}</span>
+          </button>
+          <button type="button" class="enc-mode-card" data-angle="ol">
+            <span class="enc-mode-title">${t("obs.ol")}</span>
+            <span class="enc-mode-desc">${t("enc.angle.ol")}</span>
+          </button>
         </div>
         <p class="wf-note">${t("wf.encoder.source_note")}</p>
       </section>
 
+      <!-- 5. 零点校准 -->
       <section class="wf-card">
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.calib.full")}</h4>
@@ -1344,21 +1416,31 @@ export class WorkflowWizard {
         <p class="wf-note">${t("wf.calib.note")}</p>
       </section>
 
+      <!-- 6. 无感平滑切换 -->
       <section class="wf-card">
         <div class="wf-card-head">
-          <h4 class="wf-section">${t("obs.title")}</h4>
+          <h4 class="wf-section">${t("enc.sensorless")}</h4>
         </div>
-        <div class="action-grid">
-          <button data-cmd="feedback">${t("fb.status")}</button>
-          <button data-cmd="feedback sensored">${t("fb.sensored")}</button>
-          <button data-cmd="feedback sensorless">${t("fb.sensorless")}</button>
-          <button data-cmd="feedback auto">${t("fb.auto")}</button>
+        <div class="metric-tiles">
+          <div class="metric-tile">
+            <span class="metric-lbl">${t("enc.guard.mode")}</span>
+            <strong id="enc-g-mode" class="metric-val">—</strong>
+          </div>
+          <div class="metric-tile">
+            <span class="metric-lbl">${t("enc.guard.rpm")}</span>
+            <strong id="enc-g-rpm" class="metric-val">—</strong>
+          </div>
+        </div>
+        <div class="action-grid" style="grid-template-columns: 1fr 1fr; margin-top:10px;">
+          <button data-cmd="obs 1">${t("enc.step1")}</button>
+          <button class="danger" id="enc-obs-switch" data-cmd="obs 2" data-confirm="obs 2">${t("enc.step2")}</button>
+        </div>
+        <div class="action-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:8px;">
           <button data-cmd="obs">${t("obs.query")}</button>
           <button data-cmd="obs 0">${t("obs.off")}</button>
-          <button data-cmd="obs 1">${t("obs.on")}</button>
-          <button class="danger" data-cmd="obs 2" data-confirm="obs 2">${t("obs.switch")}</button>
+          <button data-cmd="feedback">${t("fb.status")}</button>
         </div>
-        <p class="wf-note">${t("obs.note")}</p>
+        <p class="wf-note">${t("enc.sensorless_note")}</p>
       </section>`;
   }
 
@@ -1465,13 +1547,104 @@ export class WorkflowWizard {
       </div>`;
   }
 
+  _wireEncoder() {
+    const refresh = this.root.querySelector("#enc-refresh-status");
+    refresh?.addEventListener("click", () => this._refreshEncoderStatus());
+
+    this.root.querySelectorAll("#enc-mode-grid .enc-mode-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        const m = card.getAttribute("data-mode");
+        if (!m || !this.send) return;
+        this.root.querySelectorAll("#enc-mode-grid .enc-mode-card").forEach((c) => c.classList.remove("active"));
+        card.classList.add("active");
+        Promise.resolve(this.send(`feedback ${m}`)).then(() => this._refreshEncoderStatus());
+      });
+    });
+
+    this.root.querySelectorAll("#enc-angle-grid .enc-mode-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        const a = card.getAttribute("data-angle");
+        if (!a || !this.send) return;
+        this.root.querySelectorAll("#enc-angle-grid .enc-mode-card").forEach((c) => c.classList.remove("active"));
+        card.classList.add("active");
+        Promise.resolve(this.send(`angle ${a}`)).then(() => this._refreshEncoderStatus());
+      });
+    });
+
+    this._refreshEncoderStatus();
+    this._encGuardTimer = setInterval(() => this._refreshEncoderGuard(), 1000);
+  }
+
+  async _refreshEncoderStatus() {
+    const s = this.getStatus?.();
+    const MODE_NAMES = [t("mode.vf"), t("mode.iq"), t("mode.vel"), t("mode.pos")];
+    const modeEl = this.root.querySelector("#enc-st-mode");
+    const calibEl = this.root.querySelector("#enc-st-calib");
+    const offsetEl = this.root.querySelector("#enc-st-offset");
+    const rpmEl = this.root.querySelector("#enc-st-rpm");
+
+    if (s && Number.isFinite(s.mode) && modeEl) {
+      modeEl.textContent = MODE_NAMES[s.mode] || `mode ${s.mode}`;
+    }
+    if (s && Number.isFinite(s.rpmEst) && rpmEl) {
+      rpmEl.textContent = `${s.rpmEst.toFixed(0)}`;
+    }
+
+    if (this.sendCapture) {
+      try {
+        const text = await this.sendCapture("status", 350);
+        const calib = text.match(/calib=([0-9]+)(\*?)/);
+        const offset = text.match(/offset=([0-9.+-]+)/);
+        if (calibEl && calib) {
+          const ok = calib[1] === "1";
+          calibEl.textContent = ok ? t("enc.calib.ok") : t("enc.calib.no");
+          calibEl.className = `metric-val ${ok ? "text-ok" : "text-warn"}`;
+        }
+        if (offsetEl && offset) offsetEl.textContent = offset[1];
+      } catch {
+        /* ignore */
+      }
+    }
+    this._refreshEncoderGuard();
+  }
+
+  _refreshEncoderGuard() {
+    const s = this.getStatus?.();
+    const MODE_NAMES = [t("mode.vf"), t("mode.iq"), t("mode.vel"), t("mode.pos")];
+    const gMode = this.root.querySelector("#enc-g-mode");
+    const gRpm = this.root.querySelector("#enc-g-rpm");
+    const switchBtn = this.root.querySelector("#enc-obs-switch");
+    const modeOk = !!(s && Number.isFinite(s.mode) && s.mode === 2);
+    const rpm = s && Number.isFinite(s.rpmEst) ? Math.abs(s.rpmEst) : NaN;
+    const rpmOk = Number.isFinite(rpm) && rpm > 800;
+
+    if (gMode && s && Number.isFinite(s.mode)) {
+      gMode.textContent = MODE_NAMES[s.mode] || `mode ${s.mode}`;
+      gMode.className = `metric-val ${modeOk ? "text-ok" : "text-warn"}`;
+    }
+    if (gRpm) {
+      gRpm.textContent = Number.isFinite(rpm) ? `${rpm.toFixed(0)}` : "—";
+      gRpm.className = `metric-val ${rpmOk ? "text-ok" : "text-warn"}`;
+    }
+    if (switchBtn) {
+      const ready = modeOk && rpmOk;
+      switchBtn.disabled = !ready;
+      switchBtn.title = ready ? "" : t("enc.sensorless_note");
+    }
+  }
+
   _wire() {
     this.root.querySelectorAll("[data-cmd]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const cmd = btn.getAttribute("data-cmd");
         const conf = btn.getAttribute("data-confirm");
+        const toastKey = btn.getAttribute("data-toast");
         if (conf && !confirm(conf)) return;
-        this._cli(cmd);
+        Promise.resolve(this._cli(cmd)).then(() => {
+          if (toastKey) this._toast(t(toastKey), "ok");
+        }).catch(() => {
+          if (toastKey) this._toast(t("wf.task.fail"), "err");
+        });
       });
     });
     this.root.querySelector("#wf-read-info")?.addEventListener("click", () => this._readBoardInfo());
@@ -1485,6 +1658,10 @@ export class WorkflowWizard {
     this.root.querySelector("#wf-motor-import-file")?.addEventListener("change", (e) => this._importMotorParams(e));
     this.root.querySelector("#btn-action-ident")?.addEventListener("click", () => this._runMotorIdent());
     this.root.querySelector("#btn-action-calib")?.addEventListener("click", () => this._runMotorCalib());
+    this._wireEncoder();
+
+    /* 编码器页：状态 / 模式卡片 / 无感联锁 */
+    this._wireEncoder();
 
     // 监听 Ld / Lq 输入变化动态更新凸极比
     ["wf-ld", "wf-lq", "wf-ls"].forEach((id) => {

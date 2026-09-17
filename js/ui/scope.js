@@ -429,7 +429,7 @@ export class Scope {
 
     // 优先使用高频最新样本，若未激活波形则平滑回退到 STATUS 帧
     const latest = this.store.latest;
-    const vbus = Number.isFinite(latest[26]) ? latest[26] : status.vbus;
+    const vbus = Number.isFinite(status.vbus) ? status.vbus : latest[26];
     const rpm = Number.isFinite(latest[2]) ? latest[2] : status.rpmEst;
     const iq = Number.isFinite(latest[5]) ? latest[5] : status.iqEst;
 
@@ -460,15 +460,16 @@ export class Scope {
       stateEl.className = `state-pill state-${sName.toLowerCase()}`;
     }
 
-    if (modeEl) {
+    if (modeEl && status.mode !== undefined) {
       const MODE_NAMES = ["VF", "CURRENT", "VELOCITY", "POSITION"];
       modeEl.textContent = MODE_NAMES[status.mode] || "—";
     }
 
     if (faultEl) {
-      const hasFault = (status.motorFault !== 0) || (status.shuntFault !== 0);
+      const fCode = status.faultCode !== undefined ? status.faultCode : (status.motorFault || status.shuntFault);
+      const hasFault = fCode !== 0;
       if (hasFault) {
-        faultEl.textContent = `M:${status.motorFault} S:${status.shuntFault}`;
+        faultEl.textContent = `FAULT ${fCode}`;
         faultEl.className = "hud-fault-bad";
       } else {
         faultEl.textContent = "OK";

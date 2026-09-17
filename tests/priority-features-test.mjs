@@ -265,3 +265,37 @@ console.log("\n[7. 侧边栏折叠状态持久化与状态机测试]");
   console.log("  PASS  侧边栏折叠/展开持久化存储与切换逻辑无误\n");
 }
 
+console.log("\n[8. 电机安全与保护功能联动及回读解析测试 (方案 B)]");
+{
+  // 1. 软电流限幅与过流跳闸 trip 联动公式测试: clamp(limit * 1.25 + 0.1, limit, hard_limit)
+  const calcTrip = (limit, hard = 40.0) => {
+    return Math.min(Math.max(limit * 1.25 + 0.1, limit), hard);
+  };
+
+  assert.strictEqual(Number(calcTrip(5.2).toFixed(2)), 6.60);
+  assert.strictEqual(Number(calcTrip(4.0).toFixed(2)), 5.10);
+  assert.strictEqual(Number(calcTrip(2.0).toFixed(2)), 2.60);
+
+  // 2. 下位机 limit 与 vbus 回显文本正则回填测试
+  const mockLimitText = "M0 limit=5.20A trip=6.60A hard=10.00A\r\n";
+  const mockVbusText = "vbus=24.12V (raw=2350 OK) uv=10.00V ov=30.00V\r\n";
+
+  const pick = (text, re) => {
+    const m = text.match(re);
+    return m ? m[1] : null;
+  };
+
+  const limitVal = pick(mockLimitText, /limit=([0-9.]+)/i);
+  const tripVal = pick(mockLimitText, /trip=([0-9.]+)/i);
+  const uvVal = pick(mockVbusText, /uv=([0-9.]+)/i);
+  const ovVal = pick(mockVbusText, /ov=([0-9.]+)/i);
+
+  assert.strictEqual(limitVal, "5.20");
+  assert.strictEqual(tripVal, "6.60");
+  assert.strictEqual(uvVal, "10.00");
+  assert.strictEqual(ovVal, "30.00");
+
+  console.log("  PASS  trip 联动公式计算准确且 limit/vbus 响应回填解析无误\n");
+}
+
+

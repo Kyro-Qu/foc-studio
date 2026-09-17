@@ -329,12 +329,13 @@ function updateTopBarTelemetry(status) {
   }
 
   const cpuEl = $("tb-cpu");
-  if (cpuEl && Number.isFinite(status.cpuPct)) {
-    cpuEl.textContent = `${status.cpuPct}%`;
+  const cpuVal = Number.isFinite(status.cpuPct) ? status.cpuPct : (Number.isFinite(status.cpu) ? status.cpu : 0);
+  if (cpuEl) {
+    cpuEl.textContent = `${Math.round(cpuVal)}%`;
     const item = cpuEl.closest(".tb-hud-item");
     if (item) {
-      item.classList.toggle("is-warn", status.cpuPct > 60);
-      item.classList.toggle("is-bad", status.cpuPct > 80);
+      item.classList.toggle("is-warn", cpuVal > 60);
+      item.classList.toggle("is-bad", cpuVal > 80);
     }
   }
 

@@ -83,7 +83,7 @@ test("Wave 帧打包与流式解码", () => {
   }
 });
 
-test("Status 心跳帧与 Event 事件帧", () => {
+test("Status 心跳帧 (精简10字节与兼容15字节) 与 Event 事件帧", () => {
   let statusReceived = null;
   let eventReceived = null;
   const decoder = new StpDecoder({
@@ -91,25 +91,22 @@ test("Status 心跳帧与 Event 事件帧", () => {
     onEvent: (e, seq) => { eventReceived = { ...e, seq }; },
   });
 
-  // 1. Status
-  const sBuf = new Uint8Array(23);
+  // 1. Status (新版紧凑 10 字节 Payload -> 总长 18 字节)
+  const sBuf = new Uint8Array(18);
   const sView = new DataView(sBuf.buffer);
   sBuf[0] = FOC_STP_SYNC0;
   sBuf[1] = FOC_STP_SYNC1;
   sBuf[2] = 0x12; // ver 1, type STATUS
-  sBuf[3] = 15;
+  sBuf[3] = 10;   // payloadLen 10
   sView.setUint16(4, 101, true); // seq
-  sView.setUint32(6, 5000, true); // time 5000ms
-  sView.setUint16(10, 1440, true); // 14.40V
-  sBuf[12] = 0; // motor fault
-  sBuf[13] = 0; // shunt fault
-  sBuf[14] = 1; // RUN
-  sBuf[15] = 2; // VEL
-  sBuf[16] = 35; // 35 degC
-  sView.setInt16(17, 1500, true); // 1500 rpm
-  sView.setInt16(19, 52, true); // 0.52 A
-  const sCrc = crc16Ccitt(sBuf, 2, 4 + 15);
-  sView.setUint16(21, sCrc, true);
+  sView.setUint32(6, 5000, true); // timestamp 5000ms
+  sView.setUint16(10, 2412, true); // 24.12V
+  sBuf[12] = 3;   // RUN_OVERCURRENT
+  sBuf[13] = 1;   // state: RUN
+  sBuf[14] = 0;   // tempC
+  sBuf[15] = 45;  // cpuPct: 45%
+  const sCrc = crc16Ccitt(sBuf, 2, 4 + 10);
+  sView.setUint16(16, sCrc, true);
 
   // 2. Event
   const eBuf = new Uint8Array(19);
@@ -134,9 +131,9 @@ test("Status 心跳帧与 Event 事件帧", () => {
   decoder.push(merged);
 
   assert.ok(statusReceived, "Status should be received");
-  assert.equal(statusReceived.vbus, 14.4);
-  assert.equal(statusReceived.rpmEst, 1500);
-  assert.equal(statusReceived.tempC, 35);
+  assert.equal(statusReceived.vbus, 24.12);
+  assert.equal(statusReceived.faultCode, 3);
+  assert.equal(statusReceived.cpuPct, 45);
   assert.equal(statusReceived.seq, 101);
 
   assert.ok(eventReceived, "Event should be received");

@@ -333,20 +333,26 @@ export class Dashboard {
     const badge = this.root.querySelector("#dash-mode-badge");
     const MODE_NAMES = [t("mode.vf"), t("mode.iq"), t("mode.vel"), t("mode.pos")];
 
-    // 优先波形，无 Wave 时回退 STATUS 10Hz
-    const rpmVal = Number.isFinite(latest[2]) ? latest[2] : (isStatusFresh ? this._lastStatus.rpmEst : NaN);
-    const iqVal = Number.isFinite(latest[5]) ? latest[5] : (isStatusFresh ? this._lastStatus.iqEst : NaN);
-    const vbusVal = Number.isFinite(latest[26]) ? latest[26] : (isStatusFresh ? this._lastStatus.vbus : NaN);
+    // 转速与电流表盘完全由高速 Wave 驱动；Vbus 由 Wave 或 Status 驱动
+    const rpmVal = Number.isFinite(latest[2]) ? latest[2] : NaN;
+    const iqVal = Number.isFinite(latest[5]) ? latest[5] : NaN;
+    const vbusVal = isStatusFresh ? this._lastStatus.vbus : (Number.isFinite(latest[26]) ? latest[26] : NaN);
     const posVal = Number.isFinite(latest[17]) ? latest[17] : NaN;
     const posRef = Number.isFinite(latest[16]) ? latest[16] : NaN;
 
     if (isStatusFresh) {
       const s = this._lastStatus;
-      const hasFault = (s.motorFault !== 0) || (s.shuntFault !== 0);
-      setStrip("fault", hasFault ? `FAULT M:${s.motorFault} S:${s.shuntFault}` : "FAULT OK", hasFault);
-      const modeName = MODE_NAMES[s.mode] || `mode ${s.mode}`;
-      setStrip("mode", `MODE ${modeName}`, false);
-      if (badge) badge.textContent = modeName;
+      const fCode = s.faultCode !== undefined ? s.faultCode : (s.motorFault || s.shuntFault);
+      const hasFault = fCode !== 0;
+      const faultStr = (s.motorFault !== undefined && s.shuntFault !== undefined)
+        ? `FAULT M:${s.motorFault} S:${s.shuntFault}`
+        : `FAULT: ${faultText(fCode)}`;
+      setStrip("fault", hasFault ? faultStr : "FAULT OK", hasFault);
+      if (s.mode !== undefined) {
+        const modeName = MODE_NAMES[s.mode] || `mode ${s.mode}`;
+        setStrip("mode", `MODE ${modeName}`, false);
+        if (badge) badge.textContent = modeName;
+      }
     } else {
       setStrip("fault", "FAULT —", false);
       setStrip("mode", "MODE —", false);

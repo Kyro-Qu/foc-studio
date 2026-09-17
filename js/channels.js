@@ -32,7 +32,7 @@ export const DEFAULT_CHANNELS = [
   { id: 23, name: "obs_conf",    unit: "0-1",  color: "#073b4c", visible: false },
   { id: 24, name: "obs_flux",    unit: "Wb",   color: "#b5e2fa", visible: false },
   { id: 25, name: "power_est",   unit: "W",    color: "#edafb8", visible: false },
-  { id: 26, name: "vbus_fast",   unit: "V",    color: "#f72585", visible: true  },
+  { id: 26, name: "vbus_fast",   unit: "V",    color: "#f72585", visible: false },
   { id: 27, name: "torque_est",  unit: "N·m",  color: "#7209b7", visible: false },
   { id: 28, name: "iq_err",      unit: "A",    color: "#3f37c9", visible: false },
   { id: 29, name: "id_err",      unit: "A",    color: "#4361ee", visible: false },

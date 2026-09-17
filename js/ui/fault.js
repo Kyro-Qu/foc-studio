@@ -54,6 +54,18 @@ export function decodeFault(value) {
     return { code: 0, motor: 0, sense: 0, motorName: "NONE", senseName: "NONE", ok: true };
   }
   const code = Math.trunc(Math.abs(value));
+
+  // 新增：支持单字节统一故障码 (0x01..0x0F 为 motor，0x10..0x2F 为 sense)
+  if (code < 100) {
+    if (code >= 0x10) {
+      const sense = code - 0x10;
+      const senseName = SENSE_FAULTS[sense] != null ? SENSE_FAULTS[sense] : `S${sense}`;
+      return { code, motor: 1, sense, motorName: "CURRENT_SENSE", senseName, ok: false };
+    }
+    const motorName = MOTOR_FAULTS[code] != null ? MOTOR_FAULTS[code] : `M${code}`;
+    return { code, motor: code, sense: 0, motorName, senseName: "NONE", ok: false };
+  }
+
   const motor = Math.trunc(code / 100);
   const sense = code % 100;
   const motorName = MOTOR_FAULTS[motor] != null ? MOTOR_FAULTS[motor] : `M${motor}`;

@@ -188,7 +188,7 @@ export class StpDecoder {
           lenValid = (payloadLen >= 8 && payloadLen <= 72 && ((payloadLen - 8) % 4 === 0));
           break;
         case FOC_STP_TYPE_STATUS:
-          lenValid = (payloadLen === 15);
+          lenValid = (payloadLen === 10 || payloadLen === 15);
           break;
         case FOC_STP_TYPE_EVENT:
           lenValid = (payloadLen === 11);
@@ -267,7 +267,26 @@ export class StpDecoder {
           }
 
           case FOC_STP_TYPE_STATUS: {
-            if (payloadLen >= 15) {
+            if (payloadLen === 10) {
+              const timestampMs = view.getUint32(0, true);
+              const vbusCvolts = view.getUint16(4, true);
+              const faultCode = view.getUint8(6);
+              const state = view.getUint8(7);
+              const tempC = view.getInt8(8);
+              const cpuPct = view.getUint8(9);
+
+              this.framesOk += 1;
+              if (this.onStatus) {
+                this.onStatus({
+                  timestampMs,
+                  vbus: vbusCvolts / 100.0,
+                  faultCode,
+                  state,
+                  tempC,
+                  cpuPct,
+                }, seq);
+              }
+            } else if (payloadLen >= 15) {
               const timestampMs = view.getUint32(0, true);
               const vbusCvolts = view.getUint16(4, true);
               const motorFault = view.getUint8(6);
@@ -283,6 +302,7 @@ export class StpDecoder {
                 this.onStatus({
                   timestampMs,
                   vbus: vbusCvolts / 100.0,
+                  faultCode: motorFault || (shuntFault ? (0x10 + shuntFault) : 0),
                   motorFault,
                   shuntFault,
                   state,
