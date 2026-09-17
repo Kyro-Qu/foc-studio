@@ -17,6 +17,11 @@ const MODE_LIST = [
   { id: "pos", key: "mode.pos" },
 ];
 
+/** 固件 foc_mode_t → UI id */
+const MODE_IDS = ["vf", "iq", "vel", "pos"];
+/** 固件 foc_state_t */
+const STATE_NAMES = ["IDLE", "RUN", "CALIB", "FAULT"];
+
 export class Dashboard {
   /**
    * @param {HTMLElement} root
@@ -60,13 +65,14 @@ export class Dashboard {
       this.rotor = null;
     }
 
-    /* 紧凑状态 chips：STATUS 10Hz */
+    /* 紧凑状态 chips：STATE / MODE 与固件对齐，不发明第五种 mode */
     this.strip = document.createElement("div");
     this.strip.className = "dash-chips";
     this.strip.innerHTML = `
       <span class="chip chip-fault" data-strip="fault">FAULT —</span>
+      <span class="chip" data-strip="state">STATE —</span>
       <span class="chip" data-strip="mode">MODE —</span>
-      <span class="chip" data-strip="track">TRACK —</span>
+      <span class="chip" data-strip="metric">—</span>
     `;
     this.root.appendChild(this.strip);
 
@@ -92,6 +98,7 @@ export class Dashboard {
     for (const d of gdefs) {
       const box = document.createElement("div");
       box.className = "dash-gauge";
+      box.setAttribute("data-gauge", d.id);
       const cv = document.createElement("canvas");
       box.appendChild(cv);
       this.gaugeWrap.appendChild(box);
@@ -169,13 +176,13 @@ export class Dashboard {
     const vfRow = this.root.querySelector("#dash-vf-row");
     const presetBox = this.root.querySelector("#dash-presets");
     const modeDesc = this.root.querySelector("#dash-mode-desc");
-    let mode = this._mode || "vel";
+    let mode = this._mode || "vf"; // 固件上电默认 FOC_MODE_OPENLOOP_VF
 
     const PRESETS = {
-      vel: [0, 300, 800, 1500, 3000, -300, -800, -1500],
-      iq: [0, 0.5, 1, 2, -0.5, -1, -2],
+      vel: [0, 300, 1000, 2500, -1000, -2500],
+      iq: [0, 0.5, 1.0, 2.0, -0.5, -1.0],
       pos: [0, 1.57, 3.14, 6.28, -1.57, -3.14, -6.28],
-      vf: [0, 200, 500, 1000, -200, -500],
+      vf: [0, 200, 500, 1000, 2000, -1000],
     };
 
     const setVizMode = () => {
@@ -189,6 +196,18 @@ export class Dashboard {
             this.rotor = null;
           }
         }
+      }
+      // 模式侧重：表盘顺序与高亮
+      const wrap = this.gaugeWrap;
+      if (!wrap) return;
+      wrap.setAttribute("data-mode", mode);
+      const order =
+        mode === "iq" ? ["iq", "vbus", "rpm"] :
+        mode === "vf" ? ["rpm", "vbus", "iq"] :
+        ["rpm", "iq", "vbus"];
+      for (const id of order) {
+        const el = wrap.querySelector(`[data-gauge="${id}"]`);
+        if (el) wrap.appendChild(el);
       }
     };
 
@@ -240,7 +259,7 @@ export class Dashboard {
     };
 
     modeSel?.addEventListener("change", () => {
-      const nextMode = modeSel.value || "vel";
+      const nextMode = modeSel.value || "vf";
       if (mode !== nextMode) {
         mode = nextMode;
         this._mode = mode;
@@ -250,6 +269,11 @@ export class Dashboard {
         }
       }
     });
+    // 板子 STATUS 反同步：只更新本地 UI，不下发 mode
+    this._onModeSync = (boardMode) => {
+      mode = boardMode;
+      applyModeMeta();
+    };
     applyModeMeta();
 
     if (range && num) {
@@ -348,20 +372,66 @@ export class Dashboard {
         ? `FAULT M:${s.motorFault} S:${s.shuntFault}`
         : `FAULT: ${faultText(fCode)}`;
       setStrip("fault", hasFault ? faultStr : "FAULT OK", hasFault);
-      if (s.mode !== undefined) {
+
+      // state：IDLE/RUN/CALIB/FAULT
+      if (Number.isFinite(s.state)) {
+        const st = STATE_NAMES[s.state] || `STATE ${s.state}`;
+        setStrip("state", st, s.state === 3);
+      }
+
+      // mode：以板子为准同步选框（不发命令）
+      if (Number.isFinite(s.mode)) {
         const modeName = MODE_NAMES[s.mode] || `mode ${s.mode}`;
         setStrip("mode", `MODE ${modeName}`, false);
         if (badge) badge.textContent = modeName;
+        const boardMode = MODE_IDS[s.mode];
+        if (boardMode && boardMode !== this._mode) {
+          this._mode = boardMode;
+          const sel = this.root.querySelector("#dash-mode");
+          if (sel && sel.value !== boardMode) sel.value = boardMode;
+          if (typeof this._onModeSync === "function") this._onModeSync(boardMode);
+        }
       }
     } else {
       setStrip("fault", "FAULT —", false);
+      setStrip("state", "STATE —", false);
       setStrip("mode", "MODE —", false);
       if (badge) badge.textContent = "—";
     }
 
-    // 跟踪误差仅在有波形 ch2/ch3 时有意义
-    const track = Number.isFinite(latest[2]) && Number.isFinite(latest[3]) ? latest[2] - latest[3] : NaN;
-    setStrip("track", Number.isFinite(track) ? `TRACK ${track.toFixed(1)} rpm` : "TRACK —");
+    // 状态 chips：第三条按模式显示最关键指标
+    const setMetric = (text, bad) => {
+      const el = this.root.querySelector('[data-strip="metric"]');
+      if (!el) return;
+      el.textContent = text;
+      el.classList.toggle("bad", !!bad);
+    };
+
+    const uiMode = this._mode || "vel";
+    if (uiMode === "pos") {
+      const pErr = Number.isFinite(posVal) && Number.isFinite(posRef) ? posRef - posVal : NaN;
+      setMetric(
+        Number.isFinite(pErr) ? `Δθ ${pErr.toFixed(3)} rad` : "Δθ —",
+        Number.isFinite(pErr) && Math.abs(pErr) > 0.05
+      );
+    } else if (uiMode === "iq") {
+      setMetric(
+        Number.isFinite(iqVal) ? `Iq ${iqVal.toFixed(2)} A` : "Iq —",
+        Number.isFinite(iqVal) && Math.abs(iqVal) > 4
+      );
+    } else if (uiMode === "vf") {
+      const vq = Number.isFinite(latest[8]) ? latest[8] : NaN;
+      setMetric(
+        Number.isFinite(vq) ? `Vq ${vq.toFixed(2)} V · ${Number.isFinite(rpmVal) ? rpmVal.toFixed(0) + " rpm" : "—"}` : "Vq —",
+        false
+      );
+    } else {
+      const track = Number.isFinite(latest[2]) && Number.isFinite(latest[3]) ? latest[2] - latest[3] : NaN;
+      setMetric(
+        Number.isFinite(track) ? `Δn ${track.toFixed(1)} rpm` : "Δn —",
+        Number.isFinite(track) && Math.abs(track) > 50
+      );
+    }
 
     if (this.gauges.rpm && Number.isFinite(rpmVal)) this.gauges.rpm.setValue(rpmVal);
     if (this.gauges.iq && Number.isFinite(iqVal)) this.gauges.iq.setValue(iqVal);
