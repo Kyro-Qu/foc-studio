@@ -2300,12 +2300,13 @@ button.primary {
   color: var(--text-faint);
 }
 
-/* footer */
+/* footer — 左：全局统计 + 全局快捷键；右：随面板切换的操作提示 */
 footer {
   display: flex;
   align-items: center;
   gap: 18px;
   padding: 0 14px;
+  min-height: 30px;
   background: var(--bg-panel);
   border-top: 1px solid var(--border);
   font-family: var(--mono);
@@ -2317,6 +2318,23 @@ footer strong {
   color: var(--text);
   font-weight: 600;
   margin-left: 4px;
+}
+
+footer .kbd-hint {
+  opacity: 0.72;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+footer .kbd-hint-page {
+  margin-left: auto;
+  opacity: 0.65;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* responsive */

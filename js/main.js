@@ -1258,7 +1258,15 @@ $("sim-rate")?.addEventListener("change", () => {
   recordLog(`sim rate → ${rate} Hz`);
 });
 
-/* keyboard */
+/* keyboard — 1–5 对应侧栏前五步（向导主路径） */
+const PANEL_HOTKEYS = {
+  "1": '[data-panel="wf"][data-step="device"]',
+  "2": '[data-panel="wf"][data-step="motor"]',
+  "3": '[data-panel="wf"][data-step="encoder"]',
+  "4": '[data-panel="wf"][data-step="pid"]',
+  "5": '[data-panel="wf"][data-step="run"]',
+};
+
 window.addEventListener("keydown", (e) => {
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   const tag = (e.target && e.target.tagName) || "";
@@ -1268,22 +1276,35 @@ window.addEventListener("keydown", (e) => {
     $("btn-pause").click();
   } else if (e.key === "r" || e.key === "R") {
     $("btn-clear").click();
-  } else if (e.key === "1") {
-    document.querySelector('[data-panel="dashboard"]')?.click();
-  } else if (e.key === "2") {
-    document.querySelector('[data-panel="scope"]')?.click();
-  } else if (e.key === "3") {
-    document.querySelector('[data-panel="console"]')?.click();
-  } else if (e.key === "4") {
-    document.querySelector('[data-panel="terminal"]')?.click();
-  } else if (e.key === "5") {
-    document.querySelector('[data-panel="record"]')?.click();
+  } else if (PANEL_HOTKEYS[e.key]) {
+    document.querySelector(PANEL_HOTKEYS[e.key])?.click();
   } else if (e.key === "e" || e.key === "E") {
     $("btn-estop").click();
   }
 });
 
-/* nav */
+/* nav — 底栏：左侧全局统计/快捷键，右侧随面板切换的操作提示 */
+const STEP_HINT_KEY = { run: "console" };
+
+function updateFooterHint(panel, step) {
+  const el = $("footer-page-hint");
+  if (!el) return;
+  const p = panel || "wf";
+  let key;
+  if (p === "wf") {
+    const s = step || "device";
+    key = `hint.${STEP_HINT_KEY[s] || s}`;
+  } else {
+    key = `hint.${p}`;
+  }
+  el.textContent = t(key);
+}
+
+function refreshFooterHint() {
+  const btn = document.querySelector(".nav-btn.active");
+  updateFooterHint(btn?.dataset.panel || "wf", btn?.dataset.step);
+}
+
 document.querySelectorAll(".nav-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     const prevPanel = document.querySelector(".panel.active")?.id?.replace("panel-", "");
@@ -1314,10 +1335,15 @@ document.querySelectorAll(".nav-btn").forEach((btn) => {
           b.classList.toggle("active", b.dataset.step === step);
         });
         btn.classList.add("active");
+        updateFooterHint("wf", step);
       }
+    } else {
+      updateFooterHint(targetPanel);
     }
   });
 });
+
+updateFooterHint("device", "device");
 
 /* 波形流手动开关按钮 */
 $("btn-wave-toggle")?.addEventListener("click", () => {
@@ -1420,6 +1446,7 @@ try {
       renderConsole();
       // 向导 HTML 由 t() 生成，必须重绘才能切语言
       wizard.setStep(wizard.step);
+      refreshFooterHint();
       const rateNow = Number($("sim-rate")?.value) || 1000;
       if (state.mode === "sim") setStatusKey(rateNow >= 5000 ? "status.stress" : "status.sim", "sim");
       applyModeUI();
