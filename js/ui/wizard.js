@@ -1293,12 +1293,12 @@ export class WorkflowWizard {
       <h3 class="wf-h">${t("wf.encoder.h")}</h3>
       <p class="wf-p">${t("wf.encoder.p")}</p>
 
-      <!-- 1. 实时状态看板 -->
+      <!-- 1. 实时传感器与角度源状态看板 -->
       <section class="wf-card">
         <div class="wf-card-head">
           <h4 class="wf-section">${t("enc.status")}</h4>
           <div class="wf-card-actions">
-            <button id="enc-refresh-status" class="small">
+            <button id="enc-refresh-status" class="small ok">
               <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>${t("enc.refresh")}</span>
             </button>
@@ -1325,62 +1325,136 @@ export class WorkflowWizard {
         <p class="wf-note" id="enc-status-note">${t("enc.status_hint")}</p>
       </section>
 
-      <!-- 2. 反馈模式 -->
+      <!-- 2. 通用传感器分类架构卡片 -->
       <section class="wf-card">
         <div class="wf-card-head">
-          <h4 class="wf-section">${t("enc.feedback")}</h4>
+          <h4 class="wf-section">${t("enc.arch.title") || "反馈传感器架构分类"}</h4>
         </div>
-        <div class="enc-mode-grid" id="enc-mode-grid">
-          <button type="button" class="enc-mode-card" data-mode="sensored">
-            <span class="enc-mode-title">${t("fb.sensored")}</span>
-            <span class="enc-mode-desc">${t("enc.mode.sensored")}</span>
+        <div class="enc-mode-grid" id="enc-cat-grid">
+          <button type="button" class="enc-mode-card active" data-cat="inc">
+            <span class="enc-mode-title">${t("enc.cat.inc") || "有感增量式 (ABZ / UVW)"}</span>
+            <span class="enc-mode-desc">${t("enc.cat.inc_desc") || "正交编码盘/霍尔，通电需执行零点寻相校准"}</span>
           </button>
-          <button type="button" class="enc-mode-card" data-mode="sensorless">
-            <span class="enc-mode-title">${t("fb.sensorless")}</span>
-            <span class="enc-mode-desc">${t("enc.mode.sensorless")}</span>
+          <button type="button" class="enc-mode-card" data-cat="abs">
+            <span class="enc-mode-title">${t("enc.cat.abs") || "有感绝对值 (SPI / 磁编)"}</span>
+            <span class="enc-mode-desc">${t("enc.cat.abs_desc") || "单圈/多圈绝对角 (MT6701/AS5600)，断电记忆"}</span>
           </button>
-          <button type="button" class="enc-mode-card" data-mode="auto">
-            <span class="enc-mode-title">${t("fb.auto")}</span>
-            <span class="enc-mode-desc">${t("enc.mode.auto")}</span>
+          <button type="button" class="enc-mode-card" data-cat="sl">
+            <span class="enc-mode-title">${t("enc.cat.sl") || "纯无感 (VESC + I/F)"}</span>
+            <span class="enc-mode-desc">${t("enc.cat.sl_desc") || "无需任何物理传感器，反电动势观测与平滑接管"}</span>
           </button>
         </div>
-        <p class="wf-note">${t("enc.feedback_note")}</p>
       </section>
 
-      <!-- 3. 传感器配置 -->
-      <section class="wf-card">
-        <div class="wf-card-head">
-          <h4 class="wf-section">${t("wf.encoder.type")}</h4>
-          <div class="wf-card-actions">
-            <button class="ok" id="wf-enc-cpr-set">
-              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span>${t("wf.apply")}</span>
-            </button>
-          </div>
-        </div>
-        <div class="form-list">
-          <div class="form-row">
-            <label for="wf-enc-kind">${t("wf.encoder.kind")}</label>
-            <div class="form-row-trail">
-              <select id="wf-enc-kind">
-                <option value="abz">${t("wf.encoder.abz")}</option>
-                <option value="sensorless">${t("wf.encoder.sensorless")}</option>
-              </select>
+      <!-- 3. 自适应功能面板：根据所选分类动态呈现 -->
+      <!-- 分类 A: 有感增量式面板 (CPR设置 + 零点寻相校准) -->
+      <div id="enc-panel-inc" class="enc-cat-panel">
+        <section class="wf-card">
+          <div class="wf-card-head">
+            <h4 class="wf-section">${t("wf.encoder.type")} · ${t("wf.encoder.abz")}</h4>
+            <div class="wf-card-actions">
+              <button class="ok" id="wf-enc-cpr-set">
+                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span>${t("wf.apply")}</span>
+              </button>
             </div>
           </div>
-          <div class="form-row">
-            <label for="wf-enc-cpr">CPR</label>
-            <div class="form-row-trail">
-              <div class="num-field">
-                <input type="number" id="wf-enc-cpr" step="1" min="16" max="65536" value="2048" />
-                <span class="num-unit">cnt</span>
+          <div class="form-list">
+            <div class="form-row">
+              <label for="wf-enc-cpr">CPR 分辨率 (Counts Per Rev)</label>
+              <div class="form-row-trail">
+                <div class="num-field">
+                  <input type="number" id="wf-enc-cpr" step="1" min="16" max="65536" value="2048" />
+                  <span class="num-unit">cnt</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- 4. 角度源 -->
+        <section class="wf-card">
+          <div class="wf-card-head">
+            <h4 class="wf-section">${t("wf.calib.full")}</h4>
+          </div>
+          <div class="action-grid" style="grid-template-columns: 1fr;">
+            <button id="btn-action-calib" class="danger">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/></svg>
+              <span>${t("wf.calib.full")} (正反转测偏置)</span>
+            </button>
+          </div>
+          <div id="wf-calib-status" class="task-progress" data-task="calib" hidden>
+            <div class="task-progress-bar"><i></i></div>
+            <span class="task-progress-text"></span>
+          </div>
+          <p class="wf-note">${t("wf.calib.note")}</p>
+        </section>
+      </div>
+
+      <!-- 分类 B: 有感绝对值面板 (偏置校正与零位存储) -->
+      <div id="enc-panel-abs" class="enc-cat-panel" hidden>
+        <section class="wf-card">
+          <div class="wf-card-head">
+            <h4 class="wf-section">${t("enc.abs.config") || "绝对值磁编码器配置"}</h4>
+          </div>
+          <div class="form-list">
+            <div class="form-row">
+              <label>${t("enc.abs.protocol") || "通信总线接口"}</label>
+              <div class="form-row-trail">
+                <select id="wf-abs-proto">
+                  <option value="spi">SPI (14-bit MT6701/AS5048A)</option>
+                  <option value="i2c">I2C (12-bit AS5600)</option>
+                  <option value="ssi">SSI / BiSS-C</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>${t("enc.abs.zero") || "机械零位偏置校正"}</label>
+              <div class="form-row-trail">
+                <div class="num-field">
+                  <input type="number" id="wf-abs-zero-val" step="0.001" value="0.000" />
+                  <span class="num-unit">rad</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="action-grid" style="grid-template-columns: 1fr 1fr; margin-top:10px;">
+            <button id="btn-abs-read-zero" class="small">${t("enc.abs.read_current") || "将当前位置设为零位"}</button>
+            <button id="btn-abs-save" class="ok small" data-cmd="conf write">${t("wf.motor.conf_write")}</button>
+          </div>
+          <p class="wf-note">${t("enc.abs.note") || "绝对值编码器出厂上电即知机械角，无需每次转动校准，写入 Flash 即可长期记忆。"}</p>
+        </section>
+      </div>
+
+      <!-- 分类 C: 纯无感面板 (观测器平滑过渡与自适应接管) -->
+      <div id="enc-panel-sl" class="enc-cat-panel" hidden>
+        <section class="wf-card">
+          <div class="wf-card-head">
+            <h4 class="wf-section">${t("enc.sensorless")}</h4>
+          </div>
+          <div class="metric-tiles">
+            <div class="metric-tile">
+              <span class="metric-lbl">${t("enc.guard.mode")}</span>
+              <strong id="enc-g-mode" class="metric-val">—</strong>
+            </div>
+            <div class="metric-tile">
+              <span class="metric-lbl">${t("enc.guard.rpm")}</span>
+              <strong id="enc-g-rpm" class="metric-val">—</strong>
+            </div>
+          </div>
+          <div class="action-grid" style="grid-template-columns: 1fr 1fr; margin-top:10px;">
+            <button data-cmd="obs 1">${t("enc.step1")}</button>
+            <button class="danger" id="enc-obs-switch" data-cmd="obs 2" data-confirm="obs 2">${t("enc.step2")}</button>
+          </div>
+          <div class="action-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:8px;">
+            <button data-cmd="obs">${t("obs.query")}</button>
+            <button data-cmd="obs 0">${t("obs.off")}</button>
+            <button data-cmd="feedback">${t("fb.status")}</button>
+          </div>
+          <p class="wf-note">${t("enc.sensorless_note")}</p>
+        </section>
+      </div>
+
+      <!-- 4. 全局角度源快速切换 -->
       <section class="wf-card">
         <div class="wf-card-head">
           <h4 class="wf-section">${t("wf.encoder.source")}</h4>
@@ -1396,51 +1470,6 @@ export class WorkflowWizard {
           </button>
         </div>
         <p class="wf-note">${t("wf.encoder.source_note")}</p>
-      </section>
-
-      <!-- 5. 零点校准 -->
-      <section class="wf-card">
-        <div class="wf-card-head">
-          <h4 class="wf-section">${t("wf.calib.full")}</h4>
-        </div>
-        <div class="action-grid" style="grid-template-columns: 1fr;">
-          <button id="btn-action-calib" class="danger">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/></svg>
-            <span>${t("wf.calib.full")}</span>
-          </button>
-        </div>
-        <div id="wf-calib-status" class="task-progress" data-task="calib" hidden>
-          <div class="task-progress-bar"><i></i></div>
-          <span class="task-progress-text"></span>
-        </div>
-        <p class="wf-note">${t("wf.calib.note")}</p>
-      </section>
-
-      <!-- 6. 无感平滑切换 -->
-      <section class="wf-card">
-        <div class="wf-card-head">
-          <h4 class="wf-section">${t("enc.sensorless")}</h4>
-        </div>
-        <div class="metric-tiles">
-          <div class="metric-tile">
-            <span class="metric-lbl">${t("enc.guard.mode")}</span>
-            <strong id="enc-g-mode" class="metric-val">—</strong>
-          </div>
-          <div class="metric-tile">
-            <span class="metric-lbl">${t("enc.guard.rpm")}</span>
-            <strong id="enc-g-rpm" class="metric-val">—</strong>
-          </div>
-        </div>
-        <div class="action-grid" style="grid-template-columns: 1fr 1fr; margin-top:10px;">
-          <button data-cmd="obs 1">${t("enc.step1")}</button>
-          <button class="danger" id="enc-obs-switch" data-cmd="obs 2" data-confirm="obs 2">${t("enc.step2")}</button>
-        </div>
-        <div class="action-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:8px;">
-          <button data-cmd="obs">${t("obs.query")}</button>
-          <button data-cmd="obs 0">${t("obs.off")}</button>
-          <button data-cmd="feedback">${t("fb.status")}</button>
-        </div>
-        <p class="wf-note">${t("enc.sensorless_note")}</p>
       </section>`;
   }
 
@@ -1551,14 +1580,56 @@ export class WorkflowWizard {
     const refresh = this.root.querySelector("#enc-refresh-status");
     refresh?.addEventListener("click", () => this._refreshEncoderStatus());
 
-    this.root.querySelectorAll("#enc-mode-grid .enc-mode-card").forEach((card) => {
+    // 通用分类卡片切换 (有感增量 / 有感绝对值 / 纯无感)
+    this.root.querySelectorAll("#enc-cat-grid .enc-mode-card").forEach((card) => {
       card.addEventListener("click", () => {
-        const m = card.getAttribute("data-mode");
-        if (!m || !this.send) return;
-        this.root.querySelectorAll("#enc-mode-grid .enc-mode-card").forEach((c) => c.classList.remove("active"));
+        const cat = card.getAttribute("data-cat");
+        if (!cat) return;
+        this.root.querySelectorAll("#enc-cat-grid .enc-mode-card").forEach((c) => c.classList.remove("active"));
         card.classList.add("active");
-        Promise.resolve(this.send(`feedback ${m}`)).then(() => this._refreshEncoderStatus());
+
+        const panels = {
+          inc: this.root.querySelector("#enc-panel-inc"),
+          abs: this.root.querySelector("#enc-panel-abs"),
+          sl: this.root.querySelector("#enc-panel-sl"),
+        };
+        Object.keys(panels).forEach((k) => {
+          if (panels[k]) panels[k].hidden = k !== cat;
+        });
+
+        // 联动自动适配下位机默认反馈与角度配置
+        if (cat === "sl") {
+          if (this.send) Promise.resolve(this.send("feedback sensorless")).then(() => this._refreshEncoderStatus());
+        } else if (cat === "inc" || cat === "abs") {
+          if (this.send) Promise.resolve(this.send("feedback sensored")).then(() => this._refreshEncoderStatus());
+        }
       });
+    });
+
+    // 绝对值零位读取
+    this.root.querySelector("#btn-abs-read-zero")?.addEventListener("click", async () => {
+      if (this.sendCapture) {
+        try {
+          const txt = await this.sendCapture("pos", 350);
+          const m = txt.match(/pos=([0-9.+-]+)/);
+          if (m && m[1]) {
+            const zInput = this.root.querySelector("#wf-abs-zero-val");
+            if (zInput) zInput.value = Number(m[1]).toFixed(3);
+            this._toast("当前轴绝对角度已读取为机械零点", "ok");
+          }
+        } catch {
+          this._toast("读取当前绝对角度失败", "err");
+        }
+      }
+    });
+
+    // CPR 分辨率下发
+    this.root.querySelector("#wf-enc-cpr-set")?.addEventListener("click", async () => {
+      const cpr = Number(this.root.querySelector("#wf-enc-cpr")?.value);
+      if (Number.isFinite(cpr) && cpr > 0) {
+        await this._cli(`cpr ${cpr}`);
+        this._toast(`编码器 CPR=${cpr} 已应用至 RAM`, "ok");
+      }
     });
 
     this.root.querySelectorAll("#enc-angle-grid .enc-mode-card").forEach((card) => {

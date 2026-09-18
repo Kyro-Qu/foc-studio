@@ -112,6 +112,8 @@ const adapter = new TelemetryAdapter({
   onSample: ({ values, sampleIndex, mask, tick }) => onSample(values, sampleIndex, mask, tick),
   onText: queueText,
   onStatus: (status) => {
+    state.lastStatus = status;
+    state.lastStatusTime = Date.now();
     updateTopBarTelemetry(status);
     dashboard.handleStatusUpdate(status);
     scope.updateMiniHud(status);
@@ -229,6 +231,7 @@ const tuning = tuningRoot ? new TuningPanel(tuningRoot, (cmd) => consoleCtl.run(
 
 const wizard = new WorkflowWizard($("panel-wf"), {
   send: (cmd) => consoleCtl.run(cmd),
+  getStatus: () => (state.lastStatusTime && Date.now() - state.lastStatusTime < 3000 ? state.lastStatus : null),
   sendCapture: async (cmd, ms = 400) => {
     // 临时捕获解复用出的文本（terminal 同源）
     let buf = "";
@@ -872,6 +875,16 @@ $("btn-clear").addEventListener("click", () => {
 });
 
 $("btn-clear-cursors").addEventListener("click", () => scope.clearCursors());
+
+/* ---- 示波器高级设置抽屉切换 (Y轴量程/触发/导出) ---- */
+$("btn-scope-settings")?.addEventListener("click", () => {
+  const drawer = $("scope-drawer");
+  const btn = $("btn-scope-settings");
+  if (!drawer) return;
+  const isHidden = drawer.hidden;
+  drawer.hidden = !isHidden;
+  btn?.classList.toggle("is-active", isHidden);
+});
 
 /* ---- 示波器控制浮窗：展开 / 收起 / 拖拽 ---- */
 (() => {

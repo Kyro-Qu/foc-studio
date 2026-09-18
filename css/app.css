@@ -594,6 +594,49 @@ main {
   max-width: 640px;
 }
 
+/* ===== Encoder page ===== */
+.enc-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.enc-mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 72px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.enc-mode-card:hover {
+  border-color: var(--text-faint);
+}
+
+.enc-mode-card.active {
+  border-color: rgba(48, 209, 88, 0.55);
+  background: rgba(48, 209, 88, 0.1);
+}
+
+.enc-mode-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.enc-mode-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.35;
+}
+
 .wf-card-actions {
   display: flex;
   align-items: center;
@@ -1085,6 +1128,76 @@ main {
   align-items: center;
   gap: 8px 10px;
   min-width: 0;
+}
+
+.scope-bar-compact {
+  justify-content: space-between;
+  padding: 2px 0;
+}
+
+.btn-scope-settings {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  transition: all var(--transition);
+}
+
+.btn-scope-settings.is-active {
+  background: var(--bg-elev);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 示波器高级设置抽屉 */
+.scope-drawer {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 14px;
+  animation: drawerSlideDown 0.18s ease-out;
+}
+
+@keyframes drawerSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scope-drawer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+}
+
+.scope-drawer-col {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.scope-drawer-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.scope-drawer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .scope-bar-group {
@@ -1691,12 +1804,119 @@ button.ghost:hover {
   justify-items: stretch;
 }
 
+/* ===== Dashboard adaptive mode styling ===== */
+.dash-mid[data-cockpit-mode="pos"] {
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+}
+
+.dash-gauges[data-mode="pos"] [data-gauge="vbus"],
+.dash-gauges[data-mode="pos"] [data-gauge="rpm"] {
+  opacity: 0.75;
+}
+
+.dash-gauges[data-mode="iq"] [data-gauge="rpm"] {
+  opacity: 0.65;
+}
+
+/* 驾驶舱专属多模式自适应 KPI 卡片组 */
+.dash-kpi-deck {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.dash-kpi-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.dash-kpi-card:hover {
+  border-color: var(--border-hover, #3d4a66);
+}
+
+.dash-kpi-card.is-accent {
+  border-color: rgba(94, 162, 255, 0.4);
+  background: rgba(94, 162, 255, 0.05);
+}
+
+.dash-kpi-card.is-warn {
+  border-color: rgba(255, 159, 67, 0.4);
+  background: rgba(255, 159, 67, 0.08);
+}
+
+.dash-kpi-card.is-bad {
+  border-color: rgba(255, 69, 58, 0.5);
+  background: rgba(255, 69, 58, 0.1);
+}
+
+.dash-kpi-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-kpi-val {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-kpi-card.is-accent .dash-kpi-val {
+  color: var(--accent, #5ea2ff);
+}
+
+.dash-kpi-card.is-warn .dash-kpi-val {
+  color: var(--warn, #ff9f43);
+}
+
+.dash-kpi-card.is-bad .dash-kpi-val {
+  color: var(--err, #ff453a);
+}
+
+.dash-kpi-sub {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 768px) {
+  .dash-kpi-deck {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .dash-gauge {
   height: 176px;
   min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: opacity var(--transition), transform var(--transition);
+}
+
+.dash-gauge.is-primary {
+  transform: scale(1.03);
 }
 
 .dash-gauge canvas {
@@ -1707,6 +1927,15 @@ button.ghost:hover {
 }
 
 /* 左：转子盘 */
+.dash-gauges[data-mode="iq"] [data-gauge="iq"] .dash-gauge canvas {
+  filter: drop-shadow(0 0 10px rgba(255, 159, 67, 0.25));
+}
+
+.dash-gauges[data-mode="vel"] [data-gauge="rpm"] .dash-gauge canvas,
+.dash-gauges[data-mode="vf"] [data-gauge="rpm"] .dash-gauge canvas {
+  filter: drop-shadow(0 0 10px rgba(127, 217, 98, 0.2));
+}
+
 .dash-rotor {
   background: var(--bg-panel);
   border: 1px solid var(--border);
@@ -2487,6 +2716,10 @@ footer strong {
   border-radius: 999px;
   overflow: hidden;
   border: 1px solid var(--border-soft);
+}
+
+.task-progress-bar[hidden] {
+  display: none !important;
 }
 
 .task-progress-bar i {

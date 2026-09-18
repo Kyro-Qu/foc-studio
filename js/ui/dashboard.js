@@ -106,6 +106,23 @@ export class Dashboard {
     }
     right.appendChild(this.gaugeWrap);
 
+    /* 专属模式驾驶舱核心指标组 (Cockpit KPI Deck) */
+    this.kpiDeck = document.createElement("div");
+    this.kpiDeck.className = "dash-kpi-deck";
+    this.kpiDeck.id = "dash-kpi-deck";
+    for (let i = 0; i < 4; i++) {
+      const card = document.createElement("div");
+      card.className = "dash-kpi-card";
+      card.setAttribute("data-kpi-idx", String(i));
+      card.innerHTML = `
+        <span class="dash-kpi-label" data-kpi="label">—</span>
+        <span class="dash-kpi-val" data-kpi="val">—</span>
+        <span class="dash-kpi-sub" data-kpi="sub"></span>
+      `;
+      this.kpiDeck.appendChild(card);
+    }
+    right.appendChild(this.kpiDeck);
+
     /* 右下：运行控制 */
     const ctrl = document.createElement("div");
     ctrl.className = "dash-ctrl";
@@ -197,7 +214,10 @@ export class Dashboard {
           }
         }
       }
-      // 模式侧重：表盘顺序与高亮
+      // 模式侧重：驾驶舱整体布局、表盘顺序与高亮
+      const mid = this.root.querySelector(".dash-mid");
+      if (mid) mid.setAttribute("data-cockpit-mode", mode);
+
       const wrap = this.gaugeWrap;
       if (!wrap) return;
       wrap.setAttribute("data-mode", mode);
@@ -207,7 +227,14 @@ export class Dashboard {
         ["rpm", "iq", "vbus"];
       for (const id of order) {
         const el = wrap.querySelector(`[data-gauge="${id}"]`);
-        if (el) wrap.appendChild(el);
+        if (el) {
+          wrap.appendChild(el);
+          // 表盘自适应突出显示
+          const isPrimary = (mode === "vel" && id === "rpm") ||
+                            (mode === "vf" && id === "rpm") ||
+                            (mode === "iq" && id === "iq");
+          el.classList.toggle("is-primary", isPrimary);
+        }
       }
     };
 
@@ -407,6 +434,19 @@ export class Dashboard {
       el.classList.toggle("bad", !!bad);
     };
 
+    // 专属模式 KPI 卡组刷新
+    const updateKpi = (idx, label, val, sub, stateClass = "") => {
+      const card = this.root.querySelector(`[data-kpi-idx="${idx}"]`);
+      if (!card) return;
+      const lblEl = card.querySelector('[data-kpi="label"]');
+      const valEl = card.querySelector('[data-kpi="val"]');
+      const subEl = card.querySelector('[data-kpi="sub"]');
+      if (lblEl) lblEl.textContent = label;
+      if (valEl) valEl.textContent = val;
+      if (subEl) subEl.textContent = sub;
+      card.className = `dash-kpi-card ${stateClass}`.trim();
+    };
+
     const uiMode = this._mode || "vel";
     if (uiMode === "pos") {
       const pErr = Number.isFinite(posVal) && Number.isFinite(posRef) ? posRef - posVal : NaN;
@@ -414,22 +454,136 @@ export class Dashboard {
         Number.isFinite(pErr) ? `Δθ ${pErr.toFixed(3)} rad` : "Δθ —",
         Number.isFinite(pErr) && Math.abs(pErr) > 0.05
       );
+      updateKpi(
+        0,
+        "Target Pos",
+        Number.isFinite(posRef) ? `${posRef.toFixed(3)} rad` : "—",
+        Number.isFinite(posRef) ? `${(posRef * 180 / Math.PI).toFixed(1)}°` : "",
+        "is-accent"
+      );
+      updateKpi(
+        1,
+        "Actual Pos",
+        Number.isFinite(posVal) ? `${posVal.toFixed(3)} rad` : "—",
+        Number.isFinite(posVal) ? `${(posVal * 180 / Math.PI).toFixed(1)}°` : ""
+      );
+      const badErr = Number.isFinite(pErr) && Math.abs(pErr) > 0.2;
+      const warnErr = Number.isFinite(pErr) && Math.abs(pErr) > 0.05;
+      updateKpi(
+        2,
+        "Pos Err Δθ",
+        Number.isFinite(pErr) ? `${pErr > 0 ? "+" : ""}${pErr.toFixed(3)} rad` : "—",
+        Number.isFinite(pErr) ? `${(pErr * 180 / Math.PI).toFixed(1)}°` : "",
+        badErr ? "is-bad" : (warnErr ? "is-warn" : "")
+      );
+      updateKpi(
+        3,
+        "Torque Iq",
+        Number.isFinite(iqVal) ? `${iqVal.toFixed(2)} A` : "—",
+        "Feedback"
+      );
     } else if (uiMode === "iq") {
+      const iqRef = Number.isFinite(latest[6]) ? latest[6] : NaN;
+      const vd = Number.isFinite(latest[7]) ? latest[7] : NaN;
+      const vq = Number.isFinite(latest[8]) ? latest[8] : NaN;
       setMetric(
         Number.isFinite(iqVal) ? `Iq ${iqVal.toFixed(2)} A` : "Iq —",
         Number.isFinite(iqVal) && Math.abs(iqVal) > 4
       );
+      updateKpi(
+        0,
+        "Target Iq",
+        Number.isFinite(iqRef) ? `${iqRef.toFixed(2)} A` : "—",
+        "Command",
+        "is-accent"
+      );
+      updateKpi(
+        1,
+        "Actual Iq",
+        Number.isFinite(iqVal) ? `${iqVal.toFixed(2)} A` : "—",
+        "Feedback"
+      );
+      updateKpi(
+        2,
+        "Vd Out",
+        Number.isFinite(vd) ? `${vd.toFixed(2)} V` : "—",
+        "D-Axis Output"
+      );
+      updateKpi(
+        3,
+        "Vq Out",
+        Number.isFinite(vq) ? `${vq.toFixed(2)} V` : "—",
+        "Q-Axis Output"
+      );
     } else if (uiMode === "vf") {
       const vq = Number.isFinite(latest[8]) ? latest[8] : NaN;
+      const tgtRpm = Number.isFinite(latest[3]) ? latest[3] : NaN;
       setMetric(
         Number.isFinite(vq) ? `Vq ${vq.toFixed(2)} V · ${Number.isFinite(rpmVal) ? rpmVal.toFixed(0) + " rpm" : "—"}` : "Vq —",
         false
       );
+      updateKpi(
+        0,
+        "Open-Loop RPM",
+        Number.isFinite(tgtRpm) ? `${tgtRpm.toFixed(0)} RPM` : "—",
+        "Target",
+        "is-accent"
+      );
+      updateKpi(
+        1,
+        "Est Speed",
+        Number.isFinite(rpmVal) ? `${rpmVal.toFixed(0)} RPM` : "—",
+        "Estimated"
+      );
+      updateKpi(
+        2,
+        "Boost Vq",
+        Number.isFinite(vq) ? `${vq.toFixed(2)} V` : "—",
+        "Voltage"
+      );
+      updateKpi(
+        3,
+        "Bus Vbus",
+        Number.isFinite(vbusVal) ? `${vbusVal.toFixed(1)} V` : "—",
+        "DC Supply"
+      );
     } else {
+      const velRef = Number.isFinite(latest[3]) ? latest[3] : NaN;
       const track = Number.isFinite(latest[2]) && Number.isFinite(latest[3]) ? latest[2] - latest[3] : NaN;
       setMetric(
         Number.isFinite(track) ? `Δn ${track.toFixed(1)} rpm` : "Δn —",
         Number.isFinite(track) && Math.abs(track) > 50
+      );
+      const spdErr = (Number.isFinite(rpmVal) && Number.isFinite(velRef))
+        ? (rpmVal - velRef)
+        : (Number.isFinite(latest[30]) ? latest[30] : NaN);
+      const badSpd = Number.isFinite(spdErr) && Math.abs(spdErr) > 200;
+      const warnSpd = Number.isFinite(spdErr) && Math.abs(spdErr) > 50;
+      updateKpi(
+        0,
+        "Target RPM",
+        Number.isFinite(velRef) ? `${velRef.toFixed(0)} RPM` : "—",
+        Number.isFinite(velRef) ? `${(velRef / 60).toFixed(1)} rps` : "",
+        "is-accent"
+      );
+      updateKpi(
+        1,
+        "Speed RPM",
+        Number.isFinite(rpmVal) ? `${rpmVal.toFixed(0)} RPM` : "—",
+        Number.isFinite(rpmVal) ? `${(rpmVal / 60).toFixed(1)} rps` : ""
+      );
+      updateKpi(
+        2,
+        "Speed Err Δn",
+        Number.isFinite(spdErr) ? `${spdErr > 0 ? "+" : ""}${spdErr.toFixed(0)} RPM` : "—",
+        Number.isFinite(spdErr) ? `${(spdErr / 60).toFixed(1)} rps` : "",
+        badSpd ? "is-bad" : (warnSpd ? "is-warn" : "")
+      );
+      updateKpi(
+        3,
+        "Load Iq",
+        Number.isFinite(iqVal) ? `${iqVal.toFixed(2)} A` : "—",
+        "Current"
       );
     }
 
