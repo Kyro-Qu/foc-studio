@@ -19,6 +19,7 @@ export const MOTOR_FAULTS = {
   10: "BAD_CONFIG",
   11: "UNDERVOLTAGE",
   12: "OVERVOLTAGE",
+  13: "OVERTEMP",
 };
 
 /** current_shunt.h CURRENT_SHUNT_FAULT_* */

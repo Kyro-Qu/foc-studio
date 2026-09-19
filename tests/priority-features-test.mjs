@@ -9,6 +9,7 @@ import assert from "node:assert";
 import { TelemetryStore } from "../js/data/telemetry-store.js";
 import { CHANNEL_COUNT } from "../js/channels.js";
 import { ExpertPanel } from "../js/ui/expert.js";
+import { decodeFault, faultText } from "../js/ui/fault.js";
 
 console.log("\n[1. 示波器双游标物理换算与超调量算法验证]");
 {
@@ -296,6 +297,27 @@ console.log("\n[8. 电机安全与保护功能联动及回读解析测试 (方�
   assert.strictEqual(ovVal, "30.00");
 
   console.log("  PASS  trip 联动公式计算准确且 limit/vbus 响应回填解析无误\n");
+}
+
+console.log("\n[9. 板载温度传感器解析与过温保护 (OVERTEMP) 测试]");
+{
+  // 1. 故障码 13 (OVERTEMP) 解码验证
+  const d = decodeFault(13);
+  assert.strictEqual(d.motorName, "OVERTEMP");
+  assert.strictEqual(d.ok, false);
+  assert.strictEqual(faultText(13), "OVERTEMP (13)");
+
+  // 2. CLI temp 输出正则解析验证
+  const mockTempText = "temp=36.9C (raw=1729 R=6432ohm OK) ot=85.0C\r\n";
+  const m = mockTempText.match(/temp=([\-\d\.]+)C\s+\(raw=(\d+)\s+R=([\-\d\.]+)ohm\s+(\w+)\)\s+ot=([\-\d\.]+)C/);
+  assert(m !== null);
+  assert.strictEqual(m[1], "36.9");
+  assert.strictEqual(m[2], "1729");
+  assert.strictEqual(m[3], "6432");
+  assert.strictEqual(m[4], "OK");
+  assert.strictEqual(m[5], "85.0");
+
+  console.log("  PASS  过温保护代码与温度数据回显解析测试 100% 通过\n");
 }
 
 

@@ -404,6 +404,16 @@ function updateTopBarTelemetry(status) {
     }
   }
 
+  const tempEl = $("tb-temp");
+  if (tempEl && Number.isFinite(status.tempC)) {
+    tempEl.textContent = `${Math.round(status.tempC)}℃`;
+    const item = tempEl.closest(".tb-hud-item");
+    if (item) {
+      item.classList.toggle("is-warn", status.tempC > 65);
+      item.classList.toggle("is-bad", status.tempC > 80);
+    }
+  }
+
   const dot = $("conn-status")?.querySelector(".status-dot");
   if (dot) {
     dot.style.opacity = "1";
