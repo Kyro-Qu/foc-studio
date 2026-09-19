@@ -44,10 +44,18 @@ let sim = null;
 let replay = null;
 let replaySession = null;
 let expertPanel = null;
+/** 示波器浮窗模式选框的反向同步钩子（由浮窗 IIFE 赋值） */
+let fabSyncMode = null;
 
 function queueText(text) {
   state.textBuf += text;
   if (state.capture) state.capture(text);
+  // 10B STATUS 不带 mode：从 CLI 回显（`mode xx` / `status`）同步控制台、HUD 与浮窗的模式显示
+  const mm = text.match(/\bmode=(vf|iq|vel|pos)\b/);
+  if (mm) {
+    dashboard.syncMode(mm[1]);
+    if (fabSyncMode) fabSyncMode(mm[1]);
+  }
   if (state.textBuf.length > 8192) state.textBuf = state.textBuf.slice(-8192);
   if (!state.textFlush) state.textFlush = requestAnimationFrame(flushText);
 }
@@ -116,7 +124,7 @@ const adapter = new TelemetryAdapter({
     state.lastStatusTime = Date.now();
     updateTopBarTelemetry(status);
     dashboard.handleStatusUpdate(status);
-    scope.updateMiniHud(status);
+    scope.updateMiniHud(status, dashboard._mode);
   },
   onEvent: (event) => {
     const desc = `[EVENT] ID=${event.eventId} M_Fault=${event.motorFault} S_Fault=${event.shuntFault} Detail=${event.detail}`;
@@ -229,40 +237,94 @@ const terminal = new Terminal($("term-log"), $("term-input"), $("term-send"), {
 const tuningRoot = $("tuning-root");
 const tuning = tuningRoot ? new TuningPanel(tuningRoot, (cmd) => consoleCtl.run(cmd)) : null;
 
+/**
+ * 串行化的“发命令并捕获回显文本”。
+ * 所有面板共用同一条队列：同一时刻只允许一个捕获在进行，
+ * 采用智能结束检测（收到特定标志或数据到达后静止 25ms 立即完成），
+ * 彻底消除 350~400ms 盲等导致的队列积压与界面卡顿。
+ */
+let captureChain = Promise.resolve();
+function sendCapture(cmd, opts = 400) {
+  const timeoutMs = typeof opts === "number" ? opts : (opts?.timeout || 400);
+  const customMatcher = typeof opts === "object" ? opts?.endMatcher : null;
+  const idleMs = (typeof opts === "object" && opts?.idleMs) ? opts.idleMs : 25;
+
+  const job = captureChain.then(() => {
+    return new Promise(async (resolve) => {
+      let buf = "";
+      let resolved = false;
+      let idleTimer = null;
+      let hardTimer = null;
+
+      const finish = () => {
+        if (resolved) return;
+        resolved = true;
+        if (idleTimer) clearTimeout(idleTimer);
+        if (hardTimer) clearTimeout(hardTimer);
+        state.capture = null;
+        resolve(buf);
+      };
+
+      // 常见 CLI 命令结束标记检测，命中立即 0ms 完成
+      const checkEnd = (str) => {
+        if (customMatcher) {
+          if (typeof customMatcher === "function") return customMatcher(str);
+          if (customMatcher instanceof RegExp) return customMatcher.test(str);
+          if (typeof customMatcher === "string") return str.includes(customMatcher);
+        }
+        const trimmed = cmd.trim();
+        if (trimmed === "status") return str.includes("cpu=");
+        if (trimmed === "version") return str.includes("stp=");
+        if (trimmed.startsWith("limit")) return str.includes("vbus_min=") || str.includes("limit=");
+        if (trimmed.startsWith("vbus")) return str.includes("vbus=");
+        if (trimmed.startsWith("conf read")) return str.includes("saved");
+        if (trimmed.startsWith("pos")) return str.includes("pos ") || str.includes("iq_obs=");
+        if (trimmed.startsWith("vel")) return str.includes("vel ") || str.includes("ki=");
+        if (trimmed.startsWith("cpr")) return str.includes("cpr ");
+        return false;
+      };
+
+      state.capture = (s) => {
+        buf += s;
+        if (checkEnd(buf)) {
+          finish();
+          return;
+        }
+        // 收到数据后启动空闲定时器：25ms 内无新字符到达则认为该次响应已完整接收
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          if (buf.length > 0) finish();
+        }, idleMs);
+      };
+
+      // 兜底硬超时定时器
+      hardTimer = setTimeout(finish, timeoutMs);
+
+      try {
+        await consoleCtl.run(cmd);
+      } catch (e) {
+        finish();
+      }
+    });
+  });
+
+  // 失败也不阻塞后续捕获
+  captureChain = job.catch(() => {});
+  return job;
+}
+
 const wizard = new WorkflowWizard($("panel-wf"), {
   send: (cmd) => consoleCtl.run(cmd),
   getStatus: () => (state.lastStatusTime && Date.now() - state.lastStatusTime < 3000 ? state.lastStatus : null),
-  sendCapture: async (cmd, ms = 400) => {
-    // 临时捕获解复用出的文本（terminal 同源）
-    let buf = "";
-    const prev = state.capture;
-    state.capture = (s) => {
-      buf += s;
-      if (prev) prev(s);
-    };
-    await consoleCtl.run(cmd);
-    await new Promise((r) => setTimeout(r, ms));
-    state.capture = prev;
-    return buf;
-  },
+  getLatest: () => store.latest,
+  sendCapture,
 });
 
 const expertRoot = $("panel-expert");
 if (expertRoot) {
   expertPanel = new ExpertPanel(expertRoot, {
     send: (cmd) => consoleCtl.run(cmd),
-    sendCapture: async (cmd, ms = 400) => {
-      let buf = "";
-      const prev = state.capture;
-      state.capture = (s) => {
-        buf += s;
-        if (prev) prev(s);
-      };
-      await consoleCtl.run(cmd);
-      await new Promise((r) => setTimeout(r, ms));
-      state.capture = prev;
-      return buf;
-    },
+    sendCapture,
   });
 }
 
@@ -822,7 +884,15 @@ serial.onState = (s) => {
     if (isScopeActive) {
       setWaveStream(true);
     }
+    // 连接建立后自动拉取一次板卡信息，初始化设备页与相关状态
+    if (!state._initialBoardInfoRead) {
+      state._initialBoardInfoRead = true;
+      setTimeout(() => {
+        wizard?._readBoardInfo?.().catch(() => {});
+      }, 150);
+    }
   } else if (s === SerialState.DISCONNECTED || s === SerialState.ERROR) {
+    state._initialBoardInfoRead = false;
     const btn = $("btn-wave-toggle");
     state.waveActive = false;
     if (btn) {
@@ -913,7 +983,19 @@ $("btn-scope-settings")?.addEventListener("click", () => {
     if (targetLabel) targetLabel.textContent = meta.label;
     if (target) target.step = String(meta.step);
   };
-  modeSel?.addEventListener("change", applyMeta);
+  // 用户在浮窗切模式：真正下发 mode，而不是只改本地目标单位
+  modeSel?.addEventListener("change", () => {
+    applyMeta();
+    const m = modeSel.value;
+    if (MODE_CMD[m]) consoleCtl.run(`mode ${MODE_CMD[m]}`).catch(() => {});
+  });
+  // 由 CLI 回显反向同步（不再触发下发）
+  fabSyncMode = (id) => {
+    if (modeSel && MODE_CMD[id] && modeSel.value !== id) {
+      modeSel.value = id;
+      applyMeta();
+    }
+  };
   applyMeta();
 
   const setOpen = (open) => {

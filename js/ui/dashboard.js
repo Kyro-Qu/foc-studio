@@ -337,6 +337,19 @@ export class Dashboard {
   }
 
   /**
+   * 由 CLI 文本回显同步模式（`M0 mode=vel` / `M0 IDLE mode=vel`）。
+   * 10B STATUS 不再携带 mode，终端/脚本/预设直接下发 `mode xx` 时靠这里保持 UI 一致。
+   * @param {string} id vf|iq|vel|pos
+   */
+  syncMode(id) {
+    if (!MODE_IDS.includes(id) || id === this._mode) return;
+    this._mode = id;
+    const sel = this.root.querySelector("#dash-mode");
+    if (sel && sel.value !== id) sel.value = id;
+    if (typeof this._onModeSync === "function") this._onModeSync(id);
+  }
+
+  /**
    * 接收 10 Hz STATUS 心跳帧独立更新仪表盘
    * 即使波形流关闭，仪表盘与状态指示灯也能持续刷新
    * @param {{timestampMs:number, vbus:number, motorFault:number, shuntFault:number, state:number, mode:number, tempC:number, rpmEst:number, iqEst:number}} s
@@ -406,7 +419,8 @@ export class Dashboard {
         setStrip("state", st, s.state === 3);
       }
 
-      // mode：以板子为准同步选框（不发命令）
+      // mode：精简版 10B STATUS 已不带 mode；有则以板子为准反同步选框，
+      // 否则显示本地跟踪的 UI 模式（用户选择 / CLI 回显同步）
       if (Number.isFinite(s.mode)) {
         const modeName = MODE_NAMES[s.mode] || `mode ${s.mode}`;
         setStrip("mode", `MODE ${modeName}`, false);
@@ -418,6 +432,11 @@ export class Dashboard {
           if (sel && sel.value !== boardMode) sel.value = boardMode;
           if (typeof this._onModeSync === "function") this._onModeSync(boardMode);
         }
+      } else {
+        const idx = MODE_IDS.indexOf(this._mode);
+        const modeName = idx >= 0 ? MODE_NAMES[idx] : "—";
+        setStrip("mode", `MODE ${modeName}`, false);
+        if (badge) badge.textContent = modeName;
       }
     } else {
       setStrip("fault", "FAULT —", false);

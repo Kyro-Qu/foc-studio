@@ -398,6 +398,12 @@ export class WorkflowWizard {
     this.sendCapture = opts.sendCapture;
     this.isConnected = opts.isConnected || (() => true);
     this.getStatus = opts.getStatus || (() => null);
+    /** @type {() => Float32Array|null} 最新一帧 500Hz 波形（32 通道），用于实时转速 */
+    this.getLatest = opts.getLatest || (() => null);
+    /** 编码器页缓存：来自 status 文本回显的模式与转速 */
+    this._encMode = null;
+    this._encRpm = NaN;
+    this._encGuardTimer = null;
     this.step = "device";
     /** @type {Record<string, string>} 调参基准值，用于脏状态感知 */
     this.pidBaseline = {};
@@ -449,15 +455,24 @@ export class WorkflowWizard {
       if (box) box.classList.remove("loading");
       return;
     }
+    // 刚打开串口时 VLink CDC 偶尔吞掉第一条回显；version 无回显则重试一次
+    const grab = async (cmd, ms, key) => {
+      let txt = "";
+      for (let i = 0; i < 2; i++) {
+        try {
+          txt = await this.sendCapture(cmd, ms);
+        } catch {
+          txt = "";
+        }
+        if (!key || txt.includes(key)) break;
+      }
+      return txt;
+    };
     let text = "";
-    try {
-      text += await this.sendCapture("version", 350);
-      text += "\n" + (await this.sendCapture("status", 400));
-      text += "\n" + (await this.sendCapture("limit", 300));
-      text += "\n" + (await this.sendCapture("vbus", 300));
-    } catch {
-      /* ignore */
-    }
+    text += await grab("version", 350, "firmware=");
+    text += "\n" + (await grab("status", 400, "M0 "));
+    text += "\n" + (await grab("limit", 300, "limit="));
+    text += "\n" + (await grab("vbus", 300, "vbus="));
     this._latestBoardText = text;
     this._renderBoardInfo(text);
     this._fillSafetyInputs(text);
@@ -1647,23 +1662,20 @@ export class WorkflowWizard {
   }
 
   async _refreshEncoderStatus() {
-    const s = this.getStatus?.();
-    const MODE_NAMES = [t("mode.vf"), t("mode.iq"), t("mode.vel"), t("mode.pos")];
     const modeEl = this.root.querySelector("#enc-st-mode");
     const calibEl = this.root.querySelector("#enc-st-calib");
     const offsetEl = this.root.querySelector("#enc-st-offset");
-    const rpmEl = this.root.querySelector("#enc-st-rpm");
 
-    if (s && Number.isFinite(s.mode) && modeEl) {
-      modeEl.textContent = MODE_NAMES[s.mode] || `mode ${s.mode}`;
-    }
-    if (s && Number.isFinite(s.rpmEst) && rpmEl) {
-      rpmEl.textContent = `${s.rpmEst.toFixed(0)}`;
-    }
-
+    // 精简版 10 字节 STATUS 心跳已不含 mode/rpm，改从 status 文本回显解析
     if (this.sendCapture) {
       try {
         const text = await this.sendCapture("status", 350);
+        const mode = text.match(/mode=(vf|iq|vel|pos)/);
+        if (mode) this._encMode = mode[1];
+        const vel = text.match(/\bvel=([0-9.+-]+)rpm/);
+        if (vel) this._encRpm = Number(vel[1]);
+        if (modeEl && this._encMode) modeEl.textContent = t(`mode.${this._encMode}`);
+
         const calib = text.match(/calib=([0-9]+)(\*?)/);
         const offset = text.match(/offset=([0-9.+-]+)/);
         if (calibEl && calib) {
@@ -1680,23 +1692,28 @@ export class WorkflowWizard {
   }
 
   _refreshEncoderGuard() {
-    const s = this.getStatus?.();
-    const MODE_NAMES = [t("mode.vf"), t("mode.iq"), t("mode.vel"), t("mode.pos")];
-    const gMode = this.root.querySelector("#enc-g-mode");
-    const gRpm = this.root.querySelector("#enc-g-rpm");
-    const switchBtn = this.root.querySelector("#enc-obs-switch");
-    const modeOk = !!(s && Number.isFinite(s.mode) && s.mode === 2);
-    const rpm = s && Number.isFinite(s.rpmEst) ? Math.abs(s.rpmEst) : NaN;
+    // 转速优先取 500Hz 波形 ch2（vel_ctrl）；无波形时回退到最近一次 status 文本
+    const latest = this.getLatest?.();
+    const live = latest && Number.isFinite(latest[2]) ? latest[2] : this._encRpm;
+    const rpm = Number.isFinite(live) ? Math.abs(live) : NaN;
+    const modeOk = this._encMode === "vel";
     const rpmOk = Number.isFinite(rpm) && rpm > 800;
 
-    if (gMode && s && Number.isFinite(s.mode)) {
-      gMode.textContent = MODE_NAMES[s.mode] || `mode ${s.mode}`;
+    const gMode = this.root.querySelector("#enc-g-mode");
+    const gRpm = this.root.querySelector("#enc-g-rpm");
+    const rpmEl = this.root.querySelector("#enc-st-rpm");
+    const switchBtn = this.root.querySelector("#enc-obs-switch");
+
+    if (gMode && this._encMode) {
+      gMode.textContent = t(`mode.${this._encMode}`);
       gMode.className = `metric-val ${modeOk ? "text-ok" : "text-warn"}`;
     }
+    const rpmTxt = Number.isFinite(rpm) ? `${rpm.toFixed(0)}` : "—";
     if (gRpm) {
-      gRpm.textContent = Number.isFinite(rpm) ? `${rpm.toFixed(0)}` : "—";
+      gRpm.textContent = rpmTxt;
       gRpm.className = `metric-val ${rpmOk ? "text-ok" : "text-warn"}`;
     }
+    if (rpmEl) rpmEl.textContent = rpmTxt;
     if (switchBtn) {
       const ready = modeOk && rpmOk;
       switchBtn.disabled = !ready;
@@ -1729,10 +1746,16 @@ export class WorkflowWizard {
     this.root.querySelector("#wf-motor-import-file")?.addEventListener("change", (e) => this._importMotorParams(e));
     this.root.querySelector("#btn-action-ident")?.addEventListener("click", () => this._runMotorIdent());
     this.root.querySelector("#btn-action-calib")?.addEventListener("click", () => this._runMotorCalib());
-    this._wireEncoder();
 
-    /* 编码器页：状态 / 模式卡片 / 无感联锁 */
-    this._wireEncoder();
+    /* 编码器页：状态 / 模式卡片 / 无感联锁。
+     * 只在编码器页接线：其它页面不应并发发 status，且每次渲染必须先清掉旧定时器 */
+    if (this._encGuardTimer) {
+      clearInterval(this._encGuardTimer);
+      this._encGuardTimer = null;
+    }
+    if (this.step === "encoder") {
+      this._wireEncoder();
+    }
 
     // 监听 Ld / Lq 输入变化动态更新凸极比
     ["wf-ld", "wf-lq", "wf-ls"].forEach((id) => {

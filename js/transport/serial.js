@@ -147,6 +147,16 @@ export class SerialTransport {
       this.port = port;
       this._lastPort = port;
       this.lastBaud = baudRate;
+
+      // 显式拉高 DTR 与 RTS 信号线，确保 USB CDC 虚拟串口桥的端点始终唤醒不挂起
+      try {
+        if (typeof port.setSignals === "function") {
+          await port.setSignals({ dataTerminalReady: true, requestToSend: true });
+        }
+      } catch {
+        /* 部分非标准平台不支持 setSignals，安全忽略 */
+      }
+
       this._setState(SerialState.CONNECTED);
       void this._readLoop(gen);
     } catch (e) {

@@ -152,13 +152,15 @@ export class StpDecoder {
     const { buf } = this;
 
     for (;;) {
-      if (this.len < FOC_STP_OVERHEAD) {
-        return;
-      }
-
       const syncPos = this._findSync(0);
+
+      // 如果缓冲区内根本没有同步字 0xA5 0x5A
       if (syncPos < 0) {
-        // 没找到帧头：全部当作裸 CLI 文本上交；仅当最后 1 字节是 SYNC0 时保留（防跨块同步字被切）
+        if (this.len < FOC_STP_OVERHEAD) {
+          // 不足一帧头长度：等待后续拼帧或等 flushIdle 静默上交
+          return;
+        }
+        // 已超过帧头长度且无同步字：全部当作裸 CLI 文本上交；末尾为 SYNC0 时保留防切分
         const keep = buf[this.len - 1] === FOC_STP_SYNC0 ? 1 : 0;
         this._emitRawText(0, this.len - keep);
         if (keep) buf[0] = buf[this.len - 1];
@@ -166,15 +168,18 @@ export class StpDecoder {
         return;
       }
 
+      // 同步字之前有非二进制文本（例如 "firmware=... \r\n" 紧挨着下一帧心跳）
       if (syncPos > 0) {
-        // 同步字之前有杂散字节
         this._emitRawText(0, syncPos);
         buf.copyWithin(0, syncPos);
         this.len -= syncPos;
         continue;
       }
 
-      // 当前处于同步字 0xA5, 0x5A
+      // 当前头部就是同步字 0xA5 0x5A
+      if (this.len < FOC_STP_OVERHEAD) {
+        return;
+      }
       const verType = buf[2];
       const ver = (verType >> 4) & 0x0F;
       const type = verType & 0x0F;

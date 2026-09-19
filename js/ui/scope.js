@@ -416,9 +416,10 @@ export class Scope {
 
   /**
    * 刷新示波器常驻 Mini HUD
-   * @param {{vbus:number, motorFault:number, shuntFault:number, state:number, mode:number, rpmEst:number, iqEst:number}} status
+   * @param {{vbus:number, faultCode?:number, state:number, mode?:number}} status 10B 精简心跳（不含 mode/rpm/iq）
+   * @param {string} [uiMode] 本地跟踪的控制模式 id（vf|iq|vel|pos），STATUS 不带 mode 时使用
    */
-  updateMiniHud(status) {
+  updateMiniHud(status, uiMode) {
     if (!status) return;
     const vbusEl = document.getElementById("hud-vbus");
     const rpmEl = document.getElementById("hud-rpm");
@@ -427,7 +428,7 @@ export class Scope {
     const modeEl = document.getElementById("hud-mode");
     const faultEl = document.getElementById("hud-fault");
 
-    // 优先使用高频最新样本，若未激活波形则平滑回退到 STATUS 帧
+    // 转速/电流只来自 500Hz 波形（ch2/ch5）；旧 15B 心跳的 rpmEst/iqEst 仅作兼容回退
     const latest = this.store.latest;
     const vbus = Number.isFinite(status.vbus) ? status.vbus : latest[26];
     const rpm = Number.isFinite(latest[2]) ? latest[2] : status.rpmEst;
@@ -460,9 +461,11 @@ export class Scope {
       stateEl.className = `state-pill state-${sName.toLowerCase()}`;
     }
 
-    if (modeEl && status.mode !== undefined) {
+    if (modeEl) {
       const MODE_NAMES = ["VF", "CURRENT", "VELOCITY", "POSITION"];
-      modeEl.textContent = MODE_NAMES[status.mode] || "—";
+      const MODE_IDS = ["vf", "iq", "vel", "pos"];
+      const idx = Number.isFinite(status.mode) ? status.mode : MODE_IDS.indexOf(uiMode);
+      modeEl.textContent = MODE_NAMES[idx] || "—";
     }
 
     if (faultEl) {
