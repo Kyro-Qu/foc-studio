@@ -146,4 +146,116 @@ console.log("\n[对照：旧嵌套实现在并发下确实丢回显（证明修�
   check("新实现：b 正常收到（缺陷已修复）", srb === "b ok\r\n");
 }
 
+console.log("\n[长任务支持：ident/calib 不被 25ms 空闲截断，直到收到 DONE 才完成]");
+{
+  function makeSmartCaptureRig() {
+    const state = { capture: null };
+    let captureChain = Promise.resolve();
+    const feed = (s) => {
+      if (state.capture) state.capture(s);
+    };
+
+    function sendCapture(cmd, opts = 400) {
+      const timeoutMs = typeof opts === "number" ? opts : (opts?.timeout || 400);
+      const customMatcher = typeof opts === "object" ? opts?.endMatcher : null;
+      const trimmed = cmd.trim();
+      const isLongTask = trimmed.startsWith("ident") ||
+                         (trimmed.startsWith("calib") && !trimmed.startsWith("calib offset")) ||
+                         trimmed.startsWith("blackbox");
+      const idleMs = (typeof opts === "object" && opts?.idleMs !== undefined)
+        ? opts.idleMs
+        : (isLongTask ? 0 : 25);
+
+      const job = captureChain.then(() => {
+        return new Promise((resolve) => {
+          let buf = "";
+          let resolved = false;
+          let idleTimer = null;
+          let hardTimer = null;
+
+          const finish = () => {
+            if (resolved) return;
+            resolved = true;
+            if (idleTimer) clearTimeout(idleTimer);
+            if (hardTimer) clearTimeout(hardTimer);
+            state.capture = null;
+            resolve(buf);
+          };
+
+          const checkEnd = (str) => {
+            if (customMatcher) {
+              if (typeof customMatcher === "function") return customMatcher(str);
+              if (customMatcher instanceof RegExp) return customMatcher.test(str);
+              if (typeof customMatcher === "string") return str.includes(customMatcher);
+            }
+            if (trimmed.startsWith("ident")) {
+              return str.includes("ident DONE:") || str.includes("ident FAIL:") ||
+                     str.includes("err: ident") || str.includes("err: no valid result");
+            }
+            if (trimmed.startsWith("calib") && !trimmed.startsWith("calib offset")) {
+              return str.includes("calib DONE") || str.includes("calib FAIL") ||
+                     str.includes("err: calib");
+            }
+            if (trimmed === "status") return str.includes("cpu=");
+            return false;
+          };
+
+          state.capture = (s) => {
+            buf += s;
+            if (checkEnd(buf)) {
+              finish();
+              return;
+            }
+            if (idleMs > 0 && !isLongTask) {
+              if (idleTimer) clearTimeout(idleTimer);
+              idleTimer = setTimeout(() => {
+                if (buf.length > 0) finish();
+              }, idleMs);
+            }
+          };
+
+          hardTimer = setTimeout(finish, timeoutMs);
+        });
+      });
+
+      captureChain = job.catch(() => {});
+      return job;
+    }
+
+    return { state, feed, sendCapture };
+  }
+
+  const rig = makeSmartCaptureRig();
+
+  // 1. 验证短命令 status 在 25ms 空闲后快速返回
+  const t0 = Date.now();
+  const pStatus = rig.sendCapture("status", 500);
+  setTimeout(() => rig.feed("status line 1\r\n"), 5);
+  const rStatus = await pStatus;
+  const dtStatus = Date.now() - t0;
+  check("短命令 status 正常返回", rStatus.includes("status line 1"));
+  check("短命令 status 靠 25ms 空闲快速结束 (<80ms)", dtStatus < 80);
+
+  // 2. 验证长任务 ident full 在首行后哪怕静止 60ms（>25ms）也不截断，直到收到 ident DONE:
+  const t1 = Date.now();
+  const pIdent = rig.sendCapture("ident full", 2000);
+  // t=5ms 输出启动声明
+  setTimeout(() => rig.feed("ident start: Full Suite\r\n"), 5);
+  // t=45ms 依然处于静止期（距离首行已过 40ms > 25ms，旧实现会在这里死掉并返回）
+  // t=70ms 输出最终结果
+  setTimeout(() => rig.feed("ident: Rs=0.1000\r\nident DONE: complete!\r\n"), 70);
+  const rIdent = await pIdent;
+  const dtIdent = Date.now() - t1;
+  check("长任务 ident 未被 25ms 静默提前截断", rIdent.includes("ident: Rs=0.1000"));
+  check("长任务 ident 完整包含 ident DONE:", rIdent.includes("ident DONE: complete!"));
+  check("长任务在收到 ident DONE: 后立即完成 (~70ms)", dtIdent >= 65 && dtIdent < 150);
+
+  // 3. 验证长任务 calib full 在收到 calib DONE 后立即返回
+  const pCalib = rig.sendCapture("calib full", 2000);
+  setTimeout(() => rig.feed("M0 calib start (full)\r\n"), 5);
+  setTimeout(() => rig.feed("M0 calib DONE offset=1.0186rad dir=1\r\n"), 60);
+  const rCalib = await pCalib;
+  check("长任务 calib 完整包含 calib DONE", rCalib.includes("M0 calib DONE"));
+}
+
 console.log(`\nResult: ${passed} passed, 0 failed`);

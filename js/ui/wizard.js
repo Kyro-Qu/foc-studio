@@ -1225,16 +1225,20 @@ export class WorkflowWizard {
     try {
       if (this.sendCapture) {
         // 下发 ident full，单片机测量 Rs/Ls 约 2s，拖动测磁链约 4~5s，整过程约 7~8 秒
-        await this.sendCapture("ident full", 8500);
-        // 辨识完成后立刻查询 ident show 提取最新精准结果
-        await this._readMotorParams({ silent: true });
-        prog.done(t("wf.ident.done"));
+        const res = await this.sendCapture("ident full", 12000);
+        if (res.includes("ident FAIL") || res.includes("err:")) {
+          prog.fail(t("wf.ident.fail") || "辨识未通过，请检查接线或母线供电");
+        } else {
+          // 辨识完成后立刻查询 ident show 提取最新精准结果
+          await this._readMotorParams({ silent: true });
+          prog.done(t("wf.ident.done"));
+        }
       } else {
         await this._cli("ident full");
         setTimeout(async () => {
           await this._readMotorParams({ silent: true });
           prog.done(t("wf.ident.done2"));
-        }, 8000);
+        }, 8500);
       }
     } catch (e) {
       prog.fail(t("wf.ident.fail"));
@@ -1248,7 +1252,7 @@ export class WorkflowWizard {
           btn.disabled = false;
           btn.classList.remove("loading");
           btn.innerHTML = origHtml;
-        }, 8200);
+        }, 8500);
       }
     }
   }
@@ -1275,10 +1279,14 @@ export class WorkflowWizard {
 
     try {
       if (this.sendCapture) {
-        // calib full 正反各一圈寻相，耗时约 5~6 秒
-        await this.sendCapture("calib full", 6500);
-        await this._readBoardInfo();
-        prog.done(t("wf.calib.done"));
+        // calib full 寻相吸附并慢速找 Z，耗时约 3~6 秒
+        const res = await this.sendCapture("calib full", 12000);
+        if (res.includes("calib FAIL") || res.includes("err:")) {
+          prog.fail(t("wf.calib.fail") || "校准失败，请检查编码器接线或转向");
+        } else {
+          await this._readBoardInfo();
+          prog.done(t("wf.calib.done"));
+        }
       } else {
         await this._cli("calib full");
         setTimeout(async () => {

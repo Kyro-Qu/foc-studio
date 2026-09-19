@@ -247,7 +247,13 @@ let captureChain = Promise.resolve();
 function sendCapture(cmd, opts = 400) {
   const timeoutMs = typeof opts === "number" ? opts : (opts?.timeout || 400);
   const customMatcher = typeof opts === "object" ? opts?.endMatcher : null;
-  const idleMs = (typeof opts === "object" && opts?.idleMs) ? opts.idleMs : 25;
+  const trimmed = cmd.trim();
+  const isLongTask = trimmed.startsWith("ident") ||
+                     (trimmed.startsWith("calib") && !trimmed.startsWith("calib offset")) ||
+                     trimmed.startsWith("blackbox");
+  const idleMs = (typeof opts === "object" && opts?.idleMs !== undefined)
+    ? opts.idleMs
+    : (isLongTask ? 0 : 25);
 
   const job = captureChain.then(() => {
     return new Promise(async (resolve) => {
@@ -272,7 +278,14 @@ function sendCapture(cmd, opts = 400) {
           if (customMatcher instanceof RegExp) return customMatcher.test(str);
           if (typeof customMatcher === "string") return str.includes(customMatcher);
         }
-        const trimmed = cmd.trim();
+        if (trimmed.startsWith("ident")) {
+          return str.includes("ident DONE:") || str.includes("ident FAIL:") ||
+                 str.includes("err: ident") || str.includes("err: no valid result");
+        }
+        if (trimmed.startsWith("calib") && !trimmed.startsWith("calib offset")) {
+          return str.includes("calib DONE") || str.includes("calib FAIL") ||
+                 str.includes("err: calib");
+        }
         if (trimmed === "status") return str.includes("cpu=");
         if (trimmed === "version") return str.includes("stp=");
         if (trimmed.startsWith("limit")) return str.includes("vbus_min=") || str.includes("limit=");
@@ -290,11 +303,13 @@ function sendCapture(cmd, opts = 400) {
           finish();
           return;
         }
-        // 收到数据后启动空闲定时器：25ms 内无新字符到达则认为该次响应已完整接收
-        if (idleTimer) clearTimeout(idleTimer);
-        idleTimer = setTimeout(() => {
-          if (buf.length > 0) finish();
-        }, idleMs);
+        // 收到数据后启动空闲定时器：短命令 25ms 内无新字符认为接收完整；长任务绝不提前截断
+        if (idleMs > 0 && !isLongTask) {
+          if (idleTimer) clearTimeout(idleTimer);
+          idleTimer = setTimeout(() => {
+            if (buf.length > 0) finish();
+          }, idleMs);
+        }
       };
 
       // 兜底硬超时定时器
