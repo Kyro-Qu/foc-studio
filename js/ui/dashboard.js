@@ -148,7 +148,6 @@ export class Dashboard {
           </span>
         </div>
         <input type="number" id="dash-target-num" min="-8000" max="8000" step="10" value="0" style="width:96px" />
-        <button class="small primary" id="dash-target-send">${t("dash.ctrl.send")}</button>
       </div>
       <div class="dash-ctrl-row dash-presets" id="dash-presets"></div>
       <div class="dash-ctrl-row" id="dash-vf-row" hidden>
@@ -238,6 +237,13 @@ export class Dashboard {
       }
     };
 
+    const sendTargetVal = (val) => {
+      const v = Number(val);
+      if (!Number.isFinite(v) || !this.send) return;
+      const cmd = mode === "vf" ? `rpm ${v}` : `target ${v}`;
+      Promise.resolve(this.send(cmd)).catch(() => {});
+    };
+
     const applyModeMeta = () => {
       const mc = MODE_CONTROLS[mode] || MODE_CONTROLS.vel;
       const useRpm = mode === "vf";
@@ -279,6 +285,7 @@ export class Dashboard {
           b.addEventListener("click", () => {
             if (num) num.value = String(v);
             if (range) range.value = String(v);
+            sendTargetVal(v);
           });
           presetBox.appendChild(b);
         }
@@ -304,20 +311,25 @@ export class Dashboard {
     applyModeMeta();
 
     if (range && num) {
+      // 滑动中仅实时同步输入框数值
       range.addEventListener("input", () => {
         num.value = range.value;
       });
+      // 滑块松开后立即发送
+      range.addEventListener("change", () => {
+        sendTargetVal(range.value);
+      });
+      // 输入框失焦或修改完成时发送
       num.addEventListener("change", () => {
         range.value = num.value;
+        sendTargetVal(num.value);
       });
-    }
-    const send = this.root.querySelector("#dash-target-send");
-    if (send) {
-      send.addEventListener("click", () => {
-        const v = Number(num && num.value);
-        if (!Number.isFinite(v) || !this.send) return;
-        const cmd = mode === "vf" ? `rpm ${v}` : `target ${v}`;
-        Promise.resolve(this.send(cmd)).catch(() => {});
+      // 输入框回车直接发送
+      num.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          range.value = num.value;
+          sendTargetVal(num.value);
+        }
       });
     }
     const vqSend = this.root.querySelector("#dash-vq-send");
