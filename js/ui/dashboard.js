@@ -138,20 +138,22 @@ export class Dashboard {
         </select>
       </div>
       <p class="dash-mode-desc" id="dash-mode-desc"></p>
-      <div class="dash-onerow" id="dash-target-row">
-        <span class="dash-onerow-lbl">
-          ${t("dash.ctrl.target")}
-          <span id="dash-target-label" class="dash-unit-tag">RPM</span>
-        </span>
-        <span class="slider-wrap dash-onerow-slider">
-          <input type="range" id="dash-target-range" min="-8000" max="8000" step="10" value="0" />
-          <span class="slider-zero" title="0" aria-hidden="true">
-            <span class="slider-zero-tick"></span>
-            <span class="slider-zero-label">0</span>
+      <div class="dash-target-block" id="dash-target-row">
+        <div class="dash-target-main">
+          <span class="dash-target-lbl">
+            ${t("dash.ctrl.target")}
+            <span id="dash-target-label" class="dash-unit-tag">RPM</span>
           </span>
-        </span>
-        <input type="number" id="dash-target-num" class="dash-onerow-num" min="-8000" max="8000" step="10" value="0" />
-        <span class="dash-presets dash-onerow-presets" id="dash-presets"></span>
+          <span class="slider-wrap dash-target-slider">
+            <input type="range" id="dash-target-range" min="-8000" max="8000" step="10" value="0" />
+            <span class="slider-zero" title="0" aria-hidden="true">
+              <span class="slider-zero-tick"></span>
+              <span class="slider-zero-label">0</span>
+            </span>
+          </span>
+          <input type="number" id="dash-target-num" class="dash-target-num" min="-8000" max="8000" step="10" value="0" />
+        </div>
+        <div class="dash-presets dash-target-presets" id="dash-presets"></div>
       </div>
       <div class="dash-ctrl-row" id="dash-vf-row" hidden>
         <label>Vq <span class="dash-unit-tag">V</span></label>

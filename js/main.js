@@ -467,9 +467,10 @@ function applyModeUI() {
   }
   if ($("btn-connect")) $("btn-connect").disabled = state.mode !== "serial";
   if ($("btn-disconnect")) $("btn-disconnect").disabled = state.mode !== "serial" || !isConn;
-  $("baud").disabled = state.mode !== "serial";
+  const baudSel = $("baud");
+  if (baudSel) baudSel.disabled = state.mode !== "serial";
   const baudC = $("baud-custom");
-  if (baudC) baudC.disabled = state.mode !== "serial" || $("baud").value !== "custom";
+  if (baudC && baudSel) baudC.disabled = state.mode !== "serial" || baudSel.value !== "custom";
   document.querySelectorAll('input[name="data-mode"]').forEach((r) => {
     r.checked = r.value === state.mode;
   });
