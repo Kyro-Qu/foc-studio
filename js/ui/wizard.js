@@ -1376,13 +1376,13 @@ export class WorkflowWizard {
           <div class="wf-card-head">
             <h4 class="wf-section">${t("wf.encoder.type")} · ${t("wf.encoder.abz")}</h4>
             <div class="wf-card-actions">
-              <button class="ok" id="wf-enc-cpr-set">
-                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span>${t("wf.apply")}</span>
-              </button>
               <button class="danger" id="btn-action-calib" title="${t("wf.calib.note")}">
                 <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/></svg>
                 <span>${t("wf.calib.full")}</span>
+              </button>
+              <button class="ok" id="wf-enc-cpr-set">
+                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span>${t("wf.apply")}</span>
               </button>
             </div>
           </div>
