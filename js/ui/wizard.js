@@ -25,6 +25,18 @@ const ICO_PATHS = {
   speed: '<circle cx="8" cy="8" r="5.5"/><path d="M8 8l3.4-3.4M8 2.6v1.4M13.4 8h-1.4"/>',
   search: '<circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/>',
   gear: '<circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/>',
+  wave: '<path d="M1.5 8c1.5-4 3-4 4.5 0s3 4 4.5 0 3-4 4 0"/>',
+  dial: '<circle cx="8" cy="8" r="5.5"/><path d="M8 8l2.8-3.2"/><path d="M4 12.5h8"/>',
+  ramp: '<path d="M2 13h3l6-9h3"/><path d="M11.5 2.5L14 4l-1 2.8"/>',
+  filter: '<path d="M2 4.5h12M4 8h8M6 11.5h4"/>',
+  friction: '<path d="M3 12c2-1 3-4 5-4s3 2 5 3"/><path d="M2 13.5h12"/>',
+  target: '<circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2.5"/><circle cx="8" cy="8" r="0.8" fill="currentColor" stroke="none"/>',
+  accel: '<path d="M8 13V4"/><path d="M4.5 7.5L8 4l3.5 3.5"/>',
+  pos: '<circle cx="8" cy="8" r="5"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2"/>',
+  radar: '<circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3.2"/><path d="M8 8l4-4"/>',
+  box: '<path d="M2.5 5.5L8 2.5l5.5 3v5L8 13.5l-5.5-3v-5z"/><path d="M8 8.5v5M2.5 5.5L8 8.5l5.5-3"/>',
+  cogwave: '<path d="M2 10c1.5-3 3-3 4.5 0s3 3 4.5 0 2-2 3-1"/><circle cx="12.5" cy="4.5" r="2"/>',
+  compass: '<circle cx="8" cy="8" r="5.5"/><path d="M10.5 5.5l-1.2 4-4 1.2 1.2-4 4-1.2z"/>',
 };
 
 function wfIco(name, size = 14) {
@@ -1443,7 +1455,7 @@ export class WorkflowWizard {
       <div id="enc-panel-abs" class="enc-cat-panel" hidden>
         <section class="wf-card">
           <div class="wf-card-head">
-            <h4 class="wf-section">${t("enc.abs.config") || "绝对值磁编码器配置"}</h4>
+          ${sectionHead("gear", t("enc.abs.config") || "绝对值磁编码器配置")}
           </div>
           <div class="form-list">
             <div class="form-row">
@@ -1478,7 +1490,7 @@ export class WorkflowWizard {
       <div id="enc-panel-sl" class="enc-cat-panel" hidden>
         <section class="wf-card">
           <div class="wf-card-head">
-            <h4 class="wf-section">${t("enc.sensorless")}</h4>
+          ${sectionHead("radar", t("enc.sensorless"))}
           </div>
           <div class="metric-tiles">
             <div class="metric-tile">
@@ -1506,7 +1518,7 @@ export class WorkflowWizard {
       <!-- 4. 全局角度源快速切换 -->
       <section class="wf-card">
         <div class="wf-card-head">
-          <h4 class="wf-section">${t("wf.encoder.source")}</h4>
+          ${sectionHead("compass", t("wf.encoder.source"))}
         </div>
         <div class="enc-mode-grid" id="enc-angle-grid">
           <button type="button" class="enc-mode-card" data-angle="enc">
@@ -1523,9 +1535,9 @@ export class WorkflowWizard {
   }
 
   _htmlPid() {
-    const tuneField = (id, label, unit, min, max, step, val) => `
+    const tuneField = (id, label, unit, min, max, step, val, icon) => `
       <div class="form-row">
-        <label for="${id}">${label}</label>
+        ${formLbl(id, icon || "dial", label)}
         <div class="form-row-trail">
           <div class="num-field">
             <input type="number" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}" />
@@ -1563,14 +1575,14 @@ export class WorkflowWizard {
       <!-- 1. 电流环整定与保护限幅 -->
       <div class="wf-card">
         <div class="wf-card-head">
-          <h4 class="wf-section">${t("wf.pid.title_current")}</h4>
+          ${sectionHead("wave", t("wf.pid.title_current"))}
         </div>
         <div class="form-list-2col">
           <div class="form-list">
-            ${tuneField("wf-bw", t("wf.pid.current_bw"), "rad/s", 100, 3000, 50, 2000)}
+            ${tuneField("wf-bw", t("wf.pid.current_bw"), "rad/s", 100, 3000, 50, 2000, "wave")}
           </div>
           <div class="form-list">
-            ${tuneField("wf-limit-val", t("wf.pid.limit"), "A", 0.1, 15.0, 0.1, 2.0)}
+            ${tuneField("wf-limit-val", t("wf.pid.limit"), "A", 0.1, 15.0, 0.1, 2.0, "gauge")}
           </div>
         </div>
       </div>
@@ -1578,18 +1590,18 @@ export class WorkflowWizard {
       <!-- 2. 速度环与运动加减速规划 -->
       <div class="wf-card">
         <div class="wf-card-head">
-          <h4 class="wf-section">${t("wf.pid.title_vel")}</h4>
+          ${sectionHead("speed", t("wf.pid.title_vel"))}
         </div>
         <div class="form-list-2col">
           <div class="form-list">
-            ${tuneField("wf-vkp", t("wf.pid.vel_kp"), "A/RPM", 0, 2.0, 0.005, 0.02)}
-            ${tuneField("wf-vki", t("wf.pid.vel_ki"), "A/(RPM·s)", 0, 5.0, 0.005, 0.02)}
-            ${tuneField("wf-vramp", t("wf.pid.vel_ramp"), "RPM/s", 0, 100000, 500, 10000)}
+            ${tuneField("wf-vkp", t("wf.pid.vel_kp"), "A/RPM", 0, 2.0, 0.005, 0.02, "dial")}
+            ${tuneField("wf-vki", t("wf.pid.vel_ki"), "A/(RPM·s)", 0, 5.0, 0.005, 0.02, "dial")}
+            ${tuneField("wf-vramp", t("wf.pid.vel_ramp"), "RPM/s", 0, 100000, 500, 10000, "ramp")}
           </div>
           <div class="form-list">
-            ${tuneField("wf-vfilt", t("wf.pid.vel_filter"), "Hz", 5, 200, 5, 50)}
-            ${tuneField("wf-vff", t("wf.pid.vel_ff"), "A", 0, 2.0, 0.01, 0.0)}
-            ${tuneField("wf-vtrack", t("wf.pid.vel_track"), "A/rad", 0, 100, 0.1, 0.0)}
+            ${tuneField("wf-vfilt", t("wf.pid.vel_filter"), "Hz", 5, 200, 5, 50, "filter")}
+            ${tuneField("wf-vff", t("wf.pid.vel_ff"), "A", 0, 2.0, 0.01, 0.0, "friction")}
+            ${tuneField("wf-vtrack", t("wf.pid.vel_track"), "A/rad", 0, 100, 0.1, 0.0, "target")}
           </div>
         </div>
       </div>
@@ -1597,17 +1609,17 @@ export class WorkflowWizard {
       <!-- 3. 位置环与轨迹规划 -->
       <div class="wf-card">
         <div class="wf-card-head">
-          <h4 class="wf-section">${t("wf.pid.title_pos")}</h4>
+          ${sectionHead("pos", t("wf.pid.title_pos"))}
         </div>
         <div class="form-list-2col">
           <div class="form-list">
-            ${tuneField("wf-pkp", t("wf.pid.pos_kp"), "A/rad", 0, 500, 0.5, 10)}
-            ${tuneField("wf-pki", t("wf.pid.pos_ki"), "A/(rad·s)", 0, 50, 0.05, 0)}
-            ${tuneField("wf-pvkp", t("wf.pid.pos_vkp"), "A/RPM", 0, 0.5, 0.002, 0.02)}
+            ${tuneField("wf-pkp", t("wf.pid.pos_kp"), "A/rad", 0, 500, 0.5, 10, "dial")}
+            ${tuneField("wf-pki", t("wf.pid.pos_ki"), "A/(rad·s)", 0, 50, 0.05, 0, "dial")}
+            ${tuneField("wf-pvkp", t("wf.pid.pos_vkp"), "A/RPM", 0, 0.5, 0.002, 0.02, "target")}
           </div>
           <div class="form-list">
-            ${tuneField("wf-paccel", t("wf.pid.pos_accel"), "RPM/s", 100, 100000, 500, 5000)}
-            ${tuneField("wf-pvmax", t("wf.pid.pos_vmax"), "RPM", 100, 10000, 100, 3000)}
+            ${tuneField("wf-paccel", t("wf.pid.pos_accel"), "RPM/s", 100, 100000, 500, 5000, "accel")}
+            ${tuneField("wf-pvmax", t("wf.pid.pos_vmax"), "RPM", 100, 10000, 100, 3000, "gauge")}
             <div class="form-row form-row-spacer" aria-hidden="true"></div>
           </div>
         </div>

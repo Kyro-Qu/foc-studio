@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FOC Studio</title>
-    <link rel="stylesheet" href="css/app.css?v=0.5.13" />
+    <link rel="stylesheet" href="css/app.css?v=0.5.14" />
   </head>
   <body>
     <div id="app">
@@ -346,7 +346,7 @@
               <!-- 1. 纯无感 7 状态机监控 -->
               <section class="wf-card expert-card">
                 <div class="wf-card-head">
-                  <h4 class="wf-section" data-i18n="expert.sensorless.h">纯无感主控（Sensorless Primary）看板</h4>
+                  <h4 class="wf-section" data-i18n="expert.sensorless.h"><svg class="wf-ico" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3.2"/><path d="M8 8l4-4"/></svg><span>纯无感主控（Sensorless Primary）看板</span></h4>
                   <div class="wf-card-actions">
                     <button id="btn-sl-query" class="small">查询状态</button>
                     <button id="btn-sl-mode" class="small ok">切为纯无感</button>
@@ -416,7 +416,7 @@
               <!-- 2. 故障黑匣子拉取与波形复盘 -->
               <section class="wf-card expert-card">
                 <div class="expert-card-header">
-                  <h4 class="wf-section" style="margin:0" data-i18n="expert.blackbox.h">故障黑匣子（Blackbox）快速拉取与波形复盘</h4>
+                  <h4 class="wf-section" style="margin:0" data-i18n="expert.blackbox.h"><svg class="wf-ico" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 5.5L8 2.5l5.5 3v5L8 13.5l-5.5-3v-5z"/><path d="M8 8.5v5M2.5 5.5L8 8.5l5.5-3"/></svg><span>故障黑匣子（Blackbox）快速拉取与波形复盘</span></h4>
                   <div class="wf-row" style="margin:0">
                     <button id="btn-bb-dump" class="danger">拉取 512 拍黑匣子 (blackbox)</button>
                     <button id="btn-bb-clear" class="small">清空视图</button>
@@ -439,7 +439,7 @@
               <!-- 3. 抗齿槽力矩 (Anti-cogging) 标定与分布可视化 -->
               <section class="wf-card expert-card">
                 <div class="expert-card-header">
-                  <h4 class="wf-section" style="margin:0" data-i18n="expert.acog.h">抗齿槽力矩（Anti-cogging）144 点前馈标定</h4>
+                  <h4 class="wf-section" style="margin:0" data-i18n="expert.acog.h"><svg class="wf-ico" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10c1.5-3 3-3 4.5 0s3 3 4.5 0 2-2 3-1"/><circle cx="12.5" cy="4.5" r="2"/></svg><span>抗齿槽力矩（Anti-cogging）144 点前馈标定</span></h4>
                   <div class="wf-row" style="margin:0">
                     <button id="btn-acog-read" class="small">读取补偿表 (acog dump)</button>
                     <button id="btn-acog-start" class="small">开始自学习 (acog start)</button>
@@ -489,6 +489,6 @@
       </footer>
     </div>
 
-    <script type="module" src="js/main.js?v=0.5.20"></script>
+    <script type="module" src="js/main.js?v=0.5.21"></script>
   </body>
 </html>
