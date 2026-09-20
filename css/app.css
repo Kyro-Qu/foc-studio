@@ -2309,6 +2309,7 @@ button.ghost:hover {
 }
 
 /* 目标 + 快捷值：上下两段，间距充足，禁止挤压/横向滚动 */
+/* 目标 + 快捷值：上下两段 */
 .dash-target-block {
   display: flex;
   flex-direction: column;
@@ -2316,6 +2317,11 @@ button.ghost:hover {
   width: 100%;
   min-width: 0;
   overflow: visible;
+}
+
+.dash-target-presets[hidden],
+.dash-presets[hidden] {
+  display: none !important;
 }
 
 .dash-target-main {

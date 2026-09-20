@@ -349,22 +349,11 @@ export class Dashboard {
       if (presetBox) {
         presetBox.innerHTML = "";
         if (mode === "pos" && (this._posSem || "rel") === "step") {
-          /* 步进模式：主用 Jog，预设区给出常用 Δ */
-          const label = document.createElement("span");
-          label.className = "dash-presets-label";
-          label.textContent = t("pos.jog");
-          presetBox.appendChild(label);
-          for (const deg of [-90, -45, -10, 10, 45, 90]) {
-            const rad = (deg * Math.PI) / 180;
-            const b = document.createElement("button");
-            b.type = "button";
-            b.className = "small dash-preset-btn";
-            b.textContent = `${deg > 0 ? "+" : ""}${deg}°`;
-            b.addEventListener("click", () => sendPosCmd(`pos step ${rad.toFixed(5)}`));
-            presetBox.appendChild(b);
-          }
+          /* 步进：点动只放在定位语义卡内，避免与预设区重复 */
+          presetBox.hidden = true;
           return;
         }
+        presetBox.hidden = false;
         const label = document.createElement("span");
         label.className = "dash-presets-label";
         label.textContent = t("dash.ctrl.presets");
@@ -741,9 +730,10 @@ export class Dashboard {
       if (Number.isFinite(posRef)) this.rotor.setTargetRad(posRef);
       if (this.rotor && typeof this.rotor.setPosReadout === "function") {
         const tgtNum = Number(this.root.querySelector("#dash-target-num")?.value);
+        const hasTel = Number.isFinite(posVal) && this.store && this.store.length > 0;
         this.rotor.setPosReadout({
-          absRad: posVal,
-          relRad: Number.isFinite(posVal) && Number.isFinite(posRef) ? posRef - posVal : undefined,
+          absRad: hasTel ? posVal : undefined,
+          relRad: hasTel && Number.isFinite(posRef) ? posRef - posVal : undefined,
           tgtRad: Number.isFinite(tgtNum) ? tgtNum : undefined,
         });
       }
