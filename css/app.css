@@ -2795,8 +2795,8 @@ footer .kbd-hint-page {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 10px;
-  padding: 8px 10px;
+  gap: 6px 8px;
+  padding: 6px 8px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -2807,16 +2807,29 @@ footer .kbd-hint-page {
 
 .scope-topbar .hud-item {
   flex: 0 0 auto;
-  padding: 4px 10px;
-  min-height: 28px;
+  padding: 2px 7px;
+  min-height: 24px;
+  gap: 4px;
+}
+
+.scope-topbar .hud-label {
+  font-size: 10px;
+}
+
+.scope-topbar .hud-item strong {
+  font-size: 11px;
+  max-width: 9ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .scope-topbar .btn-wave-toggle {
   margin-left: 0;
   flex: 0 0 auto;
-  font-size: 12px;
-  padding: 4px 10px;
-  height: 28px;
+  font-size: 11px;
+  padding: 3px 8px;
+  height: 24px;
   white-space: nowrap;
 }
 
@@ -2825,26 +2838,30 @@ footer .kbd-hint-page {
   margin: 0;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   white-space: nowrap;
+  font-size: 12px;
 }
 
 .scope-topbar-field select {
-  min-width: 68px;
-  padding: 4px 6px;
+  min-width: 56px;
+  padding: 2px 4px;
   font-size: 12px;
+  height: 24px;
 }
 
-.scope-topbar > button {
+.scope-topbar > button,
+.scope-topbar-right > button {
   flex: 0 0 auto;
   white-space: nowrap;
-  padding: 4px 10px;
+  padding: 3px 8px;
   font-size: 12px;
+  min-height: 24px;
 }
 
 .scope-topbar-spacer {
   flex: 1 1 auto;
-  min-width: 4px;
+  min-width: 2px;
 }
 
 /* 右侧 Wave / 控制 / 高级配置：同一组，尽量不拆行 */
@@ -2852,13 +2869,56 @@ footer .kbd-hint-page {
   display: inline-flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-left: auto;
   flex: 0 0 auto;
 }
 
 .scope-topbar-right > * {
   flex: 0 0 auto;
+}
+
+.scope-topbar .scope-fab-btn {
+  min-height: 24px;
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+/* 窄屏：HUD 只保留数值，标题标签隐藏，尽量单行 */
+@media (max-width: 1400px) {
+  .scope-topbar {
+    gap: 5px 6px;
+    padding: 5px 7px;
+  }
+  .scope-topbar .hud-item {
+    padding: 2px 5px;
+    gap: 3px;
+  }
+  .scope-topbar .hud-label {
+    display: none;
+  }
+  .scope-topbar .hud-item strong {
+    font-size: 11px;
+    max-width: none;
+  }
+  .scope-topbar-field select {
+    min-width: 48px;
+  }
+  .scope-topbar > button,
+  .scope-topbar-right > button,
+  .scope-topbar .btn-wave-toggle,
+  .scope-topbar .scope-fab-btn {
+    padding: 3px 6px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .scope-topbar .hud-item {
+    padding: 2px 4px;
+  }
+  .scope-topbar-right {
+    gap: 4px;
+  }
 }
 
 .scope-mini-hud {

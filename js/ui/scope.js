@@ -462,7 +462,7 @@ export class Scope {
     }
 
     if (modeEl) {
-      const MODE_NAMES = ["VF", "CURRENT", "VELOCITY", "POSITION"];
+      const MODE_NAMES = ["VF", "IQ", "VEL", "POS"];
       const MODE_IDS = ["vf", "iq", "vel", "pos"];
       const idx = Number.isFinite(status.mode) ? status.mode : MODE_IDS.indexOf(uiMode);
       modeEl.textContent = MODE_NAMES[idx] || "—";
