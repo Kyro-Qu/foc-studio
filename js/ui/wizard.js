@@ -6,6 +6,40 @@
 import { t } from "../i18n.js";
 import { OBS_COMMANDS } from "./console.js";
 
+/** 工作流页面通用线性图标（16x16 viewBox） */
+const ICO_PATHS = {
+  chip: '<rect x="2.5" y="2.5" width="11" height="11" rx="2"/><rect x="5.5" y="5.5" width="5" height="5" rx="1"/><path d="M1 5.5h1.5M1 8h1.5M1 10.5h1.5M13.5 5.5h1.5M13.5 8h1.5M13.5 10.5h1.5M5.5 1v1.5M8 1v1.5M10.5 1v1.5M5.5 13.5v1.5M8 13.5v1.5M10.5 13.5v1.5"/>',
+  shield: '<path d="M8 1.5l5.5 2.2v4.1c0 3.2-2.2 5.5-5.5 6.7-3.3-1.2-5.5-3.5-5.5-6.7V3.7L8 1.5z"/><path d="M5.5 8.1l1.8 1.8 3.2-3.3"/>',
+  pulse: '<path d="M1.5 8.5h3l2-5 3 10 2-5h3"/>',
+  motor: '<circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2"/><path d="M8 2.5v2M8 11.5v2M2.5 8h2M11.5 8h2"/>',
+  tag: '<path d="M2.5 2.5h5.2l5.8 5.8-5.2 5.2-5.8-5.8V2.5z"/><circle cx="5.2" cy="5.2" r="1"/>',
+  poles: '<circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v11M2.5 8h11"/><circle cx="8" cy="8" r="1.1" fill="currentColor" stroke="none"/>',
+  resistor: '<path d="M1 8h2.4l1.2-2.6 2 5.2 2-5.2L9.8 8H15"/>',
+  inductor: '<path d="M1 11.2c1.2 0 1.8-5 3-5s1.8 5 3 5 1.8-5 3-5 1.8 5 3 5H15"/>',
+  gauge: '<path d="M2.8 12.2a5.6 5.6 0 1 1 10.4 0"/><path d="M8 12.2l3.2-4.2"/><circle cx="8" cy="12.2" r="1"/>',
+  volt: '<polygon points="8.6,1.5 3.4,9 7.4,9 6.4,14.5 12.6,7 8.6,7"/>',
+  alert: '<path d="M8 2.2L1.9 13.2h12.2L8 2.2z"/><path d="M8 6.2v3.1M8 11.3h.01"/>',
+  battLow: '<rect x="1.5" y="4" width="11" height="8" rx="1.5"/><path d="M12.8 6.5h1.4v3h-1.4"/><rect x="3.4" y="6" width="2.2" height="4" rx="0.4" fill="currentColor" stroke="none" opacity="0.75"/>',
+  battHigh: '<rect x="1.5" y="4" width="11" height="8" rx="1.5"/><path d="M12.8 6.5h1.4v3h-1.4"/><rect x="3.4" y="6" width="6.6" height="4" rx="0.4" fill="currentColor" stroke="none" opacity="0.75"/>',
+  flux: '<path d="M2 10.2c2-4.2 4-4.2 6 0s4 4.2 6 0"/><path d="M2 6.2c2-4.2 4-4.2 6 0s4 4.2 6 0"/>',
+  speed: '<circle cx="8" cy="8" r="5.5"/><path d="M8 8l3.4-3.4M8 2.6v1.4M13.4 8h-1.4"/>',
+  search: '<circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/>',
+  gear: '<circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/>',
+};
+
+function wfIco(name, size = 14) {
+  const p = ICO_PATHS[name] || ICO_PATHS.chip;
+  return `<svg class="wf-ico" viewBox="0 0 16 16" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+}
+
+function sectionHead(icon, title) {
+  return `<h4 class="wf-section">${wfIco(icon, 15)}<span>${title}</span></h4>`;
+}
+
+function formLbl(forId, icon, text) {
+  return `<label class="form-lbl"${forId ? ` for="${forId}"` : ""}>${wfIco(icon, 13)}<span>${text}</span></label>`;
+}
+
 const STEPS = [
   { id: "device", key: "wf.device" },
   { id: "motor", key: "wf.motor" },
@@ -755,7 +789,7 @@ export class WorkflowWizard {
       <!-- 独立卡片 1：板卡硬件与运行指标 (12项圆角磁贴卡片) -->
       <section class="wf-card">
         <div class="wf-card-head">
-          <h4 class="wf-section">${t("wf.device.info")}</h4>
+          ${sectionHead("chip", t("wf.device.info"))}
           <div class="wf-card-actions">
             <button class="ok" id="wf-read-info">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -779,7 +813,7 @@ export class WorkflowWizard {
       <!-- 安全与保护 -->
       <section class="wf-card">
         <div class="wf-card-head">
-          <h4 class="wf-section">${t("wf.safety.h")}</h4>
+          ${sectionHead("shield", t("wf.safety.h"))}
           <div class="wf-card-actions">
             <button class="ok" id="wf-limit-set">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -794,7 +828,7 @@ export class WorkflowWizard {
         <div class="form-list-2col">
           <div class="form-list">
             <div class="form-row">
-              <label for="wf-limit">${t("wf.safety.limit")}</label>
+              ${formLbl("wf-limit", "gauge", t("wf.safety.limit"))}
               <div class="form-row-trail">
                 <div class="num-field">
                   <input type="number" id="wf-limit" step="0.1" min="0.1" max="40" value="5.2" />
@@ -803,7 +837,7 @@ export class WorkflowWizard {
               </div>
             </div>
             <div class="form-row">
-              <label for="wf-trip">${t("wf.safety.trip")}</label>
+              ${formLbl("wf-trip", "alert", t("wf.safety.trip"))}
               <div class="form-row-trail">
                 <div class="num-field">
                   <input type="number" id="wf-trip" step="0.1" min="0.1" max="50" value="6.6" readonly style="opacity:0.85;cursor:not-allowed;background:var(--bg-card-subtle, rgba(255,255,255,0.03));" title="根据电流软限自动推算：clamp(limit * 1.25 + 0.1, limit, hard_limit)" />
@@ -814,7 +848,7 @@ export class WorkflowWizard {
           </div>
           <div class="form-list">
             <div class="form-row">
-              <label for="wf-uv">${t("wf.safety.uv")}</label>
+              ${formLbl("wf-uv", "battLow", t("wf.safety.uv"))}
               <div class="form-row-trail">
                 <div class="num-field">
                   <input type="number" id="wf-uv" step="0.1" min="0" max="50" value="10" />
@@ -823,7 +857,7 @@ export class WorkflowWizard {
               </div>
             </div>
             <div class="form-row">
-              <label for="wf-ov">${t("wf.safety.ov")}</label>
+              ${formLbl("wf-ov", "battHigh", t("wf.safety.ov"))}
               <div class="form-row-trail">
                 <div class="num-field">
                   <input type="number" id="wf-ov" step="0.1" min="0" max="60" value="30" />
@@ -838,7 +872,7 @@ export class WorkflowWizard {
       <!-- 系统诊断 -->
       <section class="wf-card">
         <div class="wf-card-head">
-          <h4 class="wf-section">${t("wf.device.health_title")}</h4>
+          ${sectionHead("pulse", t("wf.device.health_title"))}
           <div class="wf-card-actions">
             <button class="btn-primary" id="wf-health-check">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8.5l3.5 3.5L14 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -981,9 +1015,9 @@ export class WorkflowWizard {
   }
 
   _htmlMotor() {
-    const row = (id, label, unit, step, val) => `
+    const row = (id, label, unit, step, val, icon) => `
       <div class="form-row">
-        <label for="${id}">${label}</label>
+        ${formLbl(id, icon || "gear", label)}
         <div class="form-row-trail">
           <div class="num-field">
             <input type="number" id="${id}" step="${step}" value="${val}" />
@@ -997,7 +1031,7 @@ export class WorkflowWizard {
 
       <section class="wf-card">
         <div class="wf-card-head">
-          <h4 class="wf-section">${t("wf.motor.params")}</h4>
+          ${sectionHead("motor", t("wf.motor.params"))}
           <div class="wf-card-actions">
             <button class="ok" id="wf-read-params">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1034,23 +1068,23 @@ export class WorkflowWizard {
         <div class="form-list-2col">
           <div class="form-list">
             <div class="form-row">
-              <label for="wf-motor-name">${t("wf.motor.name") || "电机型号"}</label>
+              ${formLbl("wf-motor-name", "tag", t("wf.motor.name") || "电机型号")}
               <div class="form-row-trail">
                 <div class="num-field">
                   <input type="text" id="wf-motor-name" placeholder="${t("wf.motor.name_ph") || "如 DJI_2312S、F40"}" value="DJI_2312S" style="text-align:center;padding:0 8px;" />
                 </div>
               </div>
             </div>
-            ${row("wf-pp", t("wf.motor.pp") || "极对数", "", "1", "7")}
-            ${row("wf-rs", t("wf.motor.rs") || "相电阻", "Ω", "0.0001", "0.1")}
-            ${row("wf-ls", t("wf.motor.ls") || "相电感", "µH", "0.01", "20")}
-            ${row("wf-maxrpm", t("wf.motor.maxrpm") || "最大转速", "rpm", "1", "12000")}
+            ${row("wf-pp", t("wf.motor.pp") || "极对数", "", "1", "7", "poles")}
+            ${row("wf-rs", t("wf.motor.rs") || "相电阻", "Ω", "0.0001", "0.1", "resistor")}
+            ${row("wf-ls", t("wf.motor.ls") || "相电感", "µH", "0.01", "20", "inductor")}
+            ${row("wf-maxrpm", t("wf.motor.maxrpm") || "最大转速", "rpm", "1", "12000", "gauge")}
           </div>
           <div class="form-list">
-            ${row("wf-ld", t("wf.motor.ld") || "d 轴电感", "µH", "0.01", "")}
-            ${row("wf-lq", t("wf.motor.lq") || "q 轴电感", "µH", "0.01", "")}
+            ${row("wf-ld", t("wf.motor.ld") || "d 轴电感", "µH", "0.01", "", "inductor")}
+            ${row("wf-lq", t("wf.motor.lq") || "q 轴电感", "µH", "0.01", "", "inductor")}
             <div class="form-row">
-              <label for="wf-saliency">${t("wf.motor.saliency") || "凸极比 (Lq/Ld)"}</label>
+              ${formLbl("wf-saliency", "poles", t("wf.motor.saliency") || "凸极比 (Lq/Ld)")}
               <div class="form-row-trail">
                 <div class="num-field">
                   <input type="number" id="wf-saliency" step="0.001" readonly placeholder="1.000" style="background:var(--bg-subtle, rgba(255,255,255,0.03));cursor:default;" />
@@ -1058,8 +1092,8 @@ export class WorkflowWizard {
                 </div>
               </div>
             </div>
-            ${row("wf-flux", t("wf.motor.flux") || "磁链", "Wb", "0.0001", "")}
-            ${row("wf-limit2", t("wf.motor.limit") || "电流限幅", "A", "0.1", "5.2")}
+            ${row("wf-flux", t("wf.motor.flux") || "磁链", "Wb", "0.0001", "", "flux")}
+            ${row("wf-limit2", t("wf.motor.limit") || "电流限幅", "A", "0.1", "5.2", "alert")}
           </div>
         </div>
         <p class="wf-note">${t("wf.motor.params_note")}</p>
@@ -1319,7 +1353,7 @@ export class WorkflowWizard {
       <!-- 1. 实时传感器与角度源状态看板 -->
       <section class="wf-card">
         <div class="wf-card-head">
-          <h4 class="wf-section">${t("enc.status")}</h4>
+          ${sectionHead("search", t("enc.status"))}
           <div class="wf-card-actions">
             <button id="enc-refresh-status" class="small ok">
               <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1351,7 +1385,7 @@ export class WorkflowWizard {
       <!-- 2. 通用传感器分类架构卡片 -->
       <section class="wf-card">
         <div class="wf-card-head">
-          <h4 class="wf-section">${t("enc.arch.title") || "反馈传感器架构分类"}</h4>
+          ${sectionHead("gear", t("enc.arch.title") || "反馈传感器架构分类")}
         </div>
         <div class="enc-mode-grid" id="enc-cat-grid">
           <button type="button" class="enc-mode-card active" data-cat="inc">
@@ -1374,7 +1408,7 @@ export class WorkflowWizard {
       <div id="enc-panel-inc" class="enc-cat-panel">
         <section class="wf-card">
           <div class="wf-card-head">
-            <h4 class="wf-section">${t("wf.encoder.type")} · ${t("wf.encoder.abz")}</h4>
+          ${sectionHead("poles", `${t("wf.encoder.type")} · ${t("wf.encoder.abz")}`)}
             <div class="wf-card-actions">
               <button class="danger" id="btn-action-calib" title="${t("wf.calib.note")}">
                 <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/></svg>

@@ -681,6 +681,35 @@ main {
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wf-section .wf-ico {
+  color: var(--accent);
+  opacity: 0.95;
+  flex-shrink: 0;
+}
+
+.form-lbl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.form-lbl .wf-ico {
+  color: var(--accent);
+  opacity: 0.72;
+  flex-shrink: 0;
+}
+
+.form-row label.form-lbl {
+  color: var(--text-dim);
 }
 
 .wf-row {
