@@ -2448,6 +2448,10 @@ button.ghost:hover {
   gap: 8px;
 }
 
+.dash-pos-row[hidden] {
+  display: none !important;
+}
+
 .dash-pos-row label,
 .dash-pos-jog-lbl {
   font-size: 12px;
