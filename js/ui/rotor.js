@@ -49,6 +49,19 @@ export class RotorGauge {
     if (Number.isFinite(rad)) this.targetTargetRad = rad;
   }
 
+  /** 更新 Abs / Rel / Tgt 数字读数（多圈 rad） */
+  setPosReadout({ absRad, relRad, tgtRad, originRad } = {}) {
+    if (originRad !== undefined && Number.isFinite(originRad)) this._originRad = Number(originRad);
+    const fmt = (v) => (Number.isFinite(v) ? `${Number(v).toFixed(3)}` : "—");
+    let rel = relRad;
+    if (!Number.isFinite(rel) && Number.isFinite(absRad) && Number.isFinite(this._originRad)) {
+      rel = absRad - this._originRad;
+    }
+    if (this.absRadEl) this.absRadEl.textContent = fmt(absRad);
+    if (this.relRadEl) this.relRadEl.textContent = fmt(rel);
+    if (this.tgtRadEl) this.tgtRadEl.textContent = fmt(tgtRad);
+  }
+
   _build() {
     this.host.innerHTML = "";
     const wrap = document.createElement("div");
@@ -118,6 +131,11 @@ export class RotorGauge {
         <span class="rotor-chip dim"><b class="rotor-target-deg">0.00</b>° tgt</span>
         <span class="rotor-chip dim"><b class="rotor-err">+0.00</b> rad</span>
       </div>
+      <div class="rotor-pos-line" aria-live="polite">
+        <span class="rotor-pos-item"><i>Abs</i><b class="rotor-abs-rad">—</b></span>
+        <span class="rotor-pos-item"><i>Rel</i><b class="rotor-rel-rad">—</b></span>
+        <span class="rotor-pos-item"><i>Tgt</i><b class="rotor-tgt-rad">—</b></span>
+      </div>
     `;
     this.host.appendChild(wrap);
     this.rotorEl = wrap.querySelector(".rotor-visual");
@@ -125,6 +143,10 @@ export class RotorGauge {
     this.actualDegEl = wrap.querySelector(".rotor-actual");
     this.targetDegEl = wrap.querySelector(".rotor-target-deg");
     this.errEl = wrap.querySelector(".rotor-err");
+    this.absRadEl = wrap.querySelector(".rotor-abs-rad");
+    this.relRadEl = wrap.querySelector(".rotor-rel-rad");
+    this.tgtRadEl = wrap.querySelector(".rotor-tgt-rad");
+    this._originRad = null;
 
     const scale = wrap.querySelector(".rotor-scale");
     for (let deg = 0; deg < 360; deg += 5) {

@@ -41,6 +41,7 @@ export class Dashboard {
     this._lastStatus = null;
     this._lastStatusTime = 0;
     this._mode = "vel";
+    this._posSem = "rel"; /* pos: rel | abs | step */
     this._build();
   }
 
@@ -158,6 +159,33 @@ export class Dashboard {
         </div>
         <div class="dash-presets dash-target-presets" id="dash-presets"></div>
       </div>
+      <div class="dash-pos-card" id="dash-pos-card" hidden>
+        <div class="dash-pos-head">
+          <span class="dash-pos-title">${t("pos.sem.title")}</span>
+          <div class="dash-pos-seg" role="radiogroup" aria-label="position semantic">
+            <button type="button" class="is-active" data-pos-sem="rel">${t("pos.mode_rel")}</button>
+            <button type="button" data-pos-sem="abs">${t("pos.mode_abs")}</button>
+            <button type="button" data-pos-sem="step">${t("pos.mode_step")}</button>
+          </div>
+        </div>
+        <div class="dash-pos-row" id="dash-pos-step-row" hidden>
+          <label>${t("pos.step_label")}</label>
+          <input type="number" id="dash-pos-step-val" step="0.01" value="0.175" min="-20" max="20" />
+          <span class="dash-unit-tag">rad</span>
+          <button type="button" class="small ok" id="dash-pos-step-go">${t("pos.step_btn")}</button>
+        </div>
+        <div class="dash-pos-row dash-pos-jog">
+          <span class="dash-pos-jog-lbl">${t("pos.jog")}</span>
+          <button type="button" class="small dash-jog-btn" data-jog-deg="-90">-90°</button>
+          <button type="button" class="small dash-jog-btn" data-jog-deg="-45">-45°</button>
+          <button type="button" class="small dash-jog-btn" data-jog-deg="-10">-10°</button>
+          <button type="button" class="small dash-jog-btn" data-jog-deg="10">+10°</button>
+          <button type="button" class="small dash-jog-btn" data-jog-deg="45">+45°</button>
+          <button type="button" class="small dash-jog-btn" data-jog-deg="90">+90°</button>
+          <button type="button" class="small ok" id="dash-pos-zero">${t("pos.set_zero")}</button>
+        </div>
+        <p class="dash-pos-note" id="dash-pos-note"></p>
+      </div>
       <div class="dash-ctrl-row" id="dash-vf-row" hidden>
         <label>Vq <span class="dash-unit-tag">V</span></label>
         <input type="number" id="dash-vq-num" min="0" max="12" step="0.1" value="0.5" style="width:80px" />
@@ -248,16 +276,54 @@ export class Dashboard {
     const sendTargetVal = (val) => {
       const v = Number(val);
       if (!Number.isFinite(v) || !this.send) return;
-      const cmd = mode === "vf" ? `rpm ${v}` : `target ${v}`;
+      let cmd;
+      if (mode === "vf") cmd = `rpm ${v}`;
+      else if (mode === "pos") {
+        const sem = this._posSem || "rel";
+        if (sem === "abs") cmd = `pos abs ${v}`;
+        else if (sem === "step") cmd = `pos step ${v}`;
+        else cmd = `target ${v}`; /* 相对使能原点，保持与旧固件兼容 */
+      } else cmd = `target ${v}`;
       Promise.resolve(this.send(cmd)).catch(() => {});
+    };
+
+    const sendPosCmd = (cmd) => {
+      if (!this.send || !cmd) return;
+      Promise.resolve(this.send(cmd)).catch(() => {});
+    };
+
+    const applyPosSemUI = () => {
+      const card = this.root.querySelector("#dash-pos-card");
+      const stepRow = this.root.querySelector("#dash-pos-step-row");
+      const note = this.root.querySelector("#dash-pos-note");
+      const sem = this._posSem || "rel";
+      const show = mode === "pos";
+      if (card) card.hidden = !show;
+      if (stepRow) stepRow.hidden = !(show && sem === "step");
+      this.root.querySelectorAll(".dash-pos-seg [data-pos-sem]").forEach((b) => {
+        b.classList.toggle("is-active", b.getAttribute("data-pos-sem") === sem);
+      });
+      if (note) {
+        if (!show) note.textContent = "";
+        else if (sem === "abs") note.textContent = t("pos.note_abs");
+        else if (sem === "step") note.textContent = t("pos.note_step");
+        else note.textContent = t("pos.note_rel");
+      }
+      if (show && targetLabel) targetLabel.textContent = "rad";
     };
 
     const applyModeMeta = () => {
       const mc = MODE_CONTROLS[mode] || MODE_CONTROLS.vel;
       const useRpm = mode === "vf";
-      const meta = useRpm
+      let meta = useRpm
         ? { unit: "RPM", min: -8000, max: 8000, step: 10 }
         : mc.target || { unit: "RPM", min: -8000, max: 8000, step: 10 };
+      if (mode === "pos") {
+        const sem = this._posSem || "rel";
+        if (sem === "abs") meta = { unit: "rad", min: -40, max: 40, step: 0.01 };
+        else if (sem === "step") meta = { unit: "rad", min: -6.28, max: 6.28, step: 0.01 };
+        else meta = { unit: "rad", min: -50, max: 50, step: 0.01 };
+      }
       if (targetRow) targetRow.hidden = false;
       if (vfRow) vfRow.hidden = !useRpm;
       if (range) {
@@ -279,8 +345,26 @@ export class Dashboard {
       if (modeDesc) modeDesc.textContent = t(`dash.mode.${mode}`);
       if (modeSel && modeSel.value !== mode) modeSel.value = mode;
       setVizMode();
+      applyPosSemUI();
       if (presetBox) {
         presetBox.innerHTML = "";
+        if (mode === "pos" && (this._posSem || "rel") === "step") {
+          /* 步进模式：主用 Jog，预设区给出常用 Δ */
+          const label = document.createElement("span");
+          label.className = "dash-presets-label";
+          label.textContent = t("pos.jog");
+          presetBox.appendChild(label);
+          for (const deg of [-90, -45, -10, 10, 45, 90]) {
+            const rad = (deg * Math.PI) / 180;
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "small dash-preset-btn";
+            b.textContent = `${deg > 0 ? "+" : ""}${deg}°`;
+            b.addEventListener("click", () => sendPosCmd(`pos step ${rad.toFixed(5)}`));
+            presetBox.appendChild(b);
+          }
+          return;
+        }
         const label = document.createElement("span");
         label.className = "dash-presets-label";
         label.textContent = t("dash.ctrl.presets");
@@ -299,6 +383,31 @@ export class Dashboard {
         }
       }
     };
+
+    this.root.querySelectorAll(".dash-pos-seg [data-pos-sem]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const sem = btn.getAttribute("data-pos-sem") || "rel";
+        this._posSem = sem;
+        applyModeMeta();
+      });
+    });
+    this.root.querySelectorAll(".dash-jog-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const deg = Number(btn.getAttribute("data-jog-deg"));
+        if (!Number.isFinite(deg)) return;
+        const rad = (deg * Math.PI) / 180;
+        sendPosCmd(`pos step ${rad.toFixed(5)}`);
+      });
+    });
+    this.root.querySelector("#dash-pos-zero")?.addEventListener("click", () => {
+      sendPosCmd("pos zero");
+    });
+    this.root.querySelector("#dash-pos-step-go")?.addEventListener("click", () => {
+      const el = this.root.querySelector("#dash-pos-step-val");
+      const v = Number(el?.value);
+      if (!Number.isFinite(v)) return;
+      sendPosCmd(`pos step ${v}`);
+    });
 
     modeSel?.addEventListener("change", () => {
       const nextMode = modeSel.value || "vf";
@@ -630,6 +739,14 @@ export class Dashboard {
     if (this.rotor) {
       if (Number.isFinite(posVal)) this.rotor.setActualRad(posVal);
       if (Number.isFinite(posRef)) this.rotor.setTargetRad(posRef);
+      if (this.rotor && typeof this.rotor.setPosReadout === "function") {
+        const tgtNum = Number(this.root.querySelector("#dash-target-num")?.value);
+        this.rotor.setPosReadout({
+          absRad: posVal,
+          relRad: Number.isFinite(posVal) && Number.isFinite(posRef) ? posRef - posVal : undefined,
+          tgtRad: Number.isFinite(tgtNum) ? tgtNum : undefined,
+        });
+      }
     }
   }
 }
