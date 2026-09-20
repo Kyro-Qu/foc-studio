@@ -1533,6 +1533,44 @@ button.ghost:hover {
   position: relative;
 }
 
+/* 波形区自定义右键菜单 */
+.scope-ctx-menu {
+  position: absolute;
+  z-index: 80;
+  min-width: 148px;
+  padding: 6px;
+  background: var(--bg-elev, rgba(28, 34, 48, 0.96));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scope-ctx-menu[hidden] {
+  display: none !important;
+}
+
+.scope-ctx-menu button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.scope-ctx-menu button:hover {
+  background: var(--accent-soft, rgba(77, 163, 255, 0.14));
+}
+
 /* ===== Scope control FAB ===== */
 /* 悬浮圆钮模式（兼容旧类） */
 .scope-fab {

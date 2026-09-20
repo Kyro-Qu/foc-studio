@@ -1110,52 +1110,166 @@ $("btn-scope-settings")?.addEventListener("click", () => {
   }
 })();
 
-$("btn-png").addEventListener("click", async () => {
-  const blob = await scope.toPngBlob();
-  if (!blob) return;
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `foc-studio-${Date.now()}.png`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-});
+/* 波形右键菜单：复制图片 / 另存 PNG / 导出 CSV（替代配置条导出按钮） */
+(() => {
+  const menu = $("scope-ctx-menu");
+  const wrap = document.querySelector(".scope-canvas-wrap");
+  const canvas = $("scope-canvas");
+  if (!menu || !wrap || !canvas) return;
 
-$("chk-autoscale").addEventListener("change", (e) => {
+  const hide = () => {
+    menu.hidden = true;
+  };
+
+  const showAt = (x, y) => {
+    const r = wrap.getBoundingClientRect();
+    menu.hidden = false;
+    const mw = menu.offsetWidth || 148;
+    const mh = menu.offsetHeight || 120;
+    let left = x - r.left;
+    let top = y - r.top;
+    if (left + mw > r.width - 4) left = Math.max(4, r.width - mw - 4);
+    if (top + mh > r.height - 4) top = Math.max(4, r.height - mh - 4);
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+  };
+
+  wrap.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    showAt(e.clientX, e.clientY);
+  });
+
+  document.addEventListener("pointerdown", (e) => {
+    if (!menu.contains(e.target)) hide();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") hide();
+  });
+
+  const stamp = () => Date.now();
+
+  async function copyPng() {
+    const blob = await scope.toPngBlob();
+    if (!blob) return;
+    try {
+      if (navigator.clipboard && window.ClipboardItem) {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `foc-studio-${stamp()}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `foc-studio-${stamp()}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  function savePng() {
+    scope.toPngBlob().then((blob) => {
+      if (!blob) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `foc-studio-${stamp()}.png`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+  }
+
+  function exportCsv() {
+    const n = store.length;
+    if (n < 1) {
+      alert("暂无数据");
+      return;
+    }
+    const take = Math.min(n, Math.floor(state.windowSec * state.sampleRate));
+    const header = ["time_s", ...state.channels.map((c) => c.name)].join(",");
+    const parts = [header];
+    const row = new Array(CHANNEL_COUNT + 1);
+    for (let i = n - take; i < n; i++) {
+      const s = store.sampleAt(i);
+      if (!s) continue;
+      row[0] = (s.sampleIndex / state.sampleRate).toFixed(6);
+      for (let c = 0; c < CHANNEL_COUNT; c++) {
+        const v = s.values[c];
+        row[c + 1] = Number.isFinite(v) ? v.toFixed(6) : "NaN";
+      }
+      parts.push(row.join(","));
+    }
+    downloadText(`foc-scope-${stamp()}.csv`, parts.join("\n"), "text/csv");
+  }
+
+  menu.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    const act = btn.getAttribute("data-act");
+    hide();
+    if (act === "copy") await copyPng();
+    else if (act === "png") savePng();
+    else if (act === "csv") exportCsv();
+  });
+})();
+
+/* 兼容：若 HTML 仍含旧导出按钮则绑定（新布局已移除） */
+const _btnPng = $("btn-png");
+if (_btnPng) {
+  _btnPng.addEventListener("click", async () => {
+    const blob = await scope.toPngBlob();
+    if (!blob) return;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `foc-studio-${Date.now()}.png`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+}
+
+$("chk-autoscale")?.addEventListener("change", (e) => {
   const on = e.target.checked;
   scope.setAutoScale(on);
   $("y-min").disabled = on;
   $("y-max").disabled = on;
   if (!on) scope.setYRange(Number($("y-min").value), Number($("y-max").value));
 });
-$("y-min").addEventListener("change", () => {
+$("y-min")?.addEventListener("change", () => {
   if (!scope.autoScale) scope.setYRange(Number($("y-min").value), Number($("y-max").value));
 });
-$("y-max").addEventListener("change", () => {
+$("y-max")?.addEventListener("change", () => {
   if (!scope.autoScale) scope.setYRange(Number($("y-min").value), Number($("y-max").value));
 });
 
-$("btn-csv").addEventListener("click", () => {
-  const n = store.length;
-  if (n < 1) {
-    alert("暂无数据");
-    return;
-  }
-  const take = Math.min(n, Math.floor(state.windowSec * state.sampleRate));
-  const header = ["time_s", ...state.channels.map((c) => c.name)].join(",");
-  const parts = [header];
-  const row = new Array(CHANNEL_COUNT + 1);
-  for (let i = n - take; i < n; i++) {
-    const s = store.sampleAt(i);
-    if (!s) continue;
-    row[0] = (s.sampleIndex / state.sampleRate).toFixed(6);
-    for (let c = 0; c < CHANNEL_COUNT; c++) {
-      const v = s.values[c];
-      row[c + 1] = Number.isFinite(v) ? v.toFixed(6) : "NaN";
+const _btnCsv = $("btn-csv");
+if (_btnCsv) {
+  _btnCsv.addEventListener("click", () => {
+    const n = store.length;
+    if (n < 1) {
+      alert("暂无数据");
+      return;
     }
-    parts.push(row.join(","));
-  }
-  downloadText(`foc-studio-${Date.now()}.csv`, parts.join("\n"), "text/csv");
-});
+    const take = Math.min(n, Math.floor(state.windowSec * state.sampleRate));
+    const header = ["time_s", ...state.channels.map((c) => c.name)].join(",");
+    const parts = [header];
+    const row = new Array(CHANNEL_COUNT + 1);
+    for (let i = n - take; i < n; i++) {
+      const s = store.sampleAt(i);
+      if (!s) continue;
+      row[0] = (s.sampleIndex / state.sampleRate).toFixed(6);
+      for (let c = 0; c < CHANNEL_COUNT; c++) {
+        const v = s.values[c];
+        row[c + 1] = Number.isFinite(v) ? v.toFixed(6) : "NaN";
+      }
+      parts.push(row.join(","));
+    }
+    downloadText(`foc-studio-${Date.now()}.csv`, parts.join("\n"), "text/csv");
+  });
+}
 
 /* trigger UI */
 $("trig-mode").addEventListener("change", (e) => {
