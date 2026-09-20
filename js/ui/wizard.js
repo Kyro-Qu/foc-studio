@@ -1370,7 +1370,7 @@ export class WorkflowWizard {
       </section>
 
       <!-- 3. 自适应功能面板：根据所选分类动态呈现 -->
-      <!-- 分类 A: 有感增量式面板 (CPR设置 + 零点寻相校准) -->
+      <!-- 分类 A: 有感增量式面板 (CPR设置 + 零点寻相校准，操作按钮与电机页参数卡同构) -->
       <div id="enc-panel-inc" class="enc-cat-panel">
         <section class="wf-card">
           <div class="wf-card-head">
@@ -1379,6 +1379,10 @@ export class WorkflowWizard {
               <button class="ok" id="wf-enc-cpr-set">
                 <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 <span>${t("wf.apply")}</span>
+              </button>
+              <button class="danger" id="btn-action-calib" title="${t("wf.calib.note")}">
+                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/></svg>
+                <span>${t("wf.calib.full")}</span>
               </button>
             </div>
           </div>
@@ -1392,18 +1396,6 @@ export class WorkflowWizard {
                 </div>
               </div>
             </div>
-          </div>
-        </section>
-
-        <section class="wf-card">
-          <div class="wf-card-head">
-            <h4 class="wf-section">${t("wf.calib.full")}</h4>
-          </div>
-          <div class="action-grid" style="grid-template-columns: 1fr;">
-            <button id="btn-action-calib" class="danger">
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/></svg>
-              <span>${t("wf.calib.full")} (正反转测偏置)</span>
-            </button>
           </div>
           <div id="wf-calib-status" class="task-progress" data-task="calib" hidden>
             <div class="task-progress-bar"><i></i></div>
