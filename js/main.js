@@ -981,7 +981,7 @@ $("btn-scope-settings")?.addEventListener("click", () => {
   btn?.classList.toggle("is-active", isHidden);
 });
 
-/* ---- 示波器控制浮窗：展开 / 收起 / 拖拽 ---- */
+/* ---- 示波器控制浮窗：顶栏内联按钮 + 下拉面板（兼容旧悬浮拖拽） ---- */
 (() => {
   const fab = $("scope-fab");
   const toggle = $("scope-fab-toggle");
@@ -990,6 +990,7 @@ $("btn-scope-settings")?.addEventListener("click", () => {
   const drag = $("scope-fab-drag");
   if (!fab || !toggle || !panel) return;
 
+  const isInline = fab.classList.contains("scope-fab-inline") || !!document.querySelector("#scope-fab-panel.scope-ctrl-bar");
   const MODE_CMD = { vf: "vf", iq: "iq", vel: "vel", pos: "pos" };
   const TARGET_META = {
     vf: { label: "RPM", step: 10 },
@@ -1008,13 +1009,11 @@ $("btn-scope-settings")?.addEventListener("click", () => {
     if (targetLabel) targetLabel.textContent = meta.label;
     if (target) target.step = String(meta.step);
   };
-  // 用户在浮窗切模式：真正下发 mode，而不是只改本地目标单位
   modeSel?.addEventListener("change", () => {
     applyMeta();
     const m = modeSel.value;
     if (MODE_CMD[m]) consoleCtl.run(`mode ${MODE_CMD[m]}`).catch(() => {});
   });
-  // 由 CLI 回显反向同步（不再触发下发）
   fabSyncMode = (id) => {
     if (modeSel && MODE_CMD[id] && modeSel.value !== id) {
       modeSel.value = id;
@@ -1042,8 +1041,18 @@ $("btn-scope-settings")?.addEventListener("click", () => {
     setOpen(false);
   });
   document.addEventListener("click", (e) => {
-    if (!fab.contains(e.target)) setOpen(false);
+    // 面板已移出 #scope-fab，点击按钮或横条内都不关闭
+    if (!fab.contains(e.target) && !panel.contains(e.target)) setOpen(false);
   });
+
+  if (isInline) {
+    // 顶栏模式：点击展开/收起，不做悬浮拖拽
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setOpen(panel.hidden !== false);
+    });
+    return;
+  }
 
   // 拖拽：按钮本体 + 面板标题栏；移动 <4px 视为点击
   let dragState = null;

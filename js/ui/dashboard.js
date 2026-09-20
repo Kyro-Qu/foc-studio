@@ -123,7 +123,7 @@ export class Dashboard {
     }
     right.appendChild(this.kpiDeck);
 
-    /* 右下：运行控制 */
+    /* 右下：运行控制 — 仅合并「目标 + 快捷值」为一排，交互保持 HEAD */
     const ctrl = document.createElement("div");
     ctrl.className = "dash-ctrl";
     ctrl.innerHTML = `
@@ -131,25 +131,28 @@ export class Dashboard {
         <h3 class="dash-group-title">${t("dash.ctrl.title")}</h3>
         <span class="dash-mode-badge" id="dash-mode-badge">—</span>
       </div>
-      <div class="dash-ctrl-row">
-        <label>${t("dash.ctrl.mode")}</label>
+      <div class="dash-ctrl-row dash-mode-row">
+        <label for="dash-mode">${t("dash.ctrl.mode")}</label>
         <select id="dash-mode" class="dash-mode-select">
           ${MODE_LIST.map((m) => `<option value="${m.id}">${t(m.key)}</option>`).join("")}
         </select>
       </div>
       <p class="dash-mode-desc" id="dash-mode-desc"></p>
-      <div class="dash-ctrl-row" id="dash-target-row">
-        <label>${t("dash.ctrl.target")} <span id="dash-target-label" class="dash-unit-tag">RPM</span></label>
-        <div class="slider-wrap">
+      <div class="dash-onerow" id="dash-target-row">
+        <span class="dash-onerow-lbl">
+          ${t("dash.ctrl.target")}
+          <span id="dash-target-label" class="dash-unit-tag">RPM</span>
+        </span>
+        <span class="slider-wrap dash-onerow-slider">
           <input type="range" id="dash-target-range" min="-8000" max="8000" step="10" value="0" />
           <span class="slider-zero" title="0" aria-hidden="true">
             <span class="slider-zero-tick"></span>
             <span class="slider-zero-label">0</span>
           </span>
-        </div>
-        <input type="number" id="dash-target-num" min="-8000" max="8000" step="10" value="0" style="width:96px" />
+        </span>
+        <input type="number" id="dash-target-num" class="dash-onerow-num" min="-8000" max="8000" step="10" value="0" />
+        <span class="dash-presets dash-onerow-presets" id="dash-presets"></span>
       </div>
-      <div class="dash-ctrl-row dash-presets" id="dash-presets"></div>
       <div class="dash-ctrl-row" id="dash-vf-row" hidden>
         <label>Vq <span class="dash-unit-tag">V</span></label>
         <input type="number" id="dash-vq-num" min="0" max="12" step="0.1" value="0.5" style="width:80px" />
@@ -280,7 +283,7 @@ export class Dashboard {
         for (const v of PRESETS[mode] || []) {
           const b = document.createElement("button");
           b.type = "button";
-          b.className = "small";
+          b.className = "small dash-preset-btn";
           b.textContent = String(v);
           b.addEventListener("click", () => {
             if (num) num.value = String(v);
@@ -311,20 +314,17 @@ export class Dashboard {
     applyModeMeta();
 
     if (range && num) {
-      // 滑动中仅实时同步输入框数值
+      // HEAD 行为：滑条松开 / 输入失焦 / 回车 / 快捷值点击 → 自动下发
       range.addEventListener("input", () => {
         num.value = range.value;
       });
-      // 滑块松开后立即发送
       range.addEventListener("change", () => {
         sendTargetVal(range.value);
       });
-      // 输入框失焦或修改完成时发送
       num.addEventListener("change", () => {
         range.value = num.value;
         sendTargetVal(num.value);
       });
-      // 输入框回车直接发送
       num.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
           range.value = num.value;

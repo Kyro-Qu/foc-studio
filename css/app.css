@@ -1175,13 +1175,18 @@ main {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 16px 24px;
+  gap: 16px 28px;
 }
 
 .scope-drawer-col {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+}
+
+.scope-drawer-col + .scope-drawer-col {
+  padding-left: 20px;
+  border-left: 1px solid var(--border-soft);
 }
 
 .scope-drawer-title {
@@ -1191,13 +1196,24 @@ main {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   white-space: nowrap;
+  margin-right: 2px;
 }
 
 .scope-drawer-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   flex-wrap: wrap;
+}
+
+/* 「自动 Y」芯片与量程输入拉开，避免两个 Y 视觉粘连 */
+.scope-drawer-row .field.chip {
+  margin-right: 4px;
+}
+
+.scope-drawer-row .field:not(.chip) {
+  margin-left: 4px;
+  gap: 6px;
 }
 
 .scope-bar-group {
@@ -1443,6 +1459,7 @@ button.ghost:hover {
 }
 
 /* ===== Scope control FAB ===== */
+/* 悬浮圆钮模式（兼容旧类） */
 .scope-fab {
   position: absolute;
   right: 16px;
@@ -1453,6 +1470,150 @@ button.ghost:hover {
   align-items: flex-end;
   gap: 8px;
   touch-action: none;
+}
+
+/* 顶栏内联：与 Wave/暂停/设置同一排 */
+.scope-fab-inline,
+.scope-topbar .scope-fab {
+  position: relative;
+  right: auto;
+  top: auto;
+  flex: 0 0 auto;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  z-index: 30;
+  touch-action: auto;
+}
+
+.scope-fab-inline .scope-fab-btn,
+.scope-topbar .scope-fab-btn {
+  width: auto;
+  height: auto;
+  min-height: 26px;
+  border-radius: 8px;
+  padding: 4px 8px;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  box-shadow: none;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.scope-fab-inline .scope-fab-btn span {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.scope-fab-inline.is-open .scope-fab-btn,
+.scope-topbar .scope-fab.is-open .scope-fab-btn {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.scope-fab-inline .scope-fab-panel,
+.scope-topbar .scope-fab .scope-fab-panel {
+  /* 面板已移出顶栏，改为顶栏下的正常文档流横条 */
+  position: static;
+  width: auto;
+  z-index: auto;
+}
+
+/* 控制条：与 scope-drawer 同构、同高度的正常流横条 */
+#scope-fab-panel.scope-ctrl-bar,
+.scope-ctrl-bar {
+  position: static !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  margin: 0;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow: visible;
+  touch-action: auto;
+}
+
+#scope-fab-panel.scope-ctrl-bar[hidden],
+.scope-ctrl-bar[hidden] {
+  display: none !important;
+}
+
+#scope-fab-panel.scope-ctrl-bar .scope-drawer-inner,
+.scope-ctrl-bar .scope-drawer-inner {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+#scope-fab-panel.scope-ctrl-bar .scope-drawer-row,
+.scope-ctrl-bar .scope-drawer-row {
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+#scope-fab-panel.scope-ctrl-bar .field,
+.scope-ctrl-bar .field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  white-space: nowrap;
+  height: auto;
+  min-height: 0;
+}
+
+#scope-fab-panel.scope-ctrl-bar .field span,
+.scope-ctrl-bar .field span {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+#scope-fab-panel.scope-ctrl-bar select,
+#scope-fab-panel.scope-ctrl-bar input[type="number"],
+.scope-ctrl-bar select,
+.scope-ctrl-bar input[type="number"] {
+  padding: 4px 6px;
+  font-size: 12px;
+  height: 26px;
+  min-height: 26px;
+}
+
+#scope-fab-panel.scope-ctrl-bar .scope-fab-close,
+.scope-ctrl-bar .scope-fab-close {
+  flex: 0 0 auto;
+  margin-left: auto;
+  position: static;
+  width: 26px;
+  height: 26px;
+  line-height: 1;
+}
+
+/* 内联顶栏：只放按钮，不再承载下拉面板 */
+.scope-fab-inline,
+.scope-topbar .scope-fab {
+  position: static;
 }
 
 .scope-fab-btn {
@@ -2030,8 +2191,85 @@ button.ghost:hover {
   margin: 0;
   font-size: 11px;
   color: var(--text-dim);
-  line-height: 1.45;
-  min-height: 32px;
+  line-height: 1.4;
+  min-height: 0;
+}
+
+/* 目标滑条 + 输入 + 快捷值：强制一排（布局合并，不改交互） */
+.dash-onerow {
+  display: flex;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.dash-onerow-lbl {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.dash-onerow-slider {
+  flex: 1 1 72px;
+  min-width: 56px;
+  max-width: 160px;
+}
+
+.dash-onerow-slider input[type="range"] {
+  margin: 6px 0;
+  width: 100%;
+}
+
+.dash-onerow-num {
+  flex: 0 0 auto;
+  width: 56px !important;
+  min-width: 48px;
+  padding: 4px 5px;
+  font-size: 11px;
+  font-family: var(--mono);
+}
+
+.dash-onerow-send {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.dash-onerow-presets {
+  display: flex;
+  flex-wrap: nowrap !important;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+
+.dash-onerow-presets .dash-preset-btn {
+  flex: 0 0 auto;
+  padding: 3px 5px;
+  font-size: 10px;
+  line-height: 1.15;
+  min-width: 0;
+}
+
+.dash-mode-row {
+  gap: 8px;
+}
+
+.dash-mode-row .dash-mode-select {
+  width: auto;
+  min-width: 88px;
+  padding: 4px 8px;
+  font-size: 12px;
 }
 
 .dash-presets {
@@ -2458,6 +2696,64 @@ footer .kbd-hint-page {
 }
 
 /* ===== Scope HUD ===== */
+/* 示波器顶部：HUD chips + Wave + 窗口/暂停/清屏/游标 + 高级配置 合并为一排 */
+.scope-topbar {
+  display: flex;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 8px 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  min-width: 0;
+  overflow: visible;
+  position: relative;
+  scrollbar-width: thin;
+}
+
+.scope-topbar .hud-item {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  min-height: 26px;
+}
+
+.scope-topbar .btn-wave-toggle {
+  margin-left: 0;
+  flex: 0 0 auto;
+  font-size: 11px;
+  padding: 4px 8px;
+  height: 26px;
+  white-space: nowrap;
+}
+
+.scope-topbar-field {
+  flex: 0 0 auto;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.scope-topbar-field select {
+  min-width: 64px;
+  padding: 3px 6px;
+  font-size: 12px;
+}
+
+.scope-topbar > button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.scope-topbar-spacer {
+  flex: 1 1 auto;
+  min-width: 4px;
+}
+
 .scope-mini-hud {
   display: flex;
   flex-wrap: wrap;
@@ -2519,6 +2815,10 @@ footer .kbd-hint-page {
   font-size: 11px;
   padding: 4px 10px;
   height: 28px;
+}
+
+.scope-topbar .btn-wave-toggle {
+  margin-left: 0;
 }
 
 .btn-wave-toggle.is-off {
