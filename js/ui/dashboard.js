@@ -128,7 +128,10 @@ export class Dashboard {
     ctrl.className = "dash-ctrl";
     ctrl.innerHTML = `
       <div class="dash-ctrl-head">
-        <h3 class="dash-group-title">${t("dash.ctrl.title")}</h3>
+        <h3 class="dash-group-title">
+          <svg class="wf-ico" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.5"/><polygon points="6.5,5 11,8 6.5,11" fill="currentColor" stroke="none"/></svg>
+          <span>${t("dash.ctrl.title")}</span>
+        </h3>
         <span class="dash-mode-badge" id="dash-mode-badge">—</span>
       </div>
       <div class="dash-ctrl-row dash-mode-row">

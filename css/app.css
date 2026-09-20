@@ -126,10 +126,16 @@ header {
 
 .tb-hud-item {
   display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
+  align-items: center;
+  gap: 5px;
   color: var(--text-dim);
   white-space: nowrap;
+}
+
+.tb-hud-ico {
+  flex-shrink: 0;
+  color: var(--text-faint);
+  opacity: 0.9;
 }
 
 .tb-hud-k {
@@ -461,6 +467,14 @@ main {
   font-weight: 600;
   color: var(--text-dim);
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-title .wf-ico {
+  color: var(--accent);
+  opacity: 0.9;
 }
 
 /* ===== Wizard pages ===== */
@@ -2463,6 +2477,14 @@ button.primary {
   font-weight: 600;
   color: var(--text-faint);
   letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dash-group-title .wf-ico {
+  color: var(--accent);
+  opacity: 0.85;
 }
 
 .dash-list {
