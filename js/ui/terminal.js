@@ -71,6 +71,8 @@ export class Terminal {
     this.suggestOpen = false;
     this.suggestIdx = 0;
     this.suggestList = [];
+    /** 最近写入日志的类型：tx/rx/err/sys — 用于命令前分段 */
+    this._lastKind = null;
 
     this.sendBtn.addEventListener("click", () => this._submit());
     this.inputEl.addEventListener("input", () => this._suggestUpdate());
@@ -78,6 +80,33 @@ export class Terminal {
     this.inputEl.addEventListener("blur", () => {
       setTimeout(() => this._suggestClose(), 160);
     });
+  }
+
+  /** 发送命令时蓝色回显；与上一段内容之间加细分割线 */
+  echoCommand(cmd) {
+    const line = String(cmd || "").trim();
+    if (!line) return;
+    if (this._lastKind && this._lastKind !== "tx") {
+      this._appendSep();
+    }
+    this.appendText(`> ${line}\n`, "tx");
+  }
+
+  _appendSep() {
+    const div = document.createElement("div");
+    div.className = "term-sep";
+    div.setAttribute("aria-hidden", "true");
+    this.logEl.appendChild(div);
+    const extra = this.logEl.childNodes.length - this.maxLines;
+    if (extra > 0) {
+      for (let i = 0; i < extra; i++) this.logEl.removeChild(this.logEl.firstChild);
+    }
+    this._textBudget -= 1;
+    while (this._textBudget < 0 && this.logEl.firstChild) {
+      const first = this.logEl.firstChild;
+      this._textBudget += (first.textContent || "").length + 1;
+      this.logEl.removeChild(first);
+    }
   }
 
   _onKeydown(e) {
@@ -257,6 +286,7 @@ export class Terminal {
     span.className = `term-${kind}`;
     span.textContent = out;
     this.logEl.appendChild(span);
+    this._lastKind = kind;
 
     const extra = this.logEl.childNodes.length - this.maxLines;
     if (extra > 0) {
@@ -287,6 +317,7 @@ export class Terminal {
     this.logEl.innerHTML = "";
     this.rawBytes = [];
     this._textBudget = MAX_TEXT_CHARS;
+    this._lastKind = null;
     this._suggestClose();
   }
 }

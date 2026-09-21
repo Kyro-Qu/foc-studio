@@ -1984,10 +1984,21 @@ button.ghost:hover {
   word-break: break-word;
 }
 
+/* 终端：TX 蓝 / RX 绿 / 错误红 / 系统灰，命令段之间细分割 */
 .term-rx { color: #7ee787; }
-.term-tx { color: var(--accent); }
+.term-tx {
+  color: var(--accent);
+  font-weight: 600;
+}
 .term-err { color: var(--err); }
 .term-sys { color: var(--text-dim); }
+
+.term-sep {
+  height: 0;
+  margin: 8px 0 4px;
+  border: none;
+  border-top: 1px dashed rgba(77, 163, 255, 0.28);
+}
 
 .term-input-wrap {
   position: relative;

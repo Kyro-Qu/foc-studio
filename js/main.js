@@ -201,6 +201,8 @@ function setWaveStream(enable) {
 const consoleCtl = new ControlConsole({
   send: async (line) => {
     flushText();
+    // 统一蓝色回显发送命令（终端 / 控制台 / 向导共用一条队列）
+    terminal.echoCommand(line);
     if (state.mode === "sim" || state.mode === "replay") {
       if (line === "help") {
         terminal.appendText("FOC CLI (offline): help/status/enable/disable/target/mode/log\r\n", "rx");
