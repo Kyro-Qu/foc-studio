@@ -3,7 +3,7 @@
  */
 
 import { formatValue, channelLabel } from "../channels.js";
-import { faultText } from "./fault.js";
+import { faultTextUi } from "./fault.js";
 import { getLang } from "../i18n.js";
 
 export class ScopeLegend {
@@ -55,7 +55,7 @@ export class ScopeLegend {
     const rows = [];
     for (const ch of vis) {
       let text;
-      if (ch.id === 13) text = faultText(this.store.latest[13]);
+      if (ch.id === 13) text = faultTextUi(this.store.latest[13]);
       else text = formatValue(this.store.latest[ch.id], ch.unit);
       const label = channelLabel(ch.id, getLang());
       rows.push(

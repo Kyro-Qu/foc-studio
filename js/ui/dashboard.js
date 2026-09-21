@@ -4,11 +4,11 @@
  */
 
 import { formatValue, channelLabel } from "../channels.js";
-import { faultText, decodeFault } from "./fault.js";
+import { faultTextUi, decodeFault } from "./fault.js";
 import { getLang, t } from "../i18n.js";
 import { Gauge } from "./gauge.js";
 import { RotorGauge } from "./rotor.js";
-import { MODE_CONTROLS } from "./console.js";
+import { MODE_CONTROLS, IQ_UI_LIMIT_DEFAULT, RPM_UI_LIMIT_DEFAULT } from "./console.js";
 
 const MODE_LIST = [
   { id: "vf", key: "mode.vf" },
@@ -40,9 +40,36 @@ export class Dashboard {
     this._cells = new Map();
     this._lastStatus = null;
     this._lastStatusTime = 0;
-    this._mode = "vel";
+    this._mode = "vf"; // 与固件上电默认 FOC_MODE_OPENLOOP_VF 对齐；STATUS 到达后再反同步
     this._posSem = "rel"; /* pos: rel | abs | step */
+    this._iqLimit = IQ_UI_LIMIT_DEFAULT;
+    this._rpmLimit = RPM_UI_LIMIT_DEFAULT;
+    this.isConnected = opts.isConnected || (() => true);
     this._build();
+  }
+
+  /** 板载电流软限下发后，收紧电流环滑条范围 */
+  setIqLimit(amps) {
+    const a = Number(amps);
+    if (!Number.isFinite(a) || a <= 0) return;
+    this._iqLimit = Math.min(a, 20);
+    if (typeof this._applyModeMetaHook === "function") this._applyModeMetaHook();
+  }
+
+  /** 板卡/电机最大转速下发后，收紧速度环滑条范围 */
+  setMaxRpm(rpm) {
+    const r = Number(rpm);
+    if (!Number.isFinite(r) || r <= 0) return;
+    // 合理上限保护：不因错误回显放大到离谱值
+    this._rpmLimit = Math.min(Math.round(r), 30000);
+    if (typeof this._applyModeMetaHook === "function") this._applyModeMetaHook();
+  }
+
+  _gate() {
+    if (!this.isConnected || this.isConnected()) return true;
+    const err = new Error("disconnected");
+    err.needConnect = true;
+    return false;
   }
 
   setChannels(channels) {
@@ -66,16 +93,21 @@ export class Dashboard {
       this.rotor = null;
     }
 
-    /* 紧凑状态 chips：STATE / MODE 与固件对齐，不发明第五种 mode */
+    /* 状态 chips：挂在控制台卡片头右侧（#dash-chips-host），与标题同一行 */
     this.strip = document.createElement("div");
     this.strip.className = "dash-chips";
     this.strip.innerHTML = `
-      <span class="chip chip-fault" data-strip="fault">FAULT —</span>
-      <span class="chip" data-strip="state">STATE —</span>
-      <span class="chip" data-strip="mode">MODE —</span>
-      <span class="chip" data-strip="metric">—</span>
+      <span class="chip chip-fault" data-strip="fault">${t("dash.fault")} —</span>
+      <span class="chip" data-strip="state">${t("dash.state")} —</span>
+      <span class="chip" data-strip="mode">${t("dash.mode")} —</span>
     `;
-    this.root.appendChild(this.strip);
+    const chipsHost = document.getElementById("dash-chips-host");
+    if (chipsHost) {
+      chipsHost.innerHTML = "";
+      chipsHost.appendChild(this.strip);
+    } else {
+      this.root.appendChild(this.strip);
+    }
 
     /* 左：转子盘（全程）  右：上三表盘 / 下运行控制 */
     const mid = document.createElement("div");
@@ -211,11 +243,6 @@ export class Dashboard {
     mid.appendChild(right);
     this.root.appendChild(mid);
 
-    this.hint = document.createElement("p");
-    this.hint.className = "dash-hint";
-    this.hint.textContent = t("dash.hint");
-    this.root.appendChild(this.hint);
-
     this._wireCtrl();
   }
 
@@ -274,8 +301,29 @@ export class Dashboard {
     };
 
     const sendTargetVal = (val) => {
-      const v = Number(val);
+      let v = Number(val);
       if (!Number.isFinite(v) || !this.send) return;
+      if (mode === "iq") {
+        const lim = this._iqLimit || IQ_UI_LIMIT_DEFAULT;
+        if (Math.abs(v) > lim) {
+          v = Math.sign(v) * lim;
+          const num = this.root.querySelector("#dash-target-num");
+          const range = this.root.querySelector("#dash-target-range");
+          if (num) num.value = String(v);
+          if (range) range.value = String(v);
+        }
+      }
+      if (this.isConnected && !this.isConnected()) return;
+      if (mode === "vel" || mode === "vf") {
+        const rpmLim = this._rpmLimit || RPM_UI_LIMIT_DEFAULT;
+        if (Math.abs(v) > rpmLim) {
+          v = Math.sign(v) * rpmLim;
+          const num = this.root.querySelector("#dash-target-num");
+          const range = this.root.querySelector("#dash-target-range");
+          if (num && mode === "vel") num.value = String(v);
+          if (range && mode === "vel") range.value = String(v);
+        }
+      }
       let cmd;
       if (mode === "vf") cmd = `rpm ${v}`;
       else if (mode === "pos") {
@@ -289,6 +337,7 @@ export class Dashboard {
 
     const sendPosCmd = (cmd) => {
       if (!this.send || !cmd) return;
+      if (this.isConnected && !this.isConnected()) return;
       Promise.resolve(this.send(cmd)).catch(() => {});
     };
 
@@ -315,16 +364,25 @@ export class Dashboard {
     const applyModeMeta = () => {
       const mc = MODE_CONTROLS[mode] || MODE_CONTROLS.vel;
       const useRpm = mode === "vf";
+      const rpmLim = this._rpmLimit || RPM_UI_LIMIT_DEFAULT;
       let meta = useRpm
-        ? { unit: "RPM", min: -8000, max: 8000, step: 10 }
-        : mc.target || { unit: "RPM", min: -8000, max: 8000, step: 10 };
+        ? { unit: "RPM", min: -rpmLim, max: rpmLim, step: rpmLim >= 2000 ? 10 : 1 }
+        : mc.target || { unit: "RPM", min: -rpmLim, max: rpmLim, step: rpmLim >= 2000 ? 10 : 1 };
+      if (mode === "vel") {
+        meta = { unit: "RPM", min: -rpmLim, max: rpmLim, step: rpmLim >= 2000 ? 10 : 1 };
+      }
       if (mode === "pos") {
         const sem = this._posSem || "rel";
         if (sem === "abs") meta = { unit: "rad", min: -40, max: 40, step: 0.01 };
         else if (sem === "step") meta = { unit: "rad", min: -6.28, max: 6.28, step: 0.01 };
         else meta = { unit: "rad", min: -50, max: 50, step: 0.01 };
       }
-      if (targetRow) targetRow.hidden = false;
+      if (mode === "iq") {
+        const lim = this._iqLimit || IQ_UI_LIMIT_DEFAULT;
+        meta = { unit: "A", min: -lim, max: lim, step: 0.1 };
+      }
+      // 步进模式：隐藏目标滑条，只保留步进/点动/清零
+      if (targetRow) targetRow.hidden = mode === "pos" && (this._posSem || "rel") === "step";
       if (vfRow) vfRow.hidden = !useRpm;
       if (range) {
         range.min = String(meta.min);
@@ -382,6 +440,7 @@ export class Dashboard {
     });
     this.root.querySelectorAll(".dash-jog-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
+        if (!this.isConnected || !this.isConnected()) return;
         const deg = Number(btn.getAttribute("data-jog-deg"));
         if (!Number.isFinite(deg)) return;
         const rad = (deg * Math.PI) / 180;
@@ -389,9 +448,11 @@ export class Dashboard {
       });
     });
     this.root.querySelector("#dash-pos-zero")?.addEventListener("click", () => {
+      if (!this.isConnected || !this.isConnected()) return;
       sendPosCmd("pos zero");
     });
     this.root.querySelector("#dash-pos-step-go")?.addEventListener("click", () => {
+      if (!this.isConnected || !this.isConnected()) return;
       const el = this.root.querySelector("#dash-pos-step-val");
       const v = Number(el?.value);
       if (!Number.isFinite(v)) return;
@@ -399,12 +460,13 @@ export class Dashboard {
     });
 
     modeSel?.addEventListener("change", () => {
+      // UI 模式切换始终允许；仅在已连接时下发 CLI
       const nextMode = modeSel.value || "vf";
       if (mode !== nextMode) {
         mode = nextMode;
         this._mode = mode;
         applyModeMeta();
-        if (this.send) {
+        if (this.send && this.isConnected && this.isConnected()) {
           Promise.resolve(this.send(`mode ${mode}`)).catch(() => {});
         }
       }
@@ -414,6 +476,8 @@ export class Dashboard {
       mode = boardMode;
       applyModeMeta();
     };
+    this._applyModeMetaHook = applyModeMeta;
+    applyModeMeta();
     applyModeMeta();
 
     if (range && num) {
@@ -440,15 +504,25 @@ export class Dashboard {
       vqSend.addEventListener("click", () => {
         const v = Number(this.root.querySelector("#dash-vq-num")?.value);
         if (!Number.isFinite(v) || !this.send) return;
+        if (this.isConnected && !this.isConnected()) return;
         Promise.resolve(this.send(`vq ${v}`)).catch(() => {});
       });
     }
     const en = this.root.querySelector("#dash-enable");
-    if (en) en.addEventListener("click", () => this.send && Promise.resolve(this.send("enable")).catch(() => {}));
+    if (en) en.addEventListener("click", () => {
+      if (this.isConnected && !this.isConnected()) return;
+      this.send && Promise.resolve(this.send("enable")).catch(() => {});
+    });
     const dis = this.root.querySelector("#dash-disable");
-    if (dis) dis.addEventListener("click", () => this.send && Promise.resolve(this.send("disable")).catch(() => {}));
+    if (dis) dis.addEventListener("click", () => {
+      if (this.isConnected && !this.isConnected()) return;
+      this.send && Promise.resolve(this.send("disable")).catch(() => {});
+    });
     const faultBtn = this.root.querySelector("#dash-fault");
-    if (faultBtn) faultBtn.addEventListener("click", () => this.send && Promise.resolve(this.send("fault")).catch(() => {}));
+    if (faultBtn) faultBtn.addEventListener("click", () => {
+      if (this.isConnected && !this.isConnected()) return;
+      this.send && Promise.resolve(this.send("fault")).catch(() => {});
+    });
   }
 
   /**
@@ -503,7 +577,7 @@ export class Dashboard {
     const isStatusFresh = !!(this._lastStatus && ((now - this._lastStatusTime) < 3000));
 
     const setStrip = (id, text, bad) => {
-      const el = this.root.querySelector(`[data-strip="${id}"]`);
+      const el = (this.strip || this.root).querySelector(`[data-strip="${id}"]`);
       if (!el) return;
       el.textContent = text;
       el.classList.toggle("bad", !!bad);
@@ -523,22 +597,21 @@ export class Dashboard {
       const s = this._lastStatus;
       const fCode = s.faultCode !== undefined ? s.faultCode : (s.motorFault || s.shuntFault);
       const hasFault = fCode !== 0;
-      const faultStr = (s.motorFault !== undefined && s.shuntFault !== undefined)
-        ? `FAULT M:${s.motorFault} S:${s.shuntFault}`
-        : `FAULT: ${faultText(fCode)}`;
-      setStrip("fault", hasFault ? faultStr : "FAULT OK", hasFault);
+      const faultStr = (s.motorFault !== undefined && s.shuntFault !== undefined && (s.motorFault || s.shuntFault))
+        ? `${t("dash.fault")} ${faultTextUi(s.motorFault * 100 + s.shuntFault)}`
+        : `${t("dash.fault")}: ${faultTextUi(fCode)}`;
+      setStrip("fault", hasFault ? faultStr : `${t("dash.fault")} ${t("dash.ok")}`, hasFault);
 
-      // state：IDLE/RUN/CALIB/FAULT
+      // state：IDLE/RUN/CALIB/FAULT（固件枚举名保留）
       if (Number.isFinite(s.state)) {
-        const st = STATE_NAMES[s.state] || `STATE ${s.state}`;
-        setStrip("state", st, s.state === 3);
+        const st = STATE_NAMES[s.state] || String(s.state);
+        setStrip("state", `${t("dash.state")} ${st}`, s.state === 3);
       }
 
-      // mode：精简版 10B STATUS 已不带 mode；有则以板子为准反同步选框，
-      // 否则显示本地跟踪的 UI 模式（用户选择 / CLI 回显同步）
+      // mode：精简版 10B STATUS 已不带 mode；有则以板子为准反同步选框
       if (Number.isFinite(s.mode)) {
-        const modeName = MODE_NAMES[s.mode] || `mode ${s.mode}`;
-        setStrip("mode", `MODE ${modeName}`, false);
+        const modeName = MODE_NAMES[s.mode] || String(s.mode);
+        setStrip("mode", `${t("dash.mode")} ${modeName}`, false);
         if (badge) badge.textContent = modeName;
         const boardMode = MODE_IDS[s.mode];
         if (boardMode && boardMode !== this._mode) {
@@ -550,23 +623,15 @@ export class Dashboard {
       } else {
         const idx = MODE_IDS.indexOf(this._mode);
         const modeName = idx >= 0 ? MODE_NAMES[idx] : "—";
-        setStrip("mode", `MODE ${modeName}`, false);
+        setStrip("mode", `${t("dash.mode")} ${modeName}`, false);
         if (badge) badge.textContent = modeName;
       }
     } else {
-      setStrip("fault", "FAULT —", false);
-      setStrip("state", "STATE —", false);
-      setStrip("mode", "MODE —", false);
+      setStrip("fault", `${t("dash.fault")} —`, false);
+      setStrip("state", `${t("dash.state")} —`, false);
+      setStrip("mode", `${t("dash.mode")} —`, false);
       if (badge) badge.textContent = "—";
     }
-
-    // 状态 chips：第三条按模式显示最关键指标
-    const setMetric = (text, bad) => {
-      const el = this.root.querySelector('[data-strip="metric"]');
-      if (!el) return;
-      el.textContent = text;
-      el.classList.toggle("bad", !!bad);
-    };
 
     // 专属模式 KPI 卡组刷新
     const updateKpi = (idx, label, val, sub, stateClass = "") => {
@@ -581,23 +646,19 @@ export class Dashboard {
       card.className = `dash-kpi-card ${stateClass}`.trim();
     };
 
-    const uiMode = this._mode || "vel";
+    const uiMode = this._mode || "vf";
     if (uiMode === "pos") {
       const pErr = Number.isFinite(posVal) && Number.isFinite(posRef) ? posRef - posVal : NaN;
-      setMetric(
-        Number.isFinite(pErr) ? `Δθ ${pErr.toFixed(3)} rad` : "Δθ —",
-        Number.isFinite(pErr) && Math.abs(pErr) > 0.05
-      );
       updateKpi(
         0,
-        "Target Pos",
+        t("dash.kpi.target_pos"),
         Number.isFinite(posRef) ? `${posRef.toFixed(3)} rad` : "—",
         Number.isFinite(posRef) ? `${(posRef * 180 / Math.PI).toFixed(1)}°` : "",
         "is-accent"
       );
       updateKpi(
         1,
-        "Actual Pos",
+        t("dash.kpi.actual_pos"),
         Number.isFinite(posVal) ? `${posVal.toFixed(3)} rad` : "—",
         Number.isFinite(posVal) ? `${(posVal * 180 / Math.PI).toFixed(1)}°` : ""
       );
@@ -605,120 +666,43 @@ export class Dashboard {
       const warnErr = Number.isFinite(pErr) && Math.abs(pErr) > 0.05;
       updateKpi(
         2,
-        "Pos Err Δθ",
+        t("dash.kpi.pos_err"),
         Number.isFinite(pErr) ? `${pErr > 0 ? "+" : ""}${pErr.toFixed(3)} rad` : "—",
         Number.isFinite(pErr) ? `${(pErr * 180 / Math.PI).toFixed(1)}°` : "",
         badErr ? "is-bad" : (warnErr ? "is-warn" : "")
       );
       updateKpi(
         3,
-        "Torque Iq",
+        t("dash.kpi.torque_iq"),
         Number.isFinite(iqVal) ? `${iqVal.toFixed(2)} A` : "—",
-        "Feedback"
+        t("dash.kpi.sub.fb")
       );
     } else if (uiMode === "iq") {
       const iqRef = Number.isFinite(latest[6]) ? latest[6] : NaN;
       const vd = Number.isFinite(latest[7]) ? latest[7] : NaN;
       const vq = Number.isFinite(latest[8]) ? latest[8] : NaN;
-      setMetric(
-        Number.isFinite(iqVal) ? `Iq ${iqVal.toFixed(2)} A` : "Iq —",
-        Number.isFinite(iqVal) && Math.abs(iqVal) > 4
-      );
-      updateKpi(
-        0,
-        "Target Iq",
-        Number.isFinite(iqRef) ? `${iqRef.toFixed(2)} A` : "—",
-        "Command",
-        "is-accent"
-      );
-      updateKpi(
-        1,
-        "Actual Iq",
-        Number.isFinite(iqVal) ? `${iqVal.toFixed(2)} A` : "—",
-        "Feedback"
-      );
-      updateKpi(
-        2,
-        "Vd Out",
-        Number.isFinite(vd) ? `${vd.toFixed(2)} V` : "—",
-        "D-Axis Output"
-      );
-      updateKpi(
-        3,
-        "Vq Out",
-        Number.isFinite(vq) ? `${vq.toFixed(2)} V` : "—",
-        "Q-Axis Output"
-      );
+      updateKpi(0, t("dash.kpi.target_iq"), Number.isFinite(iqRef) ? `${iqRef.toFixed(2)} A` : "—", t("dash.kpi.sub.cmd"), "is-accent");
+      updateKpi(1, t("dash.kpi.actual_iq"), Number.isFinite(iqVal) ? `${iqVal.toFixed(2)} A` : "—", t("dash.kpi.sub.fb"));
+      updateKpi(2, t("dash.kpi.vd_out"), Number.isFinite(vd) ? `${vd.toFixed(2)} V` : "—", t("dash.kpi.sub.d"));
+      updateKpi(3, t("dash.kpi.vq_out"), Number.isFinite(vq) ? `${vq.toFixed(2)} V` : "—", t("dash.kpi.sub.q"));
     } else if (uiMode === "vf") {
       const vq = Number.isFinite(latest[8]) ? latest[8] : NaN;
       const tgtRpm = Number.isFinite(latest[3]) ? latest[3] : NaN;
-      setMetric(
-        Number.isFinite(vq) ? `Vq ${vq.toFixed(2)} V · ${Number.isFinite(rpmVal) ? rpmVal.toFixed(0) + " rpm" : "—"}` : "Vq —",
-        false
-      );
-      updateKpi(
-        0,
-        "Open-Loop RPM",
-        Number.isFinite(tgtRpm) ? `${tgtRpm.toFixed(0)} RPM` : "—",
-        "Target",
-        "is-accent"
-      );
-      updateKpi(
-        1,
-        "Est Speed",
-        Number.isFinite(rpmVal) ? `${rpmVal.toFixed(0)} RPM` : "—",
-        "Estimated"
-      );
-      updateKpi(
-        2,
-        "Boost Vq",
-        Number.isFinite(vq) ? `${vq.toFixed(2)} V` : "—",
-        "Voltage"
-      );
-      updateKpi(
-        3,
-        "Bus Vbus",
-        Number.isFinite(vbusVal) ? `${vbusVal.toFixed(1)} V` : "—",
-        "DC Supply"
-      );
+      updateKpi(0, t("dash.kpi.open_rpm"), Number.isFinite(tgtRpm) ? `${tgtRpm.toFixed(0)} RPM` : "—", t("dash.kpi.sub.tgt"), "is-accent");
+      updateKpi(1, t("dash.kpi.est_speed"), Number.isFinite(rpmVal) ? `${rpmVal.toFixed(0)} RPM` : "—", t("dash.kpi.sub.est"));
+      updateKpi(2, t("dash.kpi.boost_vq"), Number.isFinite(vq) ? `${vq.toFixed(2)} V` : "—", t("dash.kpi.sub.volt"));
+      updateKpi(3, t("dash.kpi.bus_vbus"), Number.isFinite(vbusVal) ? `${vbusVal.toFixed(1)} V` : "—", t("dash.kpi.sub.dc"));
     } else {
       const velRef = Number.isFinite(latest[3]) ? latest[3] : NaN;
-      const track = Number.isFinite(latest[2]) && Number.isFinite(latest[3]) ? latest[2] - latest[3] : NaN;
-      setMetric(
-        Number.isFinite(track) ? `Δn ${track.toFixed(1)} rpm` : "Δn —",
-        Number.isFinite(track) && Math.abs(track) > 50
-      );
       const spdErr = (Number.isFinite(rpmVal) && Number.isFinite(velRef))
         ? (rpmVal - velRef)
         : (Number.isFinite(latest[30]) ? latest[30] : NaN);
       const badSpd = Number.isFinite(spdErr) && Math.abs(spdErr) > 200;
       const warnSpd = Number.isFinite(spdErr) && Math.abs(spdErr) > 50;
-      updateKpi(
-        0,
-        "Target RPM",
-        Number.isFinite(velRef) ? `${velRef.toFixed(0)} RPM` : "—",
-        Number.isFinite(velRef) ? `${(velRef / 60).toFixed(1)} rps` : "",
-        "is-accent"
-      );
-      updateKpi(
-        1,
-        "Speed RPM",
-        Number.isFinite(rpmVal) ? `${rpmVal.toFixed(0)} RPM` : "—",
-        Number.isFinite(rpmVal) ? `${(rpmVal / 60).toFixed(1)} rps` : ""
-      );
-      updateKpi(
-        2,
-        "Speed Err Δn",
-        Number.isFinite(spdErr) ? `${spdErr > 0 ? "+" : ""}${spdErr.toFixed(0)} RPM` : "—",
-        Number.isFinite(spdErr) ? `${(spdErr / 60).toFixed(1)} rps` : "",
-        badSpd ? "is-bad" : (warnSpd ? "is-warn" : "")
-      );
-      updateKpi(
-        3,
-        "Load Iq",
-        Number.isFinite(iqVal) ? `${iqVal.toFixed(2)} A` : "—",
-        "Current"
-      );
+      updateKpi(0, t("dash.kpi.target_rpm"), Number.isFinite(velRef) ? `${velRef.toFixed(0)} RPM` : "—", Number.isFinite(velRef) ? `${(velRef / 60).toFixed(1)} rps` : "", "is-accent");
+      updateKpi(1, t("dash.kpi.speed_rpm"), Number.isFinite(rpmVal) ? `${rpmVal.toFixed(0)} RPM` : "—", Number.isFinite(rpmVal) ? `${(rpmVal / 60).toFixed(1)} rps` : "");
+      updateKpi(2, t("dash.kpi.speed_err"), Number.isFinite(spdErr) ? `${spdErr > 0 ? "+" : ""}${spdErr.toFixed(0)} RPM` : "—", Number.isFinite(spdErr) ? `${(spdErr / 60).toFixed(1)} rps` : "", badSpd ? "is-bad" : (warnSpd ? "is-warn" : ""));
+      updateKpi(3, t("dash.kpi.load_iq"), Number.isFinite(iqVal) ? `${iqVal.toFixed(2)} A` : "—", t("dash.kpi.sub.cur"));
     }
 
     if (this.gauges.rpm && Number.isFinite(rpmVal)) this.gauges.rpm.setValue(rpmVal);
@@ -733,9 +717,10 @@ export class Dashboard {
         const hasTel = Number.isFinite(posVal) && this.store && this.store.length > 0;
         this.rotor.setPosReadout({
           absRad: hasTel ? posVal : undefined,
-          relRad: hasTel && Number.isFinite(posRef) ? posRef - posVal : undefined,
+          relRad: hasTel && Number.isFinite(posRef) && Number.isFinite(posVal) ? posRef - posVal : undefined,
           tgtRad: Number.isFinite(tgtNum) ? tgtNum : undefined,
         });
+        // Rel 显示为跟踪误差 (target-actual)，标签由 rotor 使用 Err
       }
     }
   }

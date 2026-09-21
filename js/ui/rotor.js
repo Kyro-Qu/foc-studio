@@ -49,7 +49,7 @@ export class RotorGauge {
     if (Number.isFinite(rad)) this.targetTargetRad = rad;
   }
 
-  /** 更新 Abs / Rel / Tgt 数字读数（多圈 rad） */
+  /** 更新 Abs / Err / Tgt 数字读数（多圈 rad）；relRad 表示跟踪误差 target-actual */
   setPosReadout({ absRad, relRad, tgtRad, originRad } = {}) {
     if (originRad !== undefined && Number.isFinite(originRad)) this._originRad = Number(originRad);
     const fmt = (v) => (Number.isFinite(v) ? `${Number(v).toFixed(3)}` : "—");
@@ -126,14 +126,9 @@ export class RotorGauge {
         </g>
         <circle cx="200" cy="200" r="158" fill="none" stroke="#1d2838" stroke-width="1"/>
       </svg>
-      <div class="rotor-readout">
-        <span class="rotor-chip"><b class="rotor-actual">0.00</b>°</span>
-        <span class="rotor-chip dim"><b class="rotor-target-deg">0.00</b>° tgt</span>
-        <span class="rotor-chip dim"><b class="rotor-err">+0.00</b> rad</span>
-      </div>
       <div class="rotor-pos-line" aria-live="polite">
         <span class="rotor-pos-item"><i>Abs</i><b class="rotor-abs-rad">—</b></span>
-        <span class="rotor-pos-item"><i>Rel</i><b class="rotor-rel-rad">—</b></span>
+        <span class="rotor-pos-item"><i>Err</i><b class="rotor-rel-rad">—</b></span>
         <span class="rotor-pos-item"><i>Tgt</i><b class="rotor-tgt-rad">—</b></span>
       </div>
     `;

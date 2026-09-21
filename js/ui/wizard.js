@@ -76,7 +76,25 @@ export const PID_INPUT_IDS = [
   "wf-pvmax",
 ];
 
-/** 固件标准故障码定义映射 */
+/** 固件故障码 — 界面短名（中文，不带码） */
+export const FAULT_NAMES_ZH = {
+  0: "正常",
+  1: "电流采样失效",
+  2: "校准过流",
+  3: "运行过流",
+  4: "校准超时",
+  5: "校准状态异常",
+  6: "未校准",
+  7: "控制量异常",
+  8: "电机堵转",
+  9: "观测器失锁",
+  10: "参数非法",
+  11: "母线欠压",
+  12: "母线过压",
+  13: "过温",
+};
+
+/** 固件故障码 — 详细（码+英文+中文），诊断报告用 */
 export const FAULT_NAMES = {
   0: "NONE (正常)",
   1: "CURRENT_SENSE (电流采样失效)",
@@ -91,6 +109,7 @@ export const FAULT_NAMES = {
   10: "BAD_CONFIG (参数非法)",
   11: "UNDERVOLTAGE (母线欠压)",
   12: "OVERVOLTAGE (母线过压)",
+  13: "OVERTEMP (过温)",
 };
 
 /** 解析硬件复位标志 */
@@ -153,7 +172,8 @@ export function parseBoardAndStatus(text) {
   // 故障码
   const faultRaw = pick(/fault=([0-9]+)/);
   const faultCode = faultRaw !== "—" ? parseInt(faultRaw, 10) : 0;
-  const faultName = FAULT_NAMES[faultCode] || `FAULT_${faultCode}`;
+  const faultName = FAULT_NAMES_ZH[faultCode] || `故障 ${faultCode}`;
+  const faultDetail = FAULT_NAMES[faultCode] || `FAULT_${faultCode} (故障 ${faultCode})`;
 
   // 状态机与模式
   const state = pick(/M0 ([A-Z]+)/);
@@ -188,6 +208,7 @@ export function parseBoardAndStatus(text) {
     calibDir,
     faultCode,
     faultName,
+    faultDetail,
     state,
     mode,
     cpu,
@@ -238,7 +259,7 @@ export function diagnoseSystemHealth(info) {
       id: "fault",
       name: "系统故障码",
       status: "bad",
-      msg: `系统存在跳闸故障: ${info.faultName}`,
+      msg: `系统存在跳闸故障: ${info.faultDetail || info.faultName}`,
       value: info.faultName,
     });
   }
@@ -443,6 +464,8 @@ export class WorkflowWizard {
     /** @type {(cmd:string,ms?:number)=>Promise<string>|undefined} */
     this.sendCapture = opts.sendCapture;
     this.isConnected = opts.isConnected || (() => true);
+    this.onIqLimit = opts.onIqLimit || null;
+    this.onMaxRpm = opts.onMaxRpm || null;
     this.getStatus = opts.getStatus || (() => null);
     /** @type {() => Float32Array|null} 最新一帧 500Hz 波形（32 通道），用于实时转速 */
     this.getLatest = opts.getLatest || (() => null);
@@ -451,6 +474,10 @@ export class WorkflowWizard {
     this._encRpm = NaN;
     this._encGuardTimer = null;
     this.step = "device";
+    /** @type {number|null} 最近同步的电流软限（跨页回填） */
+    this._lastLimitAmps = null;
+    this._lastTripAmps = null;
+    this._lastMaxRpm = null;
     /** @type {Record<string, string>} 调参基准值，用于脏状态感知 */
     this.pidBaseline = {};
     this.render();
@@ -459,6 +486,8 @@ export class WorkflowWizard {
   setStep(id) {
     this.step = STEPS.some((s) => s.id === id) ? id : "device";
     this.render();
+    if (this._lastLimitAmps) this._syncCurrentLimit(this._lastLimitAmps, this._lastTripAmps);
+    if (this._lastMaxRpm) this._syncMaxRpm(this._lastMaxRpm);
   }
 
   next() {
@@ -484,11 +513,32 @@ export class WorkflowWizard {
   }
 
   async _cli(cmd) {
+    if (!this.isConnected()) {
+      this._toast(t("sys.need_connect"), "err");
+      return;
+    }
     try {
       await this.send(cmd);
     } catch (e) {
       /* terminal shows errors */
     }
+  }
+
+  /** 应用：下发 limit + ident apply（固件无 pp/Rs 手写 CLI） */
+  async _applyMotorParamsFromForm() {
+    if (!this.isConnected()) {
+      this._toast(t("sys.need_connect"), "err");
+      return;
+    }
+    const lim = Number(this.root.querySelector("#wf-limit2")?.value);
+    if (Number.isFinite(lim) && lim > 0) {
+      await this._cli(`limit ${lim}`);
+      this._syncCurrentLimit(lim);
+    }
+    const rpmForm = Number(this.root.querySelector("#wf-maxrpm")?.value);
+    if (Number.isFinite(rpmForm) && rpmForm > 0) this._syncMaxRpm(rpmForm);
+    await this._cli("ident apply");
+    this._toast(t("wf.motor.apply_honest"), "ok");
   }
 
   /** 读取 version+status 并解析板卡信息 */
@@ -525,6 +575,39 @@ export class WorkflowWizard {
     if (box) box.classList.remove("loading");
   }
 
+  /** 最大转速同步：设备/电机页 + 控制台速度环滑条 */
+  _syncMaxRpm(rpm) {
+    const r = Number(rpm);
+    if (!Number.isFinite(r) || r <= 0) return;
+    this._lastMaxRpm = r;
+    const set = (id, v) => {
+      const el = this.root.querySelector(`#${id}`);
+      if (el) el.value = String(Math.round(v));
+    };
+    set("wf-maxrpm", r);
+    if (typeof this.onMaxRpm === "function") this.onMaxRpm(r);
+  }
+
+  /** 电流软限全局同步：设备页 / 电机页 / 调参页 + 过流跳闸 + 控制台 Iq 滑条 */
+  _syncCurrentLimit(amps, tripAmps = null) {
+    const lim = Number(amps);
+    if (!Number.isFinite(lim) || lim <= 0) return;
+    this._lastLimitAmps = lim;
+    if (tripAmps != null && Number.isFinite(Number(tripAmps))) this._lastTripAmps = Number(tripAmps);
+    const fmt = (v) => Number(v).toFixed(2);
+    const set = (id, v) => {
+      const el = this.root.querySelector(`#${id}`);
+      if (el) el.value = v;
+    };
+    ["wf-limit", "wf-limit2", "wf-limit-val"].forEach((id) => set(id, id === "wf-limit" ? Number(lim).toFixed(1) : fmt(lim)));
+    let trip = Number(this._lastTripAmps);
+    if (!Number.isFinite(trip) || trip <= 0) {
+      trip = Math.min(Math.max(lim * 1.25 + 0.1, lim), 40.0);
+    }
+    set("wf-trip", fmt(trip));
+    if (typeof this.onIqLimit === "function") this.onIqLimit(lim);
+  }
+
   /** 从板卡回显文本中提取并回填安全与保护输入框 */
   _fillSafetyInputs(text) {
     if (!text) return;
@@ -547,14 +630,9 @@ export class WorkflowWizard {
     const uvVal = pick(/uv=([0-9.]+)/i);
     const ovVal = pick(/ov=([0-9.]+)/i);
 
-    if (limitVal) set("wf-limit", limitVal, 1);
-    if (tripVal) {
-      set("wf-trip", tripVal, 2);
-    } else if (limitVal) {
-      const lim = Number(limitVal);
-      const trip = Math.min(Math.max(lim * 1.25 + 0.1, lim), 40.0);
-      set("wf-trip", trip, 2);
-    }
+    if (limitVal) this._syncCurrentLimit(limitVal, tripVal);
+    const rpmB = pick(/max_rpm=([0-9.]+)/i) || pick(/maxrpm=([0-9.]+)/i);
+    if (rpmB) this._syncMaxRpm(rpmB);
     if (uvVal) set("wf-uv", uvVal, 1);
     if (ovVal) set("wf-ov", ovVal, 1);
   }
@@ -623,6 +701,8 @@ export class WorkflowWizard {
         id: "fw",
         label: t("wf.device.fw"),
         val: info.version !== "—" ? `${info.firmware} v${info.version}` : "—",
+        sub: info.build && info.build !== "—" ? info.build : "",
+        title: info.build && info.build !== "—" ? `${t("wf.device.build")}: ${info.build}` : "",
         tag: "VERSION",
         highlight: info.version !== "—",
         icon: `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1z"/><path d="M5 7l2 2-2 2M9 11h3"/></svg>`,
@@ -656,7 +736,8 @@ export class WorkflowWizard {
       {
         id: "fault",
         label: t("board.fault"),
-        val: `${info.faultCode} (${info.faultName})`,
+        val: `${info.faultName}`,
+        title: info.faultDetail || "",
         tag: "HEALTH",
         highlight: true,
         valClass: info.faultCode === 0 ? "text-ok" : "text-err",
@@ -681,7 +762,7 @@ export class WorkflowWizard {
       {
         id: "cpu",
         label: t("board.cpu"),
-        val: info.cpu !== "—" ? `${info.cpu}% (peak ${info.cpuMax || "—" }%)` : "—",
+        val: info.cpu !== "—" ? `${info.cpu}% (${t("board.peak")} ${info.cpuMax || "—" }%)` : "—",
         tag: "PERF",
         highlight: info.cpu !== "—",
         valClass: Number(info.cpu) < 80 ? "text-ok" : "text-warn",
@@ -698,7 +779,9 @@ export class WorkflowWizard {
       {
         id: "cs",
         label: t("board.cs"),
-        val: info.csReady !== null ? `ready ${info.csReady} | fault ${info.csFault} | drop ${info.rejected ?? 0}` : "—",
+        val: info.csReady !== null
+          ? `${t("board.cs.ready")} ${info.csReady} · ${t("board.cs.fault")} ${info.csFault ?? 0} · ${t("board.cs.drop")} ${info.rejected ?? 0}`
+          : "—",
         tag: "SENSE",
         highlight: info.csReady !== null,
         valClass: (info.csFault === 0 && (info.rejected ?? 0) === 0) ? "text-ok" : "text-warn",
@@ -707,7 +790,8 @@ export class WorkflowWizard {
       {
         id: "cli",
         label: t("board.comm"),
-        val: info.cliRxOverflow !== null ? `ovf ${info.cliRxOverflow} B | ${info.build}` : "—",
+        val: info.cliRxOverflow !== null ? `ovf ${info.cliRxOverflow} B` : "—",
+        sub: info.cli !== "—" ? `CLI ${info.cli}` : "",
         tag: "COMM",
         highlight: info.cliRxOverflow !== null,
         valClass: info.cliRxOverflow === 0 ? "text-ok" : "text-warn",
@@ -727,7 +811,8 @@ export class WorkflowWizard {
             </div>
           </div>
           <div class="tile-val-box">
-            <strong class="tile-val ${it.valClass || ""}">${it.val}</strong>
+            <strong class="tile-val ${it.valClass || ""}"${it.title ? ` title="${it.title}"` : ""}>${it.val}</strong>
+            ${it.sub ? `<span class="tile-sub">${it.sub}</span>` : ""}
           </div>
         </div>`
       )
@@ -795,9 +880,6 @@ export class WorkflowWizard {
 
   _htmlDevice() {
     return `
-      <h3 class="wf-h">${t("wf.device.h")}</h3>
-      <p class="wf-p">${t("wf.device.p")}</p>
-
       <!-- 独立卡片 1：板卡硬件与运行指标 (12项圆角磁贴卡片) -->
       <section class="wf-card">
         <div class="wf-card-head">
@@ -811,7 +893,7 @@ export class WorkflowWizard {
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11.5h.01"/></svg>
               <span>${t("wf.safety.fault")}</span>
             </button>
-            <button class="danger" id="wf-diag-clear-btn" data-cmd="fault clear">
+            <button class="danger" id="wf-diag-clear-btn" data-cmd="fault clear" data-confirm="confirm.fault_clear">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l8 8M12 4l-8 8" stroke-linecap="round"/></svg>
               <span>${t("wf.safety.clear")}</span>
             </button>
@@ -831,7 +913,7 @@ export class WorkflowWizard {
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>${t("wf.apply")}</span>
             </button>
-            <button class="danger" data-cmd="conf write" data-confirm="conf write" title="${t("wf.motor.conf_write_tip")}">
+            <button class="danger" data-cmd="conf write" data-confirm="confirm.conf_write" title="${t("wf.safety.note")}">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h8l2 2v8H3V3zM5 3v4h6V3M5 13v-4h6v4" stroke-linejoin="round"/></svg>
               <span>${t("wf.motor.conf_write")}</span>
             </button>
@@ -879,6 +961,7 @@ export class WorkflowWizard {
             </div>
           </div>
         </div>
+        <p class="wf-note">${t("wf.safety.defaults_hint")}</p>
       </section>
 
       <!-- 系统诊断 -->
@@ -1032,15 +1115,12 @@ export class WorkflowWizard {
         ${formLbl(id, icon || "gear", label)}
         <div class="form-row-trail">
           <div class="num-field">
-            <input type="number" id="${id}" step="${step}" value="${val}" />
+            <input type="number" id="${id}" step="${step}" value="${val}" placeholder="${val === "" ? "—" : ""}" />
             <span class="num-unit">${unit || ""}</span>
           </div>
         </div>
       </div>`;
     return `
-      <h3 class="wf-h">${t("wf.motor.h")}</h3>
-      <p class="wf-p">${t("wf.motor.p")}</p>
-
       <section class="wf-card">
         <div class="wf-card-head">
           ${sectionHead("motor", t("wf.motor.params"))}
@@ -1062,11 +1142,11 @@ export class WorkflowWizard {
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8.5 1.5l-5 7h4l-1 6 6-8h-4l1.5-5" stroke-linejoin="round"/></svg>
               <span>${t("ident.full")}</span>
             </button>
-            <button class="ok" data-cmd="ident apply" data-toast="wf.motor.apply_done">
+            <button class="ok" id="btn-action-apply-params" title="${t("wf.motor.apply_honest")}">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>${t("wf.apply")}</span>
             </button>
-            <button class="danger" data-cmd="conf write" data-confirm="conf write" title="${t("wf.motor.conf_write_tip")}">
+            <button class="danger" data-cmd="conf write" data-confirm="confirm.conf_write" title="${t("wf.motor.conf_write_tip")}">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h8l2 2v8H3V3zM5 3v4h6V3M5 13v-4h6v4" stroke-linejoin="round"/></svg>
               <span>${t("wf.motor.conf_write")}</span>
             </button>
@@ -1099,16 +1179,15 @@ export class WorkflowWizard {
               ${formLbl("wf-saliency", "poles", t("wf.motor.saliency") || "凸极比 (Lq/Ld)")}
               <div class="form-row-trail">
                 <div class="num-field">
-                  <input type="number" id="wf-saliency" step="0.001" readonly placeholder="1.000" style="background:var(--bg-subtle, rgba(255,255,255,0.03));cursor:default;" />
-                  <span class="num-unit" id="wf-saliency-unit">比值</span>
+                  <input type="number" id="wf-saliency" step="0.001" readonly placeholder="—" style="background:var(--bg-subtle, rgba(255,255,255,0.03));cursor:default;" />
+                  <span class="num-unit" id="wf-saliency-unit">${t("wf.motor.saliency_ratio")}</span>
                 </div>
               </div>
             </div>
             ${row("wf-flux", t("wf.motor.flux") || "磁链", "Wb", "0.0001", "", "flux")}
-            ${row("wf-limit2", t("wf.motor.limit") || "电流限幅", "A", "0.1", "5.2", "alert")}
+            ${row("wf-limit2", t("wf.safety.limit"), "A", "0.1", "5.2", "alert")}
           </div>
         </div>
-        <p class="wf-note">${t("wf.motor.params_note")}</p>
       </section>`;
   }
 
@@ -1209,8 +1288,10 @@ export class WorkflowWizard {
     };
     // 基础参数解析
     set("wf-pp", pick(/pp=([0-9.]+)/i) || pick(/Pole Pairs=([0-9.]+)/i), 0);
-    set("wf-maxrpm", pick(/max_rpm=([0-9.]+)/i), 0);
-    set("wf-limit2", pick(/limit=([0-9.]+)/i), 2);
+    const rpmM = pick(/max_rpm=([0-9.]+)/i);
+    if (rpmM) this._syncMaxRpm(rpmM);
+    const limM = pick(/limit=([0-9.]+)/i);
+    if (limM) this._syncCurrentLimit(limM);
 
     // conf read: Rs ohm, Ls uH
     const rsConf = pick(/Rs=([0-9.]+)/i);
@@ -1359,9 +1440,6 @@ export class WorkflowWizard {
 
   _htmlEncoder() {
     return `
-      <h3 class="wf-h">${t("wf.encoder.h")}</h3>
-      <p class="wf-p">${t("wf.encoder.p")}</p>
-
       <!-- 1. 实时传感器与角度源状态看板 -->
       <section class="wf-card">
         <div class="wf-card-head">
@@ -1434,7 +1512,7 @@ export class WorkflowWizard {
           </div>
           <div class="form-list">
             <div class="form-row">
-              <label for="wf-enc-cpr">CPR 分辨率 (Counts Per Rev)</label>
+              <label for="wf-enc-cpr">${t("enc.cpr.label")}</label>
               <div class="form-row-trail">
                 <div class="num-field">
                   <input type="number" id="wf-enc-cpr" step="1" min="16" max="65536" value="2048" />
@@ -1480,7 +1558,7 @@ export class WorkflowWizard {
           </div>
           <div class="action-grid" style="grid-template-columns: 1fr 1fr; margin-top:10px;">
             <button id="btn-abs-read-zero" class="small">${t("enc.abs.read_current") || "将当前位置设为零位"}</button>
-            <button id="btn-abs-save" class="ok small" data-cmd="conf write">${t("wf.motor.conf_write")}</button>
+            <button id="btn-abs-save" class="ok small" data-cmd="conf write" data-confirm="confirm.conf_write">${t("wf.motor.conf_write")}</button>
           </div>
           <p class="wf-note">${t("enc.abs.note") || "绝对值编码器出厂上电即知机械角，无需每次转动校准，写入 Flash 即可长期记忆。"}</p>
         </section>
@@ -1504,7 +1582,7 @@ export class WorkflowWizard {
           </div>
           <div class="action-grid" style="grid-template-columns: 1fr 1fr; margin-top:10px;">
             <button data-cmd="obs 1">${t("enc.step1")}</button>
-            <button class="danger" id="enc-obs-switch" data-cmd="obs 2" data-confirm="obs 2">${t("enc.step2")}</button>
+            <button class="danger" id="enc-obs-switch" data-cmd="obs 2" data-confirm="confirm.feedback">${t("enc.step2")}</button>
           </div>
           <div class="action-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:8px;">
             <button data-cmd="obs">${t("obs.query")}</button>
@@ -1546,31 +1624,29 @@ export class WorkflowWizard {
         </div>
       </div>`;
     return `
-      <div class="wf-page-head">
-        <div>
-          <h3 class="wf-h">${t("wf.pid.h")}</h3>
-          <p class="wf-p">${t("wf.pid.p")}</p>
+      <section class="wf-card">
+        <div class="wf-card-head">
+          ${sectionHead("wave", t("wf.pid.h"))}
+          <div class="wf-card-actions">
+            <button class="ok" id="wf-pid-apply">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>${t("wf.apply")}</span>
+            </button>
+            <button id="wf-pid-read">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>${t("wf.pid.read")}</span>
+            </button>
+            <button class="danger" id="wf-pid-save" data-confirm="confirm.conf_write" title="${t("wf.pid.save_flash_tip")}">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h8l2 2v8H3V3zM5 3v4h6V3M5 13v-4h6v4" stroke-linejoin="round"/></svg>
+              <span>${t("wf.pid.save_flash")}</span>
+            </button>
+            <span id="wf-pid-dirty-badge" class="dirty-notice" style="display:none;">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><circle cx="8" cy="8" r="7" opacity="0.2"/><circle cx="8" cy="8" r="4"/></svg>
+              <span>${t("wf.pid.dirty")}</span>
+            </span>
+          </div>
         </div>
-        <div class="wf-card-actions">
-          <button class="ok" id="wf-pid-apply">
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span>${t("wf.apply")}</span>
-          </button>
-          <button id="wf-pid-read">
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span>${t("wf.pid.read")}</span>
-          </button>
-          <button class="danger" id="wf-pid-save" data-confirm="conf write" title="${t("wf.pid.save_flash_tip")}">
-            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h8l2 2v8H3V3zM5 3v4h6V3M5 13v-4h6v4" stroke-linejoin="round"/></svg>
-            <span>${t("wf.pid.save_flash")}</span>
-          </button>
-          <span id="wf-pid-dirty-badge" class="dirty-notice" style="display:none;">
-            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><circle cx="8" cy="8" r="7" opacity="0.2"/><circle cx="8" cy="8" r="4"/></svg>
-            <span>${t("wf.pid.dirty")}</span>
-          </span>
-          <span class="wf-badge">${t("wf.pid.watch_scope")}</span>
-        </div>
-      </div>
+      </section>
 
       <!-- 1. 电流环整定与保护限幅 -->
       <div class="wf-card">
@@ -1582,7 +1658,7 @@ export class WorkflowWizard {
             ${tuneField("wf-bw", t("wf.pid.current_bw"), "rad/s", 100, 3000, 50, 2000, "wave")}
           </div>
           <div class="form-list">
-            ${tuneField("wf-limit-val", t("wf.pid.limit"), "A", 0.1, 15.0, 0.1, 2.0, "gauge")}
+            ${tuneField("wf-limit-val", t("wf.pid.limit"), "A", 0.1, 15.0, 0.1, 5.2, "gauge")}
           </div>
         </div>
       </div>
@@ -1623,17 +1699,17 @@ export class WorkflowWizard {
             <div class="form-row form-row-spacer" aria-hidden="true"></div>
           </div>
         </div>
-      </div>
-      <p class="wf-note">${t("wf.pid.note")}</p>`;
+      </div>`;
   }
 
   _htmlRun() {
     return `
-      <h3 class="wf-h">${t("wf.run.h")}</h3>
-      <p class="wf-p">${t("wf.run.p")}</p>
       <div class="wf-card" style="gap:16px">
+        <div class="wf-card-head">
+          ${sectionHead("play", t("wf.run.h"))}
+          <div id="dash-chips-host" class="dash-chips-host"></div>
+        </div>
         <div id="wf-dashboard-host" class="wf-dash-host" style="margin:0"></div>
-        <p class="wf-note">${t("wf.run.note")}</p>
       </div>`;
   }
 
@@ -1646,6 +1722,12 @@ export class WorkflowWizard {
       card.addEventListener("click", () => {
         const cat = card.getAttribute("data-cat");
         if (!cat) return;
+        const already = card.classList.contains("active");
+        const connected = this.isConnected();
+        // 已连接时切换主反馈需确认；取消则 UI 不变
+        if (!already && connected && (cat === "sl" || cat === "inc" || cat === "abs")) {
+          if (!confirm(t("confirm.feedback"))) return;
+        }
         this.root.querySelectorAll("#enc-cat-grid .enc-mode-card").forEach((c) => c.classList.remove("active"));
         card.classList.add("active");
 
@@ -1658,7 +1740,8 @@ export class WorkflowWizard {
           if (panels[k]) panels[k].hidden = k !== cat;
         });
 
-        // 联动自动适配下位机默认反馈与角度配置
+        // 未连接：仅浏览配置面板，不下发 feedback
+        if (already || !connected) return;
         if (cat === "sl") {
           if (this.send) Promise.resolve(this.send("feedback sensorless")).then(() => this._refreshEncoderStatus());
         } else if (cat === "inc" || cat === "abs") {
@@ -1667,31 +1750,41 @@ export class WorkflowWizard {
       });
     });
 
-    // 绝对值零位读取
+    // 绝对值零位：读取当前角，确认后执行 pos zero（固件可写命令）
     this.root.querySelector("#btn-abs-read-zero")?.addEventListener("click", async () => {
+      if (!this.isConnected()) {
+        this._toast(t("sys.need_connect"), "err");
+        return;
+      }
       if (this.sendCapture) {
         try {
           const txt = await this.sendCapture("pos", 350);
-          // 兼容新固件 "M0 pos: abs=1.2345rad ..." 与旧格式 "pos=1.2345"
           const m = txt.match(/abs=([0-9.+-]+)rad/) || txt.match(/pos=([0-9.+-]+)/);
           if (m && m[1]) {
             const zInput = this.root.querySelector("#wf-abs-zero-val");
             if (zInput) zInput.value = Number(m[1]).toFixed(3);
-            this._toast("当前轴绝对角度已读取为机械零点", "ok");
+            this._toast(t("enc.abs.read_done"), "ok");
+            if (confirm(t("confirm.pos_zero"))) {
+              await this._cli("pos zero");
+              this._toast(t("enc.abs.set_zero_done"), "ok");
+            }
           }
         } catch {
-          this._toast("读取当前绝对角度失败", "err");
+          this._toast(t("enc.abs.read_fail"), "err");
         }
       }
     });
 
-    // CPR 分辨率下发
+    // CPR：固件为编译期常量，仅提示
     this.root.querySelector("#wf-enc-cpr-set")?.addEventListener("click", async () => {
       const cpr = Number(this.root.querySelector("#wf-enc-cpr")?.value);
-      if (Number.isFinite(cpr) && cpr > 0) {
-        await this._cli(`cpr ${cpr}`);
-        this._toast(`编码器 CPR=${cpr} 已应用至 RAM`, "ok");
+      if (!Number.isFinite(cpr) || cpr <= 0) return;
+      if (!this.isConnected()) {
+        this._toast(t("sys.need_connect"), "err");
+        return;
       }
+      await this._cli(`cpr ${cpr}`);
+      this._toast(t("enc.cpr.applied"), "ok");
     });
 
     this.root.querySelectorAll("#enc-angle-grid .enc-mode-card").forEach((card) => {
@@ -1774,7 +1867,14 @@ export class WorkflowWizard {
         const cmd = btn.getAttribute("data-cmd");
         const conf = btn.getAttribute("data-confirm");
         const toastKey = btn.getAttribute("data-toast");
-        if (conf && !confirm(conf)) return;
+        if (!this.isConnected()) {
+          this._toast(t("sys.need_connect"), "err");
+          return;
+        }
+        if (conf) {
+          const msg = conf.includes(".") ? t(conf) : conf;
+          if (!confirm(msg)) return;
+        }
         Promise.resolve(this._cli(cmd)).then(() => {
           if (toastKey) this._toast(t(toastKey), "ok");
         }).catch(() => {
@@ -1782,17 +1882,48 @@ export class WorkflowWizard {
         });
       });
     });
-    this.root.querySelector("#wf-read-info")?.addEventListener("click", () => this._readBoardInfo());
-    this.root.querySelector("#wf-health-check")?.addEventListener("click", () => this._runHealthCheck());
+    this.root.querySelector("#btn-action-apply-params")?.addEventListener("click", () => this._applyMotorParamsFromForm());
+    this.root.querySelector("#wf-read-info")?.addEventListener("click", () => {
+      if (!this.isConnected()) {
+        this._toast(t("sys.need_connect"), "err");
+        return;
+      }
+      this._readBoardInfo();
+    });
+    this.root.querySelector("#wf-health-check")?.addEventListener("click", () => {
+      if (!this.isConnected()) {
+        this._toast(t("sys.need_connect"), "err");
+        return;
+      }
+      this._runHealthCheck();
+    });
     this.root.querySelector("#wf-copy-report")?.addEventListener("click", () => this._copyHealthReport());
-    this.root.querySelector("#wf-read-params")?.addEventListener("click", () => this._readMotorParams());
+    this.root.querySelector("#wf-read-params")?.addEventListener("click", () => {
+      if (!this.isConnected()) {
+        this._toast(t("sys.need_connect"), "err");
+        return;
+      }
+      this._readMotorParams();
+    });
     this.root.querySelector("#wf-motor-export")?.addEventListener("click", () => this._exportMotorParams());
     this.root.querySelector("#wf-motor-import")?.addEventListener("click", () => {
       this.root.querySelector("#wf-motor-import-file")?.click();
     });
     this.root.querySelector("#wf-motor-import-file")?.addEventListener("change", (e) => this._importMotorParams(e));
-    this.root.querySelector("#btn-action-ident")?.addEventListener("click", () => this._runMotorIdent());
-    this.root.querySelector("#btn-action-calib")?.addEventListener("click", () => this._runMotorCalib());
+    this.root.querySelector("#btn-action-ident")?.addEventListener("click", () => {
+      if (!this.isConnected()) {
+        this._toast(t("sys.need_connect"), "err");
+        return;
+      }
+      this._runMotorIdent();
+    });
+    this.root.querySelector("#btn-action-calib")?.addEventListener("click", () => {
+      if (!this.isConnected()) {
+        this._toast(t("sys.need_connect"), "err");
+        return;
+      }
+      this._runMotorCalib();
+    });
 
     /* 编码器页：状态 / 模式卡片 / 无感联锁。
      * 只在编码器页接线：其它页面不应并发发 status，且每次渲染必须先清掉旧定时器 */
@@ -1823,12 +1954,17 @@ export class WorkflowWizard {
     }
 
     this.root.querySelector("#wf-limit-set")?.addEventListener("click", async () => {
+      if (!this.isConnected()) {
+        this._toast(t("sys.need_connect"), "err");
+        return;
+      }
       const vLimit = Number(this.root.querySelector("#wf-limit")?.value);
       const vUv = Number(this.root.querySelector("#wf-uv")?.value);
       const vOv = Number(this.root.querySelector("#wf-ov")?.value);
 
       if (Number.isFinite(vLimit) && vLimit > 0) {
         await this._cli(`limit ${vLimit}`);
+        this._syncCurrentLimit(vLimit);
       }
       if (Number.isFinite(vUv) && Number.isFinite(vOv)) {
         if (vUv >= vOv) {
@@ -1842,10 +1978,30 @@ export class WorkflowWizard {
       } else if (Number.isFinite(vOv)) {
         await this._cli(`vbus ov ${vOv}`);
       }
-      this._toast("安全保护参数已应用至 RAM", "ok");
+      this._toast(t("wf.safety.applied"), "ok");
+    });
+    // 输入时三处联动（未下发也保持界面一致）
+    const limitDev = this.root.querySelector("#wf-limit");
+    limitDev?.addEventListener("input", () => {
+      const lim = Number(limitDev.value);
+      if (Number.isFinite(lim) && lim > 0) this._syncCurrentLimit(lim);
+    });
+    ["wf-limit2", "wf-limit-val"].forEach((id) => {
+      this.root.querySelector(`#${id}`)?.addEventListener("input", (e) => {
+        const lim = Number(e.target.value);
+        if (Number.isFinite(lim) && lim > 0) this._syncCurrentLimit(lim);
+      });
+    });
+    this.root.querySelector("#wf-maxrpm")?.addEventListener("input", (e) => {
+      const r = Number(e.target.value);
+      if (Number.isFinite(r) && r > 0) this._syncMaxRpm(r);
     });
     // 调参：一次应用全部
     this.root.querySelector("#wf-pid-apply")?.addEventListener("click", async () => {
+      if (!this.isConnected()) {
+        this._toast(t("sys.need_connect"), "err");
+        return;
+      }
       const bw = Number(this.root.querySelector("#wf-bw")?.value);
       const limitVal = Number(this.root.querySelector("#wf-limit-val")?.value);
       const vkp = Number(this.root.querySelector("#wf-vkp")?.value);
@@ -1861,7 +2017,10 @@ export class WorkflowWizard {
       const pvmax = Number(this.root.querySelector("#wf-pvmax")?.value);
 
       if (Number.isFinite(bw)) await this._cli(`current bw ${bw}`);
-      if (Number.isFinite(limitVal)) await this._cli(`limit ${limitVal}`);
+      if (Number.isFinite(limitVal) && limitVal > 0) {
+        await this._cli(`limit ${limitVal}`);
+        this._syncCurrentLimit(limitVal);
+      }
       if (Number.isFinite(vkp)) await this._cli(`vel kp ${vkp}`);
       if (Number.isFinite(vki)) await this._cli(`vel ki ${vki}`);
       if (Number.isFinite(vramp)) await this._cli(`vel ramp ${vramp}`);
@@ -1873,27 +2032,47 @@ export class WorkflowWizard {
       if (Number.isFinite(pvkp)) await this._cli(`pos vkp ${pvkp}`);
       if (Number.isFinite(paccel)) await this._cli(`pos accel ${paccel}`);
       if (Number.isFinite(pvmax)) await this._cli(`pos vmax ${pvmax}`);
+      this._toast(t("wf.pid.apply_done"), "ok");
+      this._markPidClean();
     });
-    this.root.querySelector("#wf-pid-read")?.addEventListener("click", () => this._readPid());
+    this.root.querySelector("#wf-pid-read")?.addEventListener("click", () => {
+      if (!this.isConnected()) {
+        this._toast(t("sys.need_connect"), "err");
+        return;
+      }
+      this._readPid();
+    });
     this.root.querySelector("#wf-pid-save")?.addEventListener("click", async () => {
+      if (!this.isConnected()) {
+        this._toast(t("sys.need_connect"), "err");
+        return;
+      }
       const conf = this.root.querySelector("#wf-pid-save")?.getAttribute("data-confirm");
-      if (conf && !confirm(conf)) return;
+      if (conf) {
+        const msg = conf.includes(".") ? t(conf) : conf;
+        if (!confirm(msg)) return;
+      }
       await this._cli("conf write");
       // 固化后更新基准并触发同步动画
       this._markPidClean();
     });
 
-    // 监听调参输入脏状态
+    // 监听调参输入脏状态（切页重绘后以当前表单重建基准，避免误报）
+    if (this.step === "pid") {
+      this.pidBaseline = {};
+    }
     PID_INPUT_IDS.forEach((id) => {
       const input = this.root.querySelector(`#${id}`);
       if (input) {
-        // 若基准尚未建立，初始化当前值为基准
         if (this.pidBaseline[id] === undefined) {
           this.pidBaseline[id] = input.value;
         }
         input.addEventListener("input", () => this._checkPidDirty());
       }
     });
+    if (this.step === "pid") {
+      this._checkPidDirty();
+    }
   }
 
   /** 从 conf read / vel / pos 等解析环路参数填入表单 */
@@ -1915,7 +2094,8 @@ export class WorkflowWizard {
     try {
       const confText = await this.sendCapture("conf read", 450);
       set("wf-bw", pick(confText, /bw=([0-9.]+)/));
-      set("wf-limit-val", pick(confText, /limit=([0-9.]+)/));
+      const limP = pick(confText, /limit=([0-9.]+)/);
+      if (limP) this._syncCurrentLimit(limP);
       set("wf-vkp", pick(confText, /vp=([0-9.]+)/));
       set("wf-vki", pick(confText, /vi=([0-9.]+)/));
       set("wf-pkp", pick(confText, /pos_kp=([0-9.]+)/));
@@ -2000,17 +2180,17 @@ export class WorkflowWizard {
       salEl.value = ratio.toFixed(3);
       if (unitEl) {
         if (Math.abs(ratio - 1.0) < 0.08) {
-          unitEl.textContent = "SPMSM (≈1.0)";
+          unitEl.textContent = t("wf.motor.saliency_spmsm");
           unitEl.style.color = "var(--ok, #7fd962)";
         } else {
-          unitEl.textContent = "IPMSM (凸极)";
+          unitEl.textContent = t("wf.motor.saliency_ipmsm");
           unitEl.style.color = "var(--primary, #58a6ff)";
         }
       }
     } else {
       salEl.value = "";
       if (unitEl) {
-        unitEl.textContent = "比值";
+        unitEl.textContent = t("wf.motor.saliency_ratio");
         unitEl.style.color = "";
       }
     }
@@ -2041,7 +2221,7 @@ export class WorkflowWizard {
     a.download = `motor_${name.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    this._toast(`✔ 已导出 ${a.download}`, "ok");
+    this._toast(t("wf.motor.export_done"), "ok");
   }
 
   /** 从 JSON 文件导入电机参数 */
@@ -2068,9 +2248,9 @@ export class WorkflowWizard {
         if (d.current_limit_a !== undefined) setVal("wf-limit2", Number(d.current_limit_a).toFixed(2));
 
         this._updateSaliencyRatio();
-        this._toast(`✔ 成功导入电机参数 [${d.motor_name || file.name}]`, "ok");
+        this._toast(t("wf.motor.import_done"), "ok");
       } catch (err) {
-        this._toast("✖ 导入失败：JSON 格式不正确", "err");
+        this._toast(t("wf.motor.import_fail"), "err");
       } finally {
         event.target.value = "";
       }

@@ -54,10 +54,16 @@ export const MODES = [
 export const MODE_CONTROLS = {
   // V/F 开环：rpm + vq，无 target
   vf: { target: null, rpm: true, vq: true },
-  iq: { target: { unit: "A", min: -20, max: 20, step: 0.1 }, rpm: false, vq: false },
+  // 电流环：UI 上限跟随电流软限（默认 5.2A），避免滑到危险区
+  iq: { target: { unit: "A", min: -5.2, max: 5.2, step: 0.1 }, rpm: false, vq: false },
   vel: { target: { unit: "RPM", min: -8000, max: 8000, step: 10 }, rpm: false, vq: false },
   pos: { target: { unit: "rad", min: -50, max: 50, step: 0.01 }, rpm: false, vq: false },
 };
+
+/** 电流环 UI 默认/安全上限（A），可被板载 limit 覆盖 */
+export const IQ_UI_LIMIT_DEFAULT = 5.2;
+/** 速度环 UI 默认上限（RPM），可被板载 max_rpm 覆盖 */
+export const RPM_UI_LIMIT_DEFAULT = 8000;
 
 const LS_KEY = "foc-studio-console-v1";
 
@@ -99,10 +105,14 @@ export class ControlConsole {
     this._saveCustom();
   }
 
-  async run(cmd) {
+  /**
+   * @param {string} cmd
+   * @param {{quiet?: boolean}} [opts] quiet=true 时上位机不蓝色回显（自动查询用）
+   */
+  async run(cmd, opts) {
     const line = String(cmd || "").trim();
     if (!line) return;
-    await this.send(line);
+    await this.send(line, opts);
   }
 
   async setMode(mode) {

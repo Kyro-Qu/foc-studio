@@ -173,6 +173,10 @@ scope.onAutoScale = (on) => {
 };
 const dashboard = new Dashboard($("dashboard"), store, state.channels, {
   send: (cmd) => consoleCtl.run(cmd),
+  isConnected: () => {
+    if (state.mode === "sim" || state.mode === "replay") return true;
+    return serial.isConnected();
+  },
 });
 const legend = new ScopeLegend($("scope-legend"), store, state.channels, { math });
 
@@ -191,7 +195,17 @@ function setWaveStream(enable) {
   if (btn) {
     btn.classList.toggle("is-on", state.waveActive);
     btn.classList.toggle("is-off", !state.waveActive);
-    btn.textContent = state.waveActive ? "🌊 Wave: ON" : "Wave: OFF";
+    const label = btn.querySelector("span");
+    if (label) label.textContent = state.waveActive ? `${t("scope.wave")}: ON` : `${t("scope.wave")}: OFF`;
+  }
+  const empty = $("scope-empty");
+  if (empty) {
+    if (!state.waveActive && state.mode === "serial" && serial.isConnected() && store.length <= 2) {
+      empty.hidden = false;
+      empty.textContent = t("empty.scope.wave");
+    } else if (store.length > 2) {
+      empty.hidden = true;
+    }
   }
   if (state.mode === "serial" && serial.isConnected()) {
     sendCli(state.waveActive ? "wave 1" : "wave 0");
@@ -199,13 +213,16 @@ function setWaveStream(enable) {
 }
 
 const consoleCtl = new ControlConsole({
-  send: async (line) => {
+  send: async (line, opts) => {
     flushText();
-    // 统一蓝色回显发送命令（终端 / 控制台 / 向导共用一条队列）
-    terminal.echoCommand(line);
+    if (!opts?.quiet) terminal.echoCommand(line);
     if (state.mode === "sim" || state.mode === "replay") {
       if (line === "help") {
-        terminal.appendText("FOC CLI (offline): help/status/enable/disable/target/mode/log\r\n", "rx");
+        terminal.appendText(
+          "FOC CLI (offline/sim): help/version/status/mode/target/rpm/vq/vel/pos/ident/conf/feedback…\n" +
+            "输入 / 查看完整命令表\n",
+          "rx"
+        );
       } else if (line === "status") {
         terminal.appendText(
           `M0 RUN mode=vel\r\nvel=${(store.latest[2] || 0).toFixed(1)}rpm\r\niq=${(store.latest[5] || 0).toFixed(3)}A\r\n`,
@@ -215,6 +232,9 @@ const consoleCtl = new ControlConsole({
         terminal.appendText(`OK ${line}\r\n`, "rx");
       }
       return;
+    }
+    if (!serial.isConnected()) {
+      throw new Error(t("sys.need_connect"));
     }
     await serial.write(line + "\r\n");
   },
@@ -319,7 +339,7 @@ function sendCapture(cmd, opts = 400) {
       hardTimer = setTimeout(finish, timeoutMs);
 
       try {
-        await consoleCtl.run(cmd);
+        await consoleCtl.run(cmd, { quiet: true });
       } catch (e) {
         finish();
       }
@@ -333,9 +353,15 @@ function sendCapture(cmd, opts = 400) {
 
 const wizard = new WorkflowWizard($("panel-wf"), {
   send: (cmd) => consoleCtl.run(cmd),
+  isConnected: () => {
+    if (state.mode === "sim" || state.mode === "replay") return true;
+    return serial.isConnected();
+  },
   getStatus: () => (state.lastStatusTime && Date.now() - state.lastStatusTime < 3000 ? state.lastStatus : null),
   getLatest: () => store.latest,
   sendCapture,
+  onIqLimit: (amps) => dashboard?.setIqLimit?.(amps),
+  onMaxRpm: (rpm) => dashboard?.setMaxRpm?.(rpm),
 });
 
 const expertRoot = $("panel-expert");
@@ -354,6 +380,13 @@ wizard.onAfterRender = (step) => {
   if (step === "run") {
     if (dashEl.parentElement !== host) {
       host.appendChild(dashEl);
+    }
+    // chips 挂到卡片头右侧（与「控制台」同一行）
+    const chipHost = $("dash-chips-host");
+    const strip = dashboard.strip || dashEl.querySelector(".dash-chips");
+    if (chipHost && strip) {
+      chipHost.innerHTML = "";
+      chipHost.appendChild(strip);
     }
     dashboard.resizeGauges();
     dashboard.refresh();
@@ -887,7 +920,7 @@ $("btn-estop").addEventListener("click", async () => {
     } else {
       await consoleCtl.estop();
     }
-    terminal.appendText("[sys] E-STOP → disable\n", "err");
+    terminal.appendText(t("sys.estop_use"), "err");
   } catch (e) {
     terminal.appendText(`[sys] E-STOP failed: ${e.message || e}\n`, "err");
   }
@@ -988,13 +1021,9 @@ $("btn-scope-settings")?.addEventListener("click", () => {
 /* ---- 示波器控制浮窗：顶栏内联按钮 + 下拉面板（兼容旧悬浮拖拽） ---- */
 (() => {
   const fab = $("scope-fab");
-  const toggle = $("scope-fab-toggle");
   const panel = $("scope-fab-panel");
-  const closeBtn = $("scope-fab-close");
-  const drag = $("scope-fab-drag");
-  if (!fab || !toggle || !panel) return;
+  if (!panel) return;
 
-  const isInline = fab.classList.contains("scope-fab-inline") || !!document.querySelector("#scope-fab-panel.scope-ctrl-bar");
   const MODE_CMD = { vf: "vf", iq: "iq", vel: "vel", pos: "pos" };
   const TARGET_META = {
     vf: { label: "RPM", step: 10 },
@@ -1008,15 +1037,18 @@ $("btn-scope-settings")?.addEventListener("click", () => {
   const targetLabel = $("fab-target-label");
 
   const applyMeta = () => {
-    const m = modeSel?.value || "vel";
-    const meta = TARGET_META[m] || TARGET_META.vel;
+    const m = modeSel?.value || "vf";
+    const meta = TARGET_META[m] || TARGET_META.vf;
     if (targetLabel) targetLabel.textContent = meta.label;
-    if (target) target.step = String(meta.step);
+    if (target) {
+      target.step = String(meta.step);
+      target.setAttribute("aria-label", meta.label);
+    }
   };
   modeSel?.addEventListener("change", () => {
     applyMeta();
     const m = modeSel.value;
-    if (MODE_CMD[m]) consoleCtl.run(`mode ${MODE_CMD[m]}`).catch(() => {});
+    if (MODE_CMD[m]) consoleCtl.run(`mode ${MODE_CMD[m]}`).catch((e) => terminal.appendText(`${e.message || e}\n`, "err"));
   });
   fabSyncMode = (id) => {
     if (modeSel && MODE_CMD[id] && modeSel.value !== id) {
@@ -1027,9 +1059,13 @@ $("btn-scope-settings")?.addEventListener("click", () => {
   applyMeta();
 
   const setOpen = (open) => {
-    if (panel) panel.hidden = !open;
-    fab.classList.toggle("is-open", open);
+    if (!panel) return;
+    panel.hidden = !open;
+    fab?.classList.toggle("is-open", open);
   };
+
+  // 控制项常驻顶栏一行，不再单独收成下方控制条
+  setOpen(true);
 
   const send = (cmd) => consoleCtl.run(cmd).catch(() => {});
   $("fab-send")?.addEventListener("click", () => {
@@ -1040,76 +1076,12 @@ $("btn-scope-settings")?.addEventListener("click", () => {
   });
   $("fab-enable")?.addEventListener("click", () => send("enable"));
   $("fab-disable")?.addEventListener("click", () => send("disable"));
-  closeBtn?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    setOpen(false);
-  });
-  document.addEventListener("click", (e) => {
-    // 面板已移出 #scope-fab，点击按钮或横条内都不关闭
-    if (!fab.contains(e.target) && !panel.contains(e.target)) setOpen(false);
-  });
-
-  if (isInline) {
-    // 顶栏模式：点击展开/收起，不做悬浮拖拽
-    toggle.addEventListener("click", (e) => {
+  const closeBtn = $("scope-fab-close");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      setOpen(panel.hidden !== false);
+      setOpen(false);
     });
-    return;
-  }
-
-  // 拖拽：按钮本体 + 面板标题栏；移动 <4px 视为点击
-  let dragState = null;
-  const beginDrag = (e, handle) => {
-    const rect = fab.getBoundingClientRect();
-    dragState = {
-      dx: e.clientX - rect.left,
-      dy: e.clientY - rect.top,
-      x0: e.clientX,
-      y0: e.clientY,
-      moved: false,
-      handle,
-    };
-    handle.setPointerCapture?.(e.pointerId);
-    fab.classList.add("is-dragging");
-    e.preventDefault();
-    e.stopPropagation();
-  };
-  const moveDrag = (e) => {
-    if (!dragState) return;
-    const dist = Math.hypot(e.clientX - dragState.x0, e.clientY - dragState.y0);
-    if (!dragState.moved && dist < 4) return;
-    dragState.moved = true;
-    const parent = fab.offsetParent || document.body;
-    const pr = parent.getBoundingClientRect();
-    let x = e.clientX - pr.left - dragState.dx;
-    let y = e.clientY - pr.top - dragState.dy;
-    x = Math.max(0, Math.min(pr.width - 48, x));
-    y = Math.max(0, Math.min(pr.height - 48, y));
-    fab.style.left = `${x}px`;
-    fab.style.top = `${y}px`;
-    fab.style.right = "auto";
-  };
-  const endDrag = (e) => {
-    if (!dragState) return;
-    const wasClick = !dragState.moved;
-    dragState.handle?.releasePointerCapture?.(e?.pointerId);
-    dragState = null;
-    fab.classList.remove("is-dragging");
-    if (wasClick && e?.currentTarget === toggle) {
-      setOpen(panel?.hidden !== false);
-    }
-  };
-
-  toggle?.addEventListener("pointerdown", (e) => beginDrag(e, toggle));
-  drag?.addEventListener("pointerdown", (e) => {
-    if (e.target.closest("button")) return;
-    beginDrag(e, drag);
-  });
-  for (const h of [toggle, drag]) {
-    h?.addEventListener("pointermove", moveDrag);
-    h?.addEventListener("pointerup", endDrag);
-    h?.addEventListener("pointercancel", endDrag);
   }
 })();
 
@@ -1374,6 +1346,22 @@ function applyChannelPreset(key) {
   scope.invalidate();
   syncChannelMaskToDevice();
 }
+
+/** 通道列表：全开 / 全关（硬件单帧最多 16 路，超出由 mask 同步裁剪） */
+function setAllChannelsVisible(on) {
+  for (const ch of state.channels) ch.visible = !!on;
+  saveChannels(state.channels);
+  scope.setChannels(state.channels);
+  dashboard.setChannels(state.channels);
+  legend.setChannels(state.channels);
+  renderChannelList();
+  fillChannelSelects();
+  scope.invalidate();
+  syncChannelMaskToDevice();
+}
+
+$("btn-ch-all")?.addEventListener("click", () => setAllChannelsVisible(true));
+$("btn-ch-none")?.addEventListener("click", () => setAllChannelsVisible(false));
 
 document.querySelectorAll("[data-preset]").forEach((btn) => {
   btn.addEventListener("click", () => applyChannelPreset(btn.dataset.preset));
@@ -1659,14 +1647,25 @@ function showBootError(err) {
   }
 }
 
+function localizeFabModeOptions() {
+  const sel = $("fab-mode");
+  if (!sel) return;
+  const map = { vf: t("mode.vf.short"), iq: t("mode.iq.short"), vel: t("mode.vel.short"), pos: t("mode.pos.short") };
+  [...sel.options].forEach((o) => {
+    if (map[o.value]) o.textContent = map[o.value];
+  });
+}
+
 try {
   applyI18n();
+  localizeFabModeOptions();
   const langSel = $("lang-select");
   if (langSel) {
     langSel.value = getLang();
     langSel.addEventListener("change", () => {
       setLang(langSel.value);
       applyI18n();
+      localizeFabModeOptions();
       $("btn-pause").textContent = scope.paused ? t("resume") : t("pause");
       const tipEl = btnToggleSidebar?.querySelector(".toggle-tooltip");
       const isCollapsed = bodyEl?.classList.contains("nav-collapsed");

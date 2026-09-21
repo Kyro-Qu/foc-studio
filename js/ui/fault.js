@@ -4,7 +4,7 @@
  * 未知名只显示数字，不编造。
  */
 
-/** foc_types.h foc_fault_t */
+/** foc_types.h foc_fault_t — 英文技术名（终端/报告） */
 export const MOTOR_FAULTS = {
   0: "NONE",
   1: "CURRENT_SENSE",
@@ -20,6 +20,24 @@ export const MOTOR_FAULTS = {
   11: "UNDERVOLTAGE",
   12: "OVERVOLTAGE",
   13: "OVERTEMP",
+};
+
+/** 界面短名（中文）— chips/看板只显示这个 */
+export const MOTOR_FAULTS_ZH = {
+  0: "正常",
+  1: "电流采样失效",
+  2: "校准过流",
+  3: "运行过流",
+  4: "校准超时",
+  5: "校准状态异常",
+  6: "未校准",
+  7: "控制量异常",
+  8: "电机堵转",
+  9: "观测器失锁",
+  10: "参数非法",
+  11: "母线欠压",
+  12: "母线过压",
+  13: "过温",
 };
 
 /** current_shunt.h CURRENT_SHUNT_FAULT_* */
@@ -74,12 +92,30 @@ export function decodeFault(value) {
   return { code, motor, sense, motorName, senseName, ok: false };
 }
 
-export function faultText(value) {
+/** 界面短名：只中文，不带故障码（chips / 看板 / HUD） */
+export function faultTextUi(value) {
   const d = decodeFault(value);
-  if (d.ok) return "OK";
-  if (d.motor === 0 && d.sense === 0) return "OK";
+  if (d.ok || (d.motor === 0 && d.sense === 0)) return "OK";
   const parts = [];
-  if (d.motor !== 0) parts.push(d.motorName);
-  if (d.sense !== 0) parts.push(d.senseName);
-  return `${parts.join("+") || "FAULT"} (${d.code})`;
+  if (d.motor !== 0) parts.push(MOTOR_FAULTS_ZH[d.motor] || `故障${d.motor}`);
+  if (d.sense !== 0) parts.push(`采样${d.sense}`);
+  return parts.join("+") || "故障";
+}
+
+/** 终端/报告：码 + 英文 + 中文 */
+export function faultTextDetail(value) {
+  const d = decodeFault(value);
+  if (d.ok || (d.motor === 0 && d.sense === 0)) return "OK";
+  const zh = [];
+  if (d.motor !== 0) zh.push(MOTOR_FAULTS_ZH[d.motor] || `故障${d.motor}`);
+  if (d.sense !== 0) zh.push(`采样${d.sense}`);
+  const en = [];
+  if (d.motor !== 0) en.push(d.motorName);
+  if (d.sense !== 0) en.push(d.senseName);
+  return `${d.code} ${en.join("+")} (${zh.join("+")})`;
+}
+
+/** 兼容旧引用：终端/诊断用详细格式 */
+export function faultText(value) {
+  return faultTextDetail(value);
 }

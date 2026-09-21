@@ -4,7 +4,7 @@
  * 命令表与固件 foc_cmd.c 保持一致，不发明底层没有的命令。
  */
 
-import { getLang } from "../i18n.js";
+import { getLang, t } from "../i18n.js";
 
 const MAX_RAW_BYTES = 8192;
 const MAX_TEXT_CHARS = 200000;
@@ -46,10 +46,12 @@ const CLI_COMMANDS = [
   { cmd: "blackbox", fill: "blackbox", zh: "拉取跳闸黑匣子波形", en: "Dump fault blackbox waveform" },
   { cmd: "bench [...]", fill: "bench ", zh: "无感观测器台架测试", en: "Sensorless observer bench test" },
   { cmd: "deadtime [obs|volt]", fill: "deadtime ", zh: "死区补偿查询 / 设置", en: "Deadtime compensation get / set" },
-  { cmd: "conf read|write|erase", fill: "conf ", zh: "配置读取 / 固化 Flash / 擦除", en: "Config read / Flash write / erase" },
+  { cmd: "conf read|write|erase", fill: "conf ", zh: "配置读取 / 固化 Flash / 擦除", en: "Config read / Flash write / erase", danger: true },
   { cmd: "wave [0|1]", fill: "wave ", zh: "波形流开关", en: "Wave stream on / off" },
   { cmd: "log [0|1]", fill: "log ", zh: "FOC-STP 波形流开关（别名）", en: "FOC-STP wave stream (alias)" },
   { cmd: "telem [mask|rate|enable]", fill: "telem ", zh: "遥测掩码 / 频率 / 开关", en: "Telemetry mask / rate / enable" },
+  { cmd: "deadtime [obs|volt]", fill: "deadtime ", zh: "死区补偿查询 / 设置", en: "Deadtime compensation get / set" },
+  { cmd: "feedback [...]", fill: "feedback ", zh: "反馈模式：sensored/sensorless/auto", en: "Feedback: sensored/sensorless/auto", danger: true },
 ];
 
 export class Terminal {
@@ -88,6 +90,10 @@ export class Terminal {
     if (!line) return;
     if (this._lastKind && this._lastKind !== "tx") {
       this._appendSep();
+    }
+    const lastText = this.logEl.lastChild?.textContent || "";
+    if (lastText && !lastText.endsWith("\n")) {
+      this.appendText("\n", this._lastKind || "sys");
     }
     this.appendText(`> ${line}\n`, "tx");
   }
@@ -202,7 +208,7 @@ export class Terminal {
     this.suggestRoot.innerHTML = this.suggestList
       .map(
         (item, i) => `
-      <button type="button" class="term-suggest-item${i === this.suggestIdx ? " active" : ""}" data-idx="${i}" role="option">
+      <button type="button" class="term-suggest-item${i === this.suggestIdx ? " active" : ""}${item.danger ? " is-danger" : ""}" data-idx="${i}" role="option">
         <span class="term-suggest-cmd">${item.cmd}</span>
         <span class="term-suggest-desc">${item.desc}</span>
       </button>`
@@ -255,7 +261,7 @@ export class Terminal {
     if (!line) return;
     // 「/」只作提示前缀，不下发给固件
     if (line === "/" || line.startsWith("/")) {
-      this.appendText(`\n[sys] / 仅用于命令提示，回车前请去掉斜杠或点选命令\n`, "sys");
+      this.appendText(`\n[sys] ${t("term.slash_hint")}\n`, "sys");
       return;
     }
     if (this.history[this.history.length - 1] !== line) {

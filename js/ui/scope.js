@@ -5,6 +5,7 @@
 
 import { channelLabel } from "../channels.js";
 import { getLang } from "../i18n.js";
+import { faultTextUi, faultTextDetail } from "./fault.js";
 
 export class Scope {
   constructor(canvas, store, channels) {
@@ -472,7 +473,8 @@ export class Scope {
       const fCode = status.faultCode !== undefined ? status.faultCode : (status.motorFault || status.shuntFault);
       const hasFault = fCode !== 0;
       if (hasFault) {
-        faultEl.textContent = `FAULT ${fCode}`;
+        faultEl.textContent = faultTextUi(fCode);
+        faultEl.title = faultTextDetail(fCode);
         faultEl.className = "hud-fault-bad";
       } else {
         faultEl.textContent = "OK";

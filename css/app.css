@@ -406,6 +406,7 @@ nav {
   padding: 12px 10px;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: 2px;
 }
 
@@ -418,15 +419,22 @@ nav {
   border-radius: 8px;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 10px;
   font-weight: 500;
   white-space: nowrap;
+  width: 100%;
 }
 
 .nav-btn .ico {
   width: 18px;
   text-align: center;
   opacity: 0.9;
+  flex-shrink: 0;
+}
+
+.nav-btn > span:not(.ico) {
+  text-align: left;
 }
 
 .nav-btn:hover {
@@ -472,6 +480,14 @@ main {
   gap: 8px;
 }
 
+.panel-title.page-title {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 12px;
+}
+
 .panel-title .wf-ico {
   color: var(--accent);
   opacity: 0.9;
@@ -514,6 +530,14 @@ main {
 
 .wf-card-head .wf-section {
   margin: 0;
+}
+
+.wf-card-head .wf-card-actions {
+  margin-left: auto;
+}
+
+.term-card-head {
+  margin-bottom: 4px;
 }
 
 /* ===== 系统诊断 ===== */
@@ -890,6 +914,20 @@ main {
 }
 
 .tile-val-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tile-sub {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  word-break: break-all;
+}
+
+.tile-val {
   min-height: 20px;
   display: flex;
   align-items: center;
@@ -1673,6 +1711,46 @@ button.ghost:hover {
   display: none !important;
 }
 
+.scope-topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.scope-topbar-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.scope-topbar-ctrl[hidden] {
+  display: none !important;
+}
+
+.scope-topbar-ctrl .field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+}
+
+.scope-topbar-ctrl select,
+.scope-topbar-ctrl input[type="number"] {
+  height: 26px;
+  padding: 0 6px;
+  font-size: 12px;
+  font-family: var(--mono);
+}
+
+.scope-topbar-ctrl button.small {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
 #scope-fab-panel.scope-ctrl-bar .scope-drawer-inner,
 .scope-ctrl-bar .scope-drawer-inner {
   flex: 1 1 auto;
@@ -2064,6 +2142,10 @@ button.ghost:hover {
   color: var(--accent);
 }
 
+.term-suggest-item.is-danger .term-suggest-cmd {
+  color: var(--warn);
+}
+
 .term-suggest-cmd {
   font-family: var(--mono);
   font-weight: 600;
@@ -2102,11 +2184,22 @@ button.ghost:hover {
 }
 
 /* ===== Dashboard (in console) ===== */
+.dash-chips-host {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
 .dash-chips {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  margin-bottom: 0;
+  min-height: 0;
+}
+
+#dashboard > .dash-chips {
   margin-bottom: 12px;
   min-height: 40px;
 }

@@ -6,6 +6,8 @@
  * 3. 抗齿槽力矩 (Anti-cogging 144 点) 标定与分布可视化
  */
 
+import { t } from "../i18n.js";
+
 export class ExpertPanel {
   /**
    * @param {HTMLElement} root
@@ -29,14 +31,16 @@ export class ExpertPanel {
     // 1. 无感主控控制
     this.root.querySelector("#btn-sl-query")?.addEventListener("click", () => this.querySensorlessStatus());
     this.root.querySelector("#btn-sl-mode")?.addEventListener("click", async () => {
-      if (confirm("确认切换为主控纯无感模式 (I/F -> VESC)？")) {
+      if (confirm(t("expert.sl.confirm_mode"))) {
         await this.send("feedback sensorless");
         await this.querySensorlessStatus();
       }
     });
     this.root.querySelector("#btn-sl-auto")?.addEventListener("click", async () => {
-      await this.send("feedback auto");
-      await this.querySensorlessStatus();
+      if (confirm(t("expert.sl.confirm_auto"))) {
+        await this.send("feedback auto");
+        await this.querySensorlessStatus();
+      }
     });
 
     // 2. 黑匣子控制
