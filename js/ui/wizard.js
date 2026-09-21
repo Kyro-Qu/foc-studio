@@ -524,19 +524,40 @@ export class WorkflowWizard {
     }
   }
 
-  /** 应用：下发 limit + ident apply（固件无 pp/Rs 手写 CLI） */
+  /** 应用电机参数表单：向固件下发 max_rpm, pp, rs, ls, flux 等，并同步状态 */
   async _applyMotorParamsFromForm() {
     if (!this.isConnected()) {
       this._toast(t("sys.need_connect"), "err");
       return;
     }
-    const lim = Number(this.root.querySelector("#wf-limit2")?.value);
-    if (Number.isFinite(lim) && lim > 0) {
-      await this._cli(`limit ${lim}`);
-      this._syncCurrentLimit(lim);
-    }
+
     const rpmForm = Number(this.root.querySelector("#wf-maxrpm")?.value);
-    if (Number.isFinite(rpmForm) && rpmForm > 0) this._syncMaxRpm(rpmForm);
+    if (Number.isFinite(rpmForm) && rpmForm >= 100 && rpmForm <= 50000) {
+      await this._cli(`motor max_rpm ${Math.round(rpmForm)}`);
+      this._syncMaxRpm(rpmForm);
+    }
+
+    const ppForm = Number(this.root.querySelector("#wf-pp")?.value);
+    if (Number.isFinite(ppForm) && ppForm >= 1 && ppForm <= 50) {
+      await this._cli(`motor pp ${Math.round(ppForm)}`);
+    }
+
+    const rsForm = Number(this.root.querySelector("#wf-rs")?.value);
+    if (Number.isFinite(rsForm) && rsForm > 0.0001 && rsForm <= 100) {
+      await this._cli(`motor rs ${rsForm.toFixed(4)}`);
+    }
+
+    const lsForm = Number(this.root.querySelector("#wf-ls")?.value);
+    if (Number.isFinite(lsForm) && lsForm > 0.01 && lsForm <= 100000) {
+      await this._cli(`motor ls ${lsForm.toFixed(2)}`);
+    }
+
+    const fluxForm = Number(this.root.querySelector("#wf-flux")?.value);
+    if (Number.isFinite(fluxForm) && fluxForm > 0.00001 && fluxForm <= 1.0) {
+      await this._cli(`motor flux ${fluxForm.toFixed(5)}`);
+    }
+
+    // 依然触发 ident apply 兼容旧版辨识缓存更新
     await this._cli("ident apply");
     this._toast(t("wf.motor.apply_honest"), "ok");
   }
@@ -939,6 +960,15 @@ export class WorkflowWizard {
                 </div>
               </div>
             </div>
+            <div class="form-row">
+              ${formLbl("wf-hard-limit", "shield", t("wf.safety.hard_limit") || "硬件瞬时硬限")}
+              <div class="form-row-trail">
+                <div class="num-field">
+                  <input type="number" id="wf-hard-limit" step="0.1" value="12.0" readonly style="opacity:0.85;cursor:not-allowed;background:var(--bg-card-subtle, rgba(255,255,255,0.03));" title="驱动板硬件物理断电极限（单点不可逾越）" />
+                  <span class="num-unit">A</span>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="form-list">
             <div class="form-row">
@@ -1157,6 +1187,7 @@ export class WorkflowWizard {
           <div class="task-progress-bar"><i></i></div>
           <span class="task-progress-text"></span>
         </div>
+        <!-- 上部分：电机基本规格与铭牌 -->
         <div class="form-list-2col">
           <div class="form-list">
             <div class="form-row">
@@ -1167,10 +1198,29 @@ export class WorkflowWizard {
                 </div>
               </div>
             </div>
+            ${row("wf-v-rated", t("wf.motor.v_rated") || "额定电压", "V", "0.1", "14.8", "battHigh")}
+            ${row("wf-i-rated", t("wf.motor.i_rated") || "额定电流", "A", "0.1", "3.5", "alert")}
+          </div>
+          <div class="form-list">
+            ${row("wf-kv", t("wf.motor.kv") || "电机 KV 值", "rpm/V", "1", "960", "gauge")}
             ${row("wf-pp", t("wf.motor.pp") || "极对数", "", "1", "7", "poles")}
+            ${row("wf-maxrpm", t("wf.motor.maxrpm") || "最大转速", "rpm", "1", "8000", "gauge")}
+          </div>
+        </div>
+
+        <!-- 分割线：阻抗与辨识隔离 -->
+        <div class="wf-param-divider" style="display:flex;align-items:center;gap:12px;margin:16px 0 12px;opacity:0.85;">
+          <span style="flex:1;height:1px;background:var(--border-subtle, rgba(255,255,255,0.12));"></span>
+          <span style="font-size:11px;font-weight:700;letter-spacing:0.5px;color:var(--text-muted, #9aa0a6);text-transform:uppercase;">⚡ ${t("wf.motor.ident_group_title") || "电气阻抗与测量辨识特性"}</span>
+          <span style="flex:1;height:1px;background:var(--border-subtle, rgba(255,255,255,0.12));"></span>
+        </div>
+
+        <!-- 下部分：高阶电气阻抗与辨识 -->
+        <div class="form-list-2col">
+          <div class="form-list">
             ${row("wf-rs", t("wf.motor.rs") || "相电阻", "Ω", "0.0001", "0.1", "resistor")}
             ${row("wf-ls", t("wf.motor.ls") || "相电感", "µH", "0.01", "20", "inductor")}
-            ${row("wf-maxrpm", t("wf.motor.maxrpm") || "最大转速", "rpm", "1", "12000", "gauge")}
+            ${row("wf-flux", t("wf.motor.flux") || "磁链", "Wb", "0.00001", "", "flux")}
           </div>
           <div class="form-list">
             ${row("wf-ld", t("wf.motor.ld") || "d 轴电感", "µH", "0.01", "", "inductor")}
@@ -1184,8 +1234,6 @@ export class WorkflowWizard {
                 </div>
               </div>
             </div>
-            ${row("wf-flux", t("wf.motor.flux") || "磁链", "Wb", "0.0001", "", "flux")}
-            ${row("wf-limit2", t("wf.safety.limit"), "A", "0.1", "5.2", "alert")}
           </div>
         </div>
       </section>`;
@@ -1314,6 +1362,16 @@ export class WorkflowWizard {
     if (ld) set("wf-ld", ld, 2);
     if (lq) set("wf-lq", lq, 2);
     if (flux) set("wf-flux", flux, 5);
+
+    // 自动反算并回填 KV 值：Kv = 60 / (sqrt(3) * 2 * pi * pp * flux)
+    const curFlux = Number(this.root.querySelector("#wf-flux")?.value);
+    const curPp = Number(this.root.querySelector("#wf-pp")?.value);
+    if (Number.isFinite(curFlux) && curFlux > 0.00001 && Number.isFinite(curPp) && curPp >= 1) {
+      const calcKv = 60.0 / (Math.sqrt(3) * 2 * Math.PI * curPp * curFlux);
+      if (Number.isFinite(calcKv) && calcKv > 10 && calcKv < 20000) {
+        set("wf-kv", Math.round(calcKv));
+      }
+    }
 
     // 兜底补齐：若测得综合相电感 Ls，但未测双轴凸极电感时，自动用 Ls 填入 Ld/Lq
     const curLs = this.root.querySelector("#wf-ls")?.value;
@@ -1940,6 +1998,41 @@ export class WorkflowWizard {
       this.root.querySelector(`#${id}`)?.addEventListener("input", () => this._updateSaliencyRatio());
     });
 
+    // 监听 KV 与磁链 Flux 双向联动计算
+    const ppEl = this.root.querySelector("#wf-pp");
+    const kvEl = this.root.querySelector("#wf-kv");
+    const fluxEl = this.root.querySelector("#wf-flux");
+
+    const calcFluxFromKv = () => {
+      const pp = Number(ppEl?.value) || 7;
+      const kv = Number(kvEl?.value);
+      if (Number.isFinite(kv) && kv >= 10 && pp >= 1) {
+        const flux = 60.0 / (Math.sqrt(3) * 2 * Math.PI * pp * kv);
+        if (fluxEl && document.activeElement === kvEl) {
+          fluxEl.value = flux.toFixed(5);
+        }
+      }
+    };
+
+    const calcKvFromFlux = () => {
+      const pp = Number(ppEl?.value) || 7;
+      const flux = Number(fluxEl?.value);
+      if (Number.isFinite(flux) && flux > 0.00001 && pp >= 1) {
+        const kv = 60.0 / (Math.sqrt(3) * 2 * Math.PI * pp * flux);
+        if (kvEl && document.activeElement === fluxEl) {
+          kvEl.value = String(Math.round(kv));
+        }
+      }
+    };
+
+    kvEl?.addEventListener("input", calcFluxFromKv);
+    fluxEl?.addEventListener("input", calcKvFromFlux);
+    ppEl?.addEventListener("input", () => {
+      if (document.activeElement === ppEl) {
+        calcFluxFromKv();
+      }
+    });
+
     // 监听电流软限输入变化，实时联动计算过流跳闸 trip = clamp(limit * 1.25 + 0.1, limit, hard_limit)
     const limitInput = this.root.querySelector("#wf-limit");
     const tripInput = this.root.querySelector("#wf-trip");
@@ -2203,6 +2296,9 @@ export class WorkflowWizard {
     const data = {
       motor_name: name,
       exported_at: new Date().toISOString(),
+      rated_voltage_v: Number(getVal("wf-v-rated")) || 14.8,
+      rated_current_a: Number(getVal("wf-i-rated")) || 3.5,
+      kv_rpm_v: Number(getVal("wf-kv")) || 960,
       pole_pairs: Number(getVal("wf-pp")) || 7,
       rs_ohm: Number(getVal("wf-rs")) || 0,
       ls_uh: Number(getVal("wf-ls")) || 0,
@@ -2211,7 +2307,7 @@ export class WorkflowWizard {
       saliency_ratio: Number(getVal("wf-saliency")) || 1.0,
       flux_linkage_wb: Number(getVal("wf-flux")) || 0,
       max_rpm: Number(getVal("wf-maxrpm")) || 12000,
-      current_limit_a: Number(getVal("wf-limit2")) || 5.2,
+      current_limit_a: Number(getVal("wf-limit")) || 5.2,
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -2238,6 +2334,9 @@ export class WorkflowWizard {
           if (el && val !== undefined && val !== null) el.value = String(val);
         };
         if (d.motor_name) setVal("wf-motor-name", d.motor_name);
+        if (d.rated_voltage_v !== undefined) setVal("wf-v-rated", Number(d.rated_voltage_v).toFixed(1));
+        if (d.rated_current_a !== undefined) setVal("wf-i-rated", Number(d.rated_current_a).toFixed(1));
+        if (d.kv_rpm_v !== undefined) setVal("wf-kv", Math.round(Number(d.kv_rpm_v)));
         if (d.pole_pairs !== undefined) setVal("wf-pp", d.pole_pairs);
         if (d.rs_ohm !== undefined) setVal("wf-rs", Number(d.rs_ohm).toFixed(4));
         if (d.ls_uh !== undefined) setVal("wf-ls", Number(d.ls_uh).toFixed(2));
@@ -2245,7 +2344,11 @@ export class WorkflowWizard {
         if (d.lq_uh !== undefined) setVal("wf-lq", Number(d.lq_uh).toFixed(2));
         if (d.flux_linkage_wb !== undefined) setVal("wf-flux", Number(d.flux_linkage_wb).toFixed(5));
         if (d.max_rpm !== undefined) setVal("wf-maxrpm", d.max_rpm);
-        if (d.current_limit_a !== undefined) setVal("wf-limit2", Number(d.current_limit_a).toFixed(2));
+        if (d.current_limit_a !== undefined) {
+          const lim = Number(d.current_limit_a);
+          setVal("wf-limit", lim.toFixed(1));
+          this._syncCurrentLimit(lim);
+        }
 
         this._updateSaliencyRatio();
         this._toast(t("wf.motor.import_done"), "ok");
