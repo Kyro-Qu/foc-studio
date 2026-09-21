@@ -508,10 +508,13 @@
                 <button id="btn-term-clear" class="ghost small" data-i18n="clear">清屏</button>
               </div>
               <div id="term-log"></div>
-              <div class="term-input-row">
-                <input id="term-input" type="text" list="term-history" placeholder="help / status / target 500 / log 1 …" spellcheck="false" />
-                <datalist id="term-history"></datalist>
-                <button id="term-send" data-i18n="send">发送</button>
+              <div class="term-input-wrap">
+                <div id="term-suggest" class="term-suggest" hidden role="listbox" aria-label="CLI commands"></div>
+                <div class="term-input-row">
+                  <input id="term-input" type="text" list="term-history" data-i18n-ph="term.input_ph" placeholder="输入命令，或键入 / 查看提示…" spellcheck="false" autocomplete="off" />
+                  <datalist id="term-history"></datalist>
+                  <button id="term-send" data-i18n="send">发送</button>
+                </div>
               </div>
               <div id="term-raw" hidden></div>
             </div>
@@ -530,6 +533,6 @@
       </footer>
     </div>
 
-    <script type="module" src="js/main.js?v=0.5.29"></script>
+    <script type="module" src="js/main.js?v=0.5.30"></script>
   </body>
 </html>

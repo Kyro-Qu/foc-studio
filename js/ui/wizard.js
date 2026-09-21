@@ -1672,7 +1672,8 @@ export class WorkflowWizard {
       if (this.sendCapture) {
         try {
           const txt = await this.sendCapture("pos", 350);
-          const m = txt.match(/pos=([0-9.+-]+)/);
+          // 兼容新固件 "M0 pos: abs=1.2345rad ..." 与旧格式 "pos=1.2345"
+          const m = txt.match(/abs=([0-9.+-]+)rad/) || txt.match(/pos=([0-9.+-]+)/);
           if (m && m[1]) {
             const zInput = this.root.querySelector("#wf-abs-zero-val");
             if (zInput) zInput.value = Number(m[1]).toFixed(3);

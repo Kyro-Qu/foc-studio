@@ -219,6 +219,7 @@ const consoleCtl = new ControlConsole({
 });
 
 const terminal = new Terminal($("term-log"), $("term-input"), $("term-send"), {
+  suggestEl: $("term-suggest"),
   onSend: async (line) => {
     await consoleCtl.run(line);
   },

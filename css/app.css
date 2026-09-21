@@ -1989,6 +1989,10 @@ button.ghost:hover {
 .term-err { color: var(--err); }
 .term-sys { color: var(--text-dim); }
 
+.term-input-wrap {
+  position: relative;
+}
+
 .term-input-row {
   display: flex;
   gap: 8px;
@@ -1997,6 +2001,72 @@ button.ghost:hover {
 #term-input {
   flex: 1;
   font-family: var(--mono);
+}
+
+/* `/` 命令提示：左命令、右中文说明 */
+.term-suggest {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 40;
+  max-height: 280px;
+  overflow: auto;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.term-suggest[hidden] {
+  display: none;
+}
+
+.term-suggest-item {
+  display: grid;
+  grid-template-columns: minmax(140px, 42%) 1fr;
+  gap: 12px;
+  align-items: baseline;
+  width: 100%;
+  margin: 0;
+  padding: 7px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.term-suggest-item:hover,
+.term-suggest-item.active {
+  background: var(--accent-soft);
+}
+
+.term-suggest-item.active .term-suggest-cmd {
+  color: var(--accent);
+}
+
+.term-suggest-cmd {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.term-suggest-desc {
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #term-raw {
