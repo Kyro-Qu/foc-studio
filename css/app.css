@@ -731,19 +731,41 @@ main {
 }
 
 .form-lbl {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 0 1 auto;
+  justify-content: space-between;
+  flex: 1;
   min-width: 0;
   color: var(--text-dim);
   font-size: 13px;
+  user-select: none;
 }
 
-.form-lbl .wf-ico {
+.form-lbl .lbl-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 120px;
+  flex: 0 0 120px;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.form-lbl .lbl-name .wf-ico {
   color: var(--accent);
   opacity: 0.72;
   flex-shrink: 0;
+}
+
+.form-lbl .lbl-meta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+  margin: 0 8px;
 }
 
 .form-row label.form-lbl {
@@ -1431,8 +1453,9 @@ button.ghost:hover {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 11px 14px;
-  min-height: 44px;
+  padding: 8px 14px;
+  min-height: 48px;
+  flex-wrap: nowrap;
 }
 
 .form-row + .form-row {
@@ -2686,6 +2709,949 @@ button.ghost:hover {
   font-weight: 600;
   color: var(--text);
 }
+
+/* ==========================================================================
+   电机参数视觉编码体系 (Identifiable / Measured Motor Parameters)
+   ========================================================================== */
+
+/* 0. 严格均匀行间距规范 */
+.form-row.is-group-end {
+  margin-bottom: 0;
+}
+
+/* 1. 来源感知按钮 (手动 / 辨识 / 读取) - 呼应右侧数字框尺寸 (高32px，圆角8px)，字体饱满清晰 */
+.ident-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 96px;
+  height: 32px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--mono);
+  letter-spacing: 0.3px;
+  border-radius: 8px;
+  line-height: 1;
+  user-select: none;
+  transition: all 0.2s ease;
+  vertical-align: middle;
+  cursor: pointer;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.lbl-meta .ident-badge {
+  margin-left: 0;
+}
+
+/* 手填 (Manual) - 灰蓝色调 */
+.ident-badge.badge-manual {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+.ident-badge.badge-manual:hover {
+  background: rgba(148, 163, 184, 0.22);
+  border-color: rgba(148, 163, 184, 0.65);
+  box-shadow: 0 0 8px rgba(148, 163, 184, 0.3);
+}
+
+/* 固定手填静态标签 (无需交互/无弹窗，保持几何对齐但无小手指针与悬浮发光) */
+.ident-badge.is-static {
+  cursor: default;
+  opacity: 0.85;
+}
+.ident-badge.is-static:hover {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.35);
+  box-shadow: none;
+  transform: none;
+}
+
+/* 辨识 (Identified / Auto / Calculated) - 经典青绿色调 */
+.ident-badge.badge-identified {
+  color: #5eead4; /* Cyber Cyan / Teal */
+  background: rgba(94, 234, 212, 0.12);
+  border: 1px solid rgba(94, 234, 212, 0.35);
+}
+.ident-badge.badge-identified:hover {
+  background: rgba(94, 234, 212, 0.22);
+  border-color: rgba(94, 234, 212, 0.65);
+  box-shadow: 0 0 8px rgba(94, 234, 212, 0.35);
+}
+
+/* 读取 (Active / From MCU RAM/Flash) - 明亮科技蓝 */
+.ident-badge.badge-active {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+}
+.ident-badge.badge-active:hover {
+  background: rgba(96, 165, 250, 0.22);
+  border-color: rgba(96, 165, 250, 0.65);
+  box-shadow: 0 0 8px rgba(96, 165, 250, 0.35);
+}
+
+/* 2. 具备辨识属性的输入框科技风格 */
+.num-field.ident-field {
+  border-color: rgba(94, 234, 212, 0.28);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease, transform 0.3s ease;
+}
+
+/* 只读锁定状态 (系统辨识实测保护态) */
+.num-field.is-locked {
+  background: rgba(10, 15, 26, 0.65);
+  border: 1px dashed rgba(94, 234, 212, 0.3);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.num-field.is-locked input[readonly] {
+  cursor: pointer;
+  color: #5eead4;
+  font-weight: 500;
+  user-select: none;
+  pointer-events: none; /* 让点击穿透触发外层容器的呼出事件 */
+}
+
+.num-field.is-locked:hover {
+  border-color: rgba(94, 234, 212, 0.6);
+  background: rgba(15, 23, 42, 0.85);
+  box-shadow: 0 0 10px rgba(94, 234, 212, 0.25);
+}
+
+.num-field.ident-field:focus-within:not(.is-locked) {
+  border-color: #5eead4;
+  box-shadow: 0 0 0 2px rgba(94, 234, 212, 0.25);
+}
+
+/* 电机参数行数据流向布局 (Label -> Read -> Triangle -> Badge -> Candidate Input) */
+.form-row .form-lbl {
+  flex: 0 0 auto;
+}
+
+.form-row .form-lbl .lbl-name {
+  width: 98px;
+  flex: 0 0 98px;
+  gap: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.param-row-flow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+/* 1. 读取块 (MCU 硬件运行值) - 优化 124px 宽度容纳 4 位精细小数与物理单位，向左舒展 */
+.param-read-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 124px;
+  flex: 0 0 124px;
+  height: 32px;
+  padding: 0 7px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 6px;
+  user-select: none;
+  font-size: 11px;
+  box-sizing: border-box;
+  overflow: hidden;
+  transition: all 0.18s ease;
+}
+
+.param-read-pill .read-icon {
+  color: #38bdf8;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.param-read-pill .read-tag {
+  color: var(--text-faint);
+  font-size: 10.5px;
+  flex-shrink: 0;
+}
+
+.param-read-pill .read-val {
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: auto;
+}
+
+.param-read-pill .read-unit {
+  color: var(--text-faint);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  flex-shrink: 0;
+  margin-left: 2px;
+  opacity: 0.85;
+}
+
+.param-read-pill.has-data {
+  border-color: rgba(56, 189, 248, 0.38);
+  background: rgba(56, 189, 248, 0.08);
+  cursor: pointer;
+}
+
+.param-read-pill.has-data .read-val {
+  color: #38bdf8;
+}
+
+.param-read-pill.has-data .read-unit {
+  color: rgba(56, 189, 248, 0.75);
+}
+
+.param-read-pill.has-data:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.25);
+}
+
+.param-read-pill.no-data {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* 硬件读取值更新动效 (点击【读取参数】时触发高亮) */
+@keyframes read-pill-bloom {
+  0% {
+    transform: scale(1.03);
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.85);
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.28);
+  }
+  35% {
+    transform: scale(1.02);
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.95);
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.22);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: none;
+  }
+}
+
+.param-read-pill.read-bloom {
+  animation: read-pill-bloom 1.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.param-read-pill.read-bloom .read-val {
+  color: #ffffff !important;
+  text-shadow: 0 0 8px #38bdf8;
+}
+
+.param-read-pill.read-bloom .read-unit {
+  color: #ffffff !important;
+  text-shadow: 0 0 8px #38bdf8;
+}
+
+.param-read-pill.read-bloom .read-icon {
+  color: #ffffff !important;
+  transform: rotate(360deg);
+  transition: transform 0.6s ease;
+}
+
+/* 2. 中间三角形引用按钮 (读取 => 手填) - 科技青蓝微光流动，保持两边充足间距 */
+.btn-import-read {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 32px;
+  flex: 0 0 24px;
+  margin: 0 8px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  background: rgba(56, 189, 248, 0.06);
+  color: #38bdf8;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.btn-import-read:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.24);
+  border-color: #38bdf8;
+  color: #ffffff;
+  transform: translateX(1.5px);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+}
+
+.btn-import-read:active:not(:disabled) {
+  transform: translateX(2.5px) scale(0.95);
+}
+
+.btn-import-read:disabled,
+.btn-import-read.is-disabled {
+  opacity: 0.18;
+  cursor: not-allowed;
+  border-color: rgba(148, 163, 184, 0.12);
+  background: transparent;
+  color: var(--text-faint);
+}
+
+/* 3. 来源状态徽章容器 */
+.param-src-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.param-src-meta .ident-badge {
+  min-width: 78px;
+  width: 78px;
+  height: 32px;
+  padding: 0 6px;
+  font-size: 12px;
+  border-radius: 6px;
+  text-align: center;
+  justify-content: center;
+}
+
+.param-src-meta .diff-badge {
+  height: 32px;
+  padding: 0 8px;
+  font-size: 11px;
+  border-radius: 6px;
+}
+
+/* 4. 最终生效的应用输入框 */
+.param-row-flow .num-field {
+  width: 104px;
+  flex: 0 0 104px;
+  height: 32px;
+}
+
+.param-row-flow .num-field input {
+  height: 30px;
+  font-size: 12px;
+}
+
+/* 输入框瞬时高亮成功动效 */
+@keyframes input-flash {
+  0% { box-shadow: 0 0 0 2px #10b981; border-color: #10b981; }
+  100% { box-shadow: none; }
+}
+
+.input-flash-success {
+  animation: input-flash 0.8s ease-out;
+}
+
+/* 3. 测量中动态扫描动画 (In-progress Wave / Breath Pulse) */
+@keyframes ident-scan-pulse {
+  0% {
+    border-color: rgba(94, 234, 212, 0.3);
+    box-shadow: 0 0 4px rgba(94, 234, 212, 0.15);
+    background: rgba(94, 234, 212, 0.02);
+  }
+  50% {
+    border-color: #5eead4;
+    box-shadow: 0 0 14px rgba(94, 234, 212, 0.45);
+    background: rgba(94, 234, 212, 0.08);
+  }
+  100% {
+    border-color: rgba(94, 234, 212, 0.3);
+    box-shadow: 0 0 4px rgba(94, 234, 212, 0.15);
+    background: rgba(94, 234, 212, 0.02);
+  }
+}
+
+.num-field.ident-field.is-identifying {
+  animation: ident-scan-pulse 1.5s ease-in-out infinite;
+}
+
+.is-ident-row.is-identifying .ident-badge {
+  background: rgba(94, 234, 212, 0.3);
+  box-shadow: 0 0 10px rgba(94, 234, 212, 0.7);
+  animation: ident-scan-pulse 1.5s ease-in-out infinite;
+}
+
+/* 4. 测得瞬间 Glow Bloom 辉光脉冲与数字轻弹 */
+@keyframes ident-glow-bloom {
+  0% {
+    transform: translateY(0) scale(1);
+    border-color: #5eead4;
+    box-shadow: 0 0 20px rgba(94, 234, 212, 0.85), inset 0 0 8px rgba(94, 234, 212, 0.35);
+    background: rgba(94, 234, 212, 0.18);
+  }
+  30% {
+    transform: translateY(-2px) scale(1.01);
+    border-color: #5eead4;
+    box-shadow: 0 0 24px rgba(94, 234, 212, 0.95), inset 0 0 12px rgba(94, 234, 212, 0.5);
+    background: rgba(94, 234, 212, 0.22);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    border-color: rgba(94, 234, 212, 0.28);
+    box-shadow: none;
+    background: transparent;
+  }
+}
+
+@keyframes ident-badge-bloom {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 12px rgba(94, 234, 212, 0.9);
+  }
+  35% {
+    transform: scale(1.18);
+    box-shadow: 0 0 18px rgba(94, 234, 212, 1);
+    background: rgba(94, 234, 212, 0.4);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: none;
+  }
+}
+
+.num-field.ident-field.ident-bloom {
+  animation: ident-glow-bloom 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.ident-badge.ident-bloom {
+  animation: ident-badge-bloom 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 4. 辨识动作组合按钮 (Split Button) 与模式下拉菜单 */
+.split-btn-group {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  vertical-align: middle;
+}
+.split-btn-group > button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
+}
+.split-btn-group > .split-toggle {
+  padding: 0 9px;
+  min-width: 26px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.split-btn-group > .split-toggle:hover {
+  background: rgba(239, 68, 68, 0.28);
+}
+.split-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 320px;
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.7), 0 6px 12px -2px rgba(0, 0, 0, 0.5);
+  padding: 6px;
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.split-dropdown-menu[hidden] {
+  display: none !important;
+}
+.split-dropdown-menu .menu-item {
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  text-align: left;
+}
+.split-dropdown-menu .menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.split-dropdown-menu .menu-item:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+.split-dropdown-menu .item-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.split-dropdown-menu .item-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 3px;
+  line-height: 1.35;
+}
+
+/* ==========================================================================
+   5. 电机参数管理工业级重构：分歧提示、状态胶囊、批量采纳条与 Popover 溯源卡
+   ========================================================================== */
+
+/* 5.1 参数差异标签 (Diff Badges) - 呼应 32px 高度与 8px 圆角 */
+.diff-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--mono);
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  vertical-align: middle;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.lbl-meta .diff-badge {
+  margin-left: 0;
+}
+
+.diff-badge.diff-warn {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.diff-badge.diff-warn:hover {
+  background: rgba(245, 158, 11, 0.22);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.35);
+}
+
+.diff-badge.diff-critical {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  animation: pulse-danger 1.8s infinite;
+}
+
+.diff-badge.diff-critical:hover {
+  background: rgba(239, 68, 68, 0.25);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+@keyframes pulse-danger {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* 5.2 全局状态指示胶囊 (Global Readiness & Sync Capsule) */
+.param-top-status,
+.param-bottom-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-top: 14px;
+  margin-bottom: 0;
+  font-size: 12px;
+  gap: 12px;
+}
+
+.param-status-capsules {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.status-capsule {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 11px;
+  border: 1px solid transparent;
+}
+
+.status-capsule.cap-ok {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.status-capsule.cap-warn {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.status-capsule.cap-err {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.status-capsule.cap-dirty {
+  background: rgba(217, 119, 6, 0.15);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.status-capsule.cap-clean {
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+/* 5.3 辨识完成批量采纳横条 (Batch Adoption Bar) */
+.batch-adopt-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.15), rgba(56, 189, 248, 0.15));
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  animation: slide-down 0.3s ease-out;
+}
+
+.batch-adopt-bar.has-conflict {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.15), rgba(239, 68, 68, 0.12));
+}
+
+.batch-adopt-bar[hidden] {
+  display: none !important;
+}
+
+.adopt-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.adopt-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 5.4 Popover 参数来源溯源卡 (Provenance Card) */
+.provenance-popover {
+  position: absolute;
+  z-index: 1050;
+  width: 260px;
+  background: #131926;
+  border: 1px solid rgba(77, 163, 255, 0.3);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 16px rgba(56, 189, 248, 0.15);
+  padding: 10px 12px;
+  font-size: 12px;
+  backdrop-filter: blur(12px);
+  animation: popover-fade-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popover-fade-in {
+  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+}
+
+.popover-title {
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.popover-close {
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.popover-close:hover {
+  color: var(--text);
+}
+
+.popover-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+}
+
+.popover-table tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.popover-table tr:last-child {
+  border-bottom: none;
+}
+
+.popover-table td {
+  padding: 6px 4px;
+  vertical-align: middle;
+}
+
+.popover-table .source-name {
+  color: var(--text-dim);
+  font-size: 11px;
+  width: 62px;
+  white-space: nowrap;
+}
+
+.popover-table .source-val {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 0 4px;
+}
+
+.popover-table .source-act {
+  text-align: right;
+  width: 56px;
+  white-space: nowrap;
+}
+
+.popover-input-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.popover-manual-input {
+  width: 80px;
+  height: 22px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 0 5px;
+  text-align: right;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.popover-manual-input:focus {
+  outline: none;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.popover-unit {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: var(--mono);
+}
+
+.source-val-text {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.source-in-use {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #5eead4;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.popover-table .btn-adopt {
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.popover-table .btn-adopt:hover {
+  background: rgba(56, 189, 248, 0.3);
+  border-color: #38bdf8;
+}
+
+.popover-table tr.is-active-row {
+  background: rgba(94, 234, 212, 0.08);
+}
+
+.popover-table tr.is-active-row .source-name {
+  color: #5eead4;
+  font-weight: 600;
+}
+
+.popover-formula {
+  background: rgba(0, 0, 0, 0.25);
+  border-left: 3px solid var(--accent);
+  padding: 6px 8px;
+  border-radius: 0 4px 4px 0;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.popover-formula code {
+  font-family: var(--mono);
+  color: #38bdf8;
+}
+
+.popover-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-remeasure {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  cursor: pointer;
+}
+
+.btn-remeasure:hover {
+  background: rgba(245, 158, 11, 0.25);
+}
+
+/* 5.5 极对数人工确认对话框 */
+.pp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: popover-fade-in 0.2s ease;
+}
+
+.pp-modal-content {
+  background: #1e293b;
+  border: 1px solid #ef4444;
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 24px rgba(239, 68, 68, 0.3);
+  padding: 20px;
+  width: 90%;
+  max-width: 440px;
+}
+
+.pp-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #ef4444;
+  margin-bottom: 12px;
+}
+
+.pp-modal-body {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-bottom: 18px;
+}
+
+.pp-modal-options {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.pp-option-card {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.pp-option-card:hover {
+  border-color: var(--accent);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.pp-option-card.selected {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.16);
+}
+
+.pp-option-val {
+  font-size: 22px;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: var(--text);
+  margin-top: 4px;
+}
+
+.pp-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+
 
 .dash-mode-row .dash-mode-select {
   width: auto;

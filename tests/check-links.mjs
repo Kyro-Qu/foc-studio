@@ -19,7 +19,8 @@ for (const f of files) {
   const re = /from\s+['"](\.[^'"]+)['"]/g;
   let m;
   while ((m = re.exec(src))) {
-    const target = path.resolve(path.dirname(f), m[1]);
+    const cleanTarget = m[1].split("?")[0].split("#")[0];
+    const target = path.resolve(path.dirname(f), cleanTarget);
     if (!fs.existsSync(target)) {
       console.log("MISSING", m[1], "in", path.relative(root, f));
       bad++;

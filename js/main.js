@@ -9,7 +9,7 @@ import { Scope } from "./ui/scope.js";
 import { Dashboard } from "./ui/dashboard.js";
 import { Terminal } from "./ui/terminal.js";
 import { ControlConsole, PRESET_COMMANDS, MODES, IDENT_COMMANDS, FEEDBACK_COMMANDS, MODE_CONTROLS } from "./ui/console.js";
-import { WorkflowWizard } from "./ui/wizard.js?v=0.5.54";
+import { WorkflowWizard } from "./ui/wizard.js";
 import { MathChannels, MATH_OPS } from "./ui/math.js";
 import { TriggerEngine, TriggerMode } from "./ui/trigger.js";
 import { ScopeLegend } from "./ui/legend.js";
@@ -363,6 +363,7 @@ const wizard = new WorkflowWizard($("panel-wf"), {
   onIqLimit: (amps) => dashboard?.setIqLimit?.(amps),
   onMaxRpm: (rpm) => dashboard?.setMaxRpm?.(rpm),
 });
+window.__focWizard = wizard;
 
 const expertRoot = $("panel-expert");
 if (expertRoot) {

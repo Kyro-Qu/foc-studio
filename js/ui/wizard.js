@@ -3,8 +3,10 @@
  * 每步发既有 CLI；无固件命令时给出说明并禁用或标为「待固件」。
  */
 
-import { t } from "../i18n.js";
+import { t, getLang } from "../i18n.js";
 import { OBS_COMMANDS } from "./console.js";
+import { MotorParamManager } from "../data/motor-param-manager.js";
+import { MOTOR_SCHEMA } from "../data/motor-schema.js";
 
 /** 工作流页面通用线性图标（16x16 viewBox） */
 const ICO_PATHS = {
@@ -48,8 +50,23 @@ function sectionHead(icon, title) {
   return `<h4 class="wf-section">${wfIco(icon, 15)}<span>${title}</span></h4>`;
 }
 
-function formLbl(forId, icon, text) {
-  return `<label class="form-lbl"${forId ? ` for="${forId}"` : ""}>${wfIco(icon, 13)}<span>${text}</span></label>`;
+function formLbl(forId, icon, text, badge = null, diff = null, paramKey = null, badgeClass = "", isFixed = false) {
+  let diffHtml = "";
+  if (diff && diff.status === "warning") {
+    diffHtml = `<span class="diff-badge diff-warn" data-param-key="${paramKey || ""}" title="${diff.message}">⚠ DIFF</span>`;
+  } else if (diff && diff.status === "critical") {
+    diffHtml = `<span class="diff-badge diff-critical" data-param-key="${paramKey || ""}" title="${diff.message}">⛔ 冲突</span>`;
+  }
+  const staticClass = isFixed ? " is-static" : "";
+  const cls = (badgeClass ? `ident-badge ${badgeClass}` : "ident-badge") + staticClass;
+  const titleAttr = isFixed ? 'title="固定手填参数 (无需弹窗)"' : 'title="查看参数来源与推导"';
+  const dataStaticAttr = isFixed ? ' data-static="1"' : "";
+  const badgeHtml = badge ? `<span class="${cls}" data-param-key="${paramKey || ""}"${dataStaticAttr} ${titleAttr}>${badge}</span>` : "";
+  const metaHtml = (badgeHtml || diffHtml) ? `<span class="lbl-meta">${badgeHtml}${diffHtml}</span>` : "";
+  return `<label class="form-lbl"${forId ? ` for="${forId}"` : ""}>` +
+    `<span class="lbl-name">${wfIco(icon, 13)}<span class="lbl-text">${text}</span></span>` +
+    metaHtml +
+  `</label>`;
 }
 
 const STEPS = [
@@ -172,7 +189,7 @@ export function parseBoardAndStatus(text) {
   // 故障码
   const faultRaw = pick(/fault=([0-9]+)/);
   const faultCode = faultRaw !== "—" ? parseInt(faultRaw, 10) : 0;
-  const faultName = FAULT_NAMES_ZH[faultCode] || `故障 ${faultCode}`;
+  const faultName = FAULT_NAMES[faultCode] || `FAULT_${faultCode} (故障 ${faultCode})`;
   const faultDetail = FAULT_NAMES[faultCode] || `FAULT_${faultCode} (故障 ${faultCode})`;
 
   // 状态机与模式
@@ -480,6 +497,8 @@ export class WorkflowWizard {
     this._lastMaxRpm = null;
     /** @type {Record<string, string>} 调参基准值，用于脏状态感知 */
     this.pidBaseline = {};
+    /** 电机参数工业级管理内核实例 */
+    this.paramMgr = new MotorParamManager();
     this.render();
   }
 
@@ -531,34 +550,50 @@ export class WorkflowWizard {
       return;
     }
 
-    const rpmForm = Number(this.root.querySelector("#wf-maxrpm")?.value);
-    if (Number.isFinite(rpmForm) && rpmForm >= 100 && rpmForm <= 50000) {
+    // 检查闭环安全门禁
+    const readiness = this.paramMgr.getReadinessReport();
+    if (!readiness.canCloseLoop) {
+      if (this.paramMgr.ppConflict) {
+        this._showPpConflictModal();
+        return;
+      }
+      alert(`无法应用到单片机：存在未解决的安全阻断项：\n- ${readiness.blockers.join("\n- ")}`);
+      return;
+    }
+
+    const mgr = this.paramMgr;
+    const rpmForm = mgr.getEffectiveValue("max_rpm");
+    if (rpmForm && rpmForm >= 100 && rpmForm <= 50000) {
       await this._cli(`motor max_rpm ${Math.round(rpmForm)}`);
       this._syncMaxRpm(rpmForm);
     }
 
-    const ppForm = Number(this.root.querySelector("#wf-pp")?.value);
-    if (Number.isFinite(ppForm) && ppForm >= 1 && ppForm <= 50) {
+    const ppForm = mgr.getEffectiveValue("pp");
+    if (ppForm && ppForm >= 1 && ppForm <= 50) {
       await this._cli(`motor pp ${Math.round(ppForm)}`);
     }
 
-    const rsForm = Number(this.root.querySelector("#wf-rs")?.value);
-    if (Number.isFinite(rsForm) && rsForm > 0.0001 && rsForm <= 100) {
+    const rsForm = mgr.getEffectiveValue("rs");
+    if (rsForm && rsForm > 0.0001 && rsForm <= 100) {
       await this._cli(`motor rs ${rsForm.toFixed(4)}`);
     }
 
-    const lsForm = Number(this.root.querySelector("#wf-ls")?.value);
-    if (Number.isFinite(lsForm) && lsForm > 0.01 && lsForm <= 100000) {
+    const lsForm = mgr.getEffectiveValue("ls");
+    if (lsForm && lsForm > 0.01 && lsForm <= 100000) {
       await this._cli(`motor ls ${lsForm.toFixed(2)}`);
     }
 
-    const fluxForm = Number(this.root.querySelector("#wf-flux")?.value);
-    if (Number.isFinite(fluxForm) && fluxForm > 0.00001 && fluxForm <= 1.0) {
+    const fluxForm = mgr.getEffectiveValue("flux");
+    if (fluxForm && fluxForm > 0.00001 && fluxForm <= 1.0) {
       await this._cli(`motor flux ${fluxForm.toFixed(5)}`);
     }
 
     // 依然触发 ident apply 兼容旧版辨识缓存更新
     await this._cli("ident apply");
+
+    // 更新 manager 内核中的 RAM 状态与 Dirty 标志
+    mgr.markAppliedToMcu();
+    this.render();
     this._toast(t("wf.motor.apply_honest"), "ok");
   }
 
@@ -1140,18 +1175,135 @@ export class WorkflowWizard {
   }
 
   _htmlMotor() {
-    const row = (id, label, unit, step, val, icon) => `
-      <div class="form-row">
-        ${formLbl(id, icon || "gear", label)}
-        <div class="form-row-trail">
-          <div class="num-field">
-            <input type="number" id="${id}" step="${step}" value="${val}" placeholder="${val === "" ? "—" : ""}" />
-            <span class="num-unit">${unit || ""}</span>
+    const isZh = (typeof getLang === "function" ? getLang() : "zh") !== "en";
+    const badgeManual = t("wf.motor.badge_manual") || "✎ 手填";
+    const badgeIdent = t("wf.motor.badge_ident") || "⚡ 辨识";
+    const badgeActive = t("wf.motor.badge_active") || "⟳ 读取";
+    const mgr = this.paramMgr;
+
+    // 顶部就绪报告
+    const readiness = mgr.getReadinessReport();
+    const readyRatio = `${readiness.readyCount}/${readiness.totalCount}`;
+    const closeLoopCap = readiness.canCloseLoop
+      ? `<span class="status-capsule cap-ok">✔ 闭环安全已就绪 (${readyRatio})</span>`
+      : `<span class="status-capsule cap-err" title="${readiness.blockers.join('；')}">⛔ 闭环未就绪 (${readyRatio})</span>`;
+    const flashCap = readiness.flashDirty
+      ? `<span class="status-capsule cap-dirty" title="RAM 参数已修改，尚未写入 Flash 持久化">▲ Flash 未固化</span>`
+      : `<span class="status-capsule cap-clean">● Flash 已同步</span>`;
+
+    // 辅助行渲染函数：外露展示【读取】并提供【三角形 =>】引用到手填，最后为生效应用值
+    const row = (key, step, icon, extraClass = "") => {
+      const p = mgr.get(key);
+      const schema = p.schema;
+      const id = schema.id;
+      const label = schema.name;
+      const unit = schema.unit;
+      const val = p.candidate.value !== null ? (schema.decimals !== null ? Number(p.candidate.value).toFixed(schema.decimals) : p.candidate.value) : "";
+      const diff = p.diff;
+      const isZh = (typeof getLang === "function" ? getLang() : "zh") !== "en";
+
+      // 1. 读取值与格式化 (从 MCU 硬件读取层获取)
+      const readVal = p.active?.value !== null && p.active?.value !== undefined ? p.active.value : null;
+      const readDisplay = readVal !== null
+        ? (schema.decimals !== null ? Number(readVal).toFixed(schema.decimals) : String(readVal))
+        : "—";
+      const hasRead = readVal !== null;
+      const isFixed = !!p.schema.isFixedManual;
+      const canTransfer = hasRead && !isFixed;
+      const readTooltip = hasRead
+        ? (isZh ? `单片机硬件当前运行值: ${readDisplay} ${unit || ""}\n点击亦可一键引用至手填` : `MCU readback: ${readDisplay} ${unit || ""}\nClick to apply to manual`)
+        : (isZh ? `尚未读取硬件数据，点击上方【读取参数】获取` : `No readback yet, click Read Params`);
+      const transferTooltip = canTransfer
+        ? (isZh ? `将单片机读取值 (${readDisplay} ${unit || ""}) 引用至手填应用` : `Apply readback (${readDisplay}) to manual`)
+        : (isZh ? `暂无可引用的硬件读取值` : `No readback available`);
+
+      // 2. 动态判定当前生效应用徽章 (手填 / 辨识 / 读取)
+      let badgeText = null;
+      let badgeClass = "";
+      if (p.candidate.value !== null) {
+        if (p.candidate.source === "identified" || p.candidate.source === "calculated" || p.candidate.source === "measured") {
+          badgeText = badgeIdent;
+          badgeClass = "badge-identified";
+        } else if (p.candidate.source === "active") {
+          badgeText = badgeActive;
+          badgeClass = "badge-active";
+        } else if (p.candidate.source === "manual") {
+          badgeText = badgeManual;
+          badgeClass = "badge-manual";
+        }
+      }
+
+      // 3. 差异/冲突徽章
+      let diffHtml = "";
+      if (diff && diff.status === "warning") {
+        diffHtml = `<span class="diff-badge diff-warn" data-param-key="${key}" title="${diff.message}">⚠ DIFF</span>`;
+      } else if (diff && diff.status === "critical") {
+        diffHtml = `<span class="diff-badge diff-critical" data-param-key="${key}" title="${diff.message}">⛔ 冲突</span>`;
+      }
+
+      const staticClass = isFixed ? " is-static" : "";
+      const cls = (badgeClass ? `ident-badge ${badgeClass}` : "ident-badge") + staticClass;
+      const titleAttr = isFixed ? 'title="固定手填参数 (无需弹窗)"' : 'title="查看参数来源与对比"';
+      const dataStaticAttr = isFixed ? ' data-static="1"' : "";
+      const badgeHtml = badgeText ? `<span class="${cls}" data-param-key="${key}"${dataStaticAttr} ${titleAttr}>${badgeText}</span>` : "";
+
+      const isIdent = p.candidate.source === "identified" || p.candidate.source === "calculated" || p.candidate.source === "measured";
+      const isActive = p.candidate.source === "active";
+      const isLocked = (isIdent || isActive) && !isFixed;
+      const lockTitle = isLocked
+        ? (isIdent
+            ? "⚡ 系统辨识实测真值已锁定保护。点击左侧【⚡ 辨识】徽章，采纳【手填】后即可解锁修改。"
+            : "📥 单片机读取运行值已锁定保护。点击左侧【📥 读取】徽章，采纳【手填】后即可解锁修改。")
+        : "";
+
+      return `
+        <div class="form-row ${isIdent ? "is-ident-row" : (isActive ? "is-active-row" : "")} ${extraClass}">
+          <label class="form-lbl" for="${id}">
+            <span class="lbl-name">${wfIco(icon || "gear", 13)}<span class="lbl-text">${label}</span></span>
+          </label>
+          <div class="param-row-flow">
+            <!-- 1. 读取块 (带图标、读回值与物理单位) -->
+            <div class="param-read-pill ${hasRead ? "has-data" : "no-data"}" ${hasRead ? `data-import-read-key="${key}"` : ""} title="${readTooltip}">
+              <svg class="read-icon" viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="read-tag">${isZh ? "读取" : "Read"}</span>
+              <span class="read-val">${readDisplay}</span>
+              ${hasRead && unit ? `<span class="read-unit">${unit}</span>` : ""}
+            </div>
+
+            <!-- 2. 中间三角形引用按钮 (读取 => 手填) -->
+            <button type="button" class="btn-import-read ${canTransfer ? "" : "is-disabled"}" data-import-read-key="${key}" ${canTransfer ? "" : "disabled"} title="${transferTooltip}">
+              <svg viewBox="0 0 16 16" width="9" height="9" fill="currentColor"><polygon points="5,3 12,8 5,13"/></svg>
+            </button>
+
+            <!-- 3. 应用来源状态徽章 (手填 / 辨识 / DIFF) -->
+            <div class="param-src-meta">
+              ${badgeHtml}
+              ${diffHtml}
+            </div>
+
+            <!-- 4. 最终生效的应用数据输入框 -->
+            <div class="num-field ${isIdent ? "ident-field" : (isActive ? "active-field" : "")} ${isLocked ? "is-locked" : ""}" ${isLocked ? `title="${lockTitle}"` : ""}>
+              <input type="number" id="${id}" data-param-key="${key}" step="${step}" value="${val}" placeholder="${val === "" ? "—" : ""}" ${isLocked ? 'readonly tabindex="-1"' : ""} ${isLocked ? `title="${lockTitle}"` : ""} />
+              <span class="num-unit">${unit || ""}</span>
+            </div>
           </div>
-        </div>
-      </div>`;
+        </div>`;
+    };
+
     return `
       <section class="wf-card">
+        <!-- 辨识完成批量采纳横条 (默认 hidden，辨识完成且有结果时显示) -->
+        <div id="batch-adopt-bar" class="batch-adopt-bar" hidden>
+          <div class="adopt-info">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" style="color:#10b981"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span id="batch-adopt-msg">辨识已完成，测得 3 项参数</span>
+          </div>
+          <div class="adopt-actions">
+            <button class="ok" id="btn-batch-apply-safe" style="padding:4px 12px;font-size:11px;">采纳安全项</button>
+            <button id="btn-batch-discard" style="padding:4px 8px;font-size:11px;background:transparent;border:none;color:var(--text-faint);cursor:pointer;">忽略</button>
+          </div>
+        </div>
+
         <div class="wf-card-head">
           ${sectionHead("motor", t("wf.motor.params"))}
           <div class="wf-card-actions">
@@ -1168,10 +1320,37 @@ export class WorkflowWizard {
               <span>${t("wf.motor.import") || "导入参数"}</span>
             </button>
             <input type="file" id="wf-motor-import-file" accept=".json" style="display:none;" />
-            <button class="danger" id="btn-action-ident" title="${t("ident.full")}">
-              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8.5 1.5l-5 7h4l-1 6 6-8h-4l1.5-5" stroke-linejoin="round"/></svg>
-              <span>${t("ident.full")}</span>
-            </button>
+            <div class="split-btn-group" id="ident-split-group">
+              <button class="danger" id="btn-action-ident" title="执行全套自动参数辨识 (Rs, Ls, Ld, Lq, 极对数, 磁链)">
+                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8.5 1.5l-5 7h4l-1 6 6-8h-4l1.5-5" stroke-linejoin="round"/></svg>
+                <span>${t("ident.full")}</span>
+              </button>
+              <button class="danger split-toggle" id="btn-ident-menu-toggle" title="展开更多辨识模式 (静态阻抗/凸极/极对数/磁链)">
+                <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor"><path d="M4 6l4 4 4-4H4z"/></svg>
+              </button>
+              <div class="split-dropdown-menu" id="ident-dropdown-menu" hidden>
+                <div class="menu-item" data-ident-mode="full">
+                  <div class="item-title">⚡ 全套自动辨识</div>
+                  <div class="item-desc">静止到旋转 · 测定全部电气阻抗、极对数与磁链</div>
+                </div>
+                <div class="menu-item" data-ident-mode="rs">
+                  <div class="item-title">🔒 静态阻抗测量</div>
+                  <div class="item-desc">转子完全锁死不动 · 测定相电阻与相电感 (带载安全)</div>
+                </div>
+                <div class="menu-item" data-ident-mode="ldq">
+                  <div class="item-title">📐 凸极特性测量</div>
+                  <div class="item-desc">转子静止高频注入 · 测定 Ld、Lq 及凸极比</div>
+                </div>
+                <div class="menu-item" data-ident-mode="pp">
+                  <div class="item-title">🔄 极对数测定</div>
+                  <div class="item-desc">开环微转 4 电周期 · 测定转子磁极对数</div>
+                </div>
+                <div class="menu-item" data-ident-mode="flux">
+                  <div class="item-title">🌊 磁链常数测定</div>
+                  <div class="item-desc">开环旋转 300 RPM · 采样反电势测定磁链与 Ke</div>
+                </div>
+              </div>
+            </div>
             <button class="ok" id="btn-action-apply-params" title="${t("wf.motor.apply_honest")}">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>${t("wf.apply")}</span>
@@ -1187,53 +1366,57 @@ export class WorkflowWizard {
           <div class="task-progress-bar"><i></i></div>
           <span class="task-progress-text"></span>
         </div>
-        <!-- 上部分：电机基本规格与铭牌 -->
+        <!-- 左右对偶完全对称布局 (各 6 项) -->
         <div class="form-list-2col">
+          <!-- 左栏：每一行的对偶左项 -->
           <div class="form-list">
             <div class="form-row">
-              ${formLbl("wf-motor-name", "tag", t("wf.motor.name") || "电机型号")}
-              <div class="form-row-trail">
+              <label class="form-lbl" for="wf-motor-name">
+                <span class="lbl-name">${wfIco("tag", 13)}<span class="lbl-text">${t("wf.motor.name") || "电机型号"}</span></span>
+              </label>
+              <div class="param-row-flow">
+                <div class="param-read-pill no-data is-static-pill" title="本地项目型号标签，无下位机寄存器">
+                  <svg class="read-icon" viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" style="opacity:0.35;"><path d="M2 8a6 6 0 1 0 1.5-3.9M2 2.5v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span class="read-tag">${isZh ? "读取" : "Read"}</span>
+                  <span class="read-val" style="color:var(--text-faint);">—</span>
+                </div>
+                <button type="button" class="btn-import-read is-disabled" disabled style="opacity:0.18;cursor:default;">
+                  <svg viewBox="0 0 16 16" width="9" height="9" fill="currentColor"><polygon points="5,3 12,8 5,13"/></svg>
+                </button>
+                <div class="param-src-meta">
+                  <span class="ident-badge badge-manual is-static" data-param-key="motor_name" data-static="1" title="固定手填参数">${badgeManual}</span>
+                </div>
                 <div class="num-field">
-                  <input type="text" id="wf-motor-name" placeholder="${t("wf.motor.name_ph") || "如 DJI_2312S、F40"}" value="DJI_2312S" style="text-align:center;padding:0 8px;" />
+                  <input type="text" id="wf-motor-name" data-param-key="motor_name" placeholder="${t("wf.motor.name_ph") || "如 DJI_2312S、F40"}" value="${mgr.get("motor_name").candidate.value || "DJI_2312S"}" style="text-align:center;padding:0 8px;" />
                 </div>
               </div>
             </div>
-            ${row("wf-v-rated", t("wf.motor.v_rated") || "额定电压", "V", "0.1", "14.8", "battHigh")}
-            ${row("wf-i-rated", t("wf.motor.i_rated") || "额定电流", "A", "0.1", "3.5", "alert")}
+            ${row("v_rated", "0.1", "battHigh")}
+            ${row("pp", "1", "poles")}
+            ${row("rs", "0.0001", "resistor")}
+            ${row("ld", "0.01", "inductor")}
+            ${row("flux", "0.00001", "flux")}
           </div>
+
+          <!-- 右栏：每一行的对偶右项 -->
           <div class="form-list">
-            ${row("wf-kv", t("wf.motor.kv") || "电机 KV 值", "rpm/V", "1", "960", "gauge")}
-            ${row("wf-pp", t("wf.motor.pp") || "极对数", "", "1", "7", "poles")}
-            ${row("wf-maxrpm", t("wf.motor.maxrpm") || "最大转速", "rpm", "1", "8000", "gauge")}
+            ${row("max_rpm", "1", "gauge")}
+            ${row("i_rated", "0.1", "alert")}
+            ${row("kv", "1", "gauge")}
+            ${row("ls", "0.01", "inductor")}
+            ${row("lq", "0.01", "inductor")}
+            ${row("saliency", "0.001", "poles")}
           </div>
         </div>
 
-        <!-- 分割线：阻抗与辨识隔离 -->
-        <div class="wf-param-divider" style="display:flex;align-items:center;gap:12px;margin:16px 0 12px;opacity:0.85;">
-          <span style="flex:1;height:1px;background:var(--border-subtle, rgba(255,255,255,0.12));"></span>
-          <span style="font-size:11px;font-weight:700;letter-spacing:0.5px;color:var(--text-muted, #9aa0a6);text-transform:uppercase;">⚡ ${t("wf.motor.ident_group_title") || "电气阻抗与测量辨识特性"}</span>
-          <span style="flex:1;height:1px;background:var(--border-subtle, rgba(255,255,255,0.12));"></span>
-        </div>
-
-        <!-- 下部分：高阶电气阻抗与辨识 -->
-        <div class="form-list-2col">
-          <div class="form-list">
-            ${row("wf-rs", t("wf.motor.rs") || "相电阻", "Ω", "0.0001", "0.1", "resistor")}
-            ${row("wf-ls", t("wf.motor.ls") || "相电感", "µH", "0.01", "20", "inductor")}
-            ${row("wf-flux", t("wf.motor.flux") || "磁链", "Wb", "0.00001", "", "flux")}
+        <!-- 底部全局状态胶囊指示器 -->
+        <div class="param-top-status param-bottom-status">
+          <div class="param-status-capsules">
+            ${closeLoopCap}
+            ${flashCap}
           </div>
-          <div class="form-list">
-            ${row("wf-ld", t("wf.motor.ld") || "d 轴电感", "µH", "0.01", "", "inductor")}
-            ${row("wf-lq", t("wf.motor.lq") || "q 轴电感", "µH", "0.01", "", "inductor")}
-            <div class="form-row">
-              ${formLbl("wf-saliency", "poles", t("wf.motor.saliency") || "凸极比 (Lq/Ld)")}
-              <div class="form-row-trail">
-                <div class="num-field">
-                  <input type="number" id="wf-saliency" step="0.001" readonly placeholder="—" style="background:var(--bg-subtle, rgba(255,255,255,0.03));cursor:default;" />
-                  <span class="num-unit" id="wf-saliency-unit">${t("wf.motor.saliency_ratio")}</span>
-                </div>
-              </div>
-            </div>
+          <div class="param-status-tip" style="color:var(--text-faint);font-size:11px;">
+            提示：点击【⚡ 辨识】或【⚠ DIFF】可查看多源溯源卡与重测
           </div>
         </div>
       </section>`;
@@ -1325,109 +1508,143 @@ export class WorkflowWizard {
       const m = text.match(re);
       return m ? m[1] : null;
     };
-    const set = (id, v, decimals = null) => {
-      const el = this.root.querySelector(`#${id}`);
-      if (el && v != null && v !== "") {
-        const num = Number(v);
-        if (Number.isFinite(num)) {
-          el.value = decimals != null ? num.toFixed(decimals) : String(num);
-        }
-      }
-    };
     // 基础参数解析
-    set("wf-pp", pick(/pp=([0-9.]+)/i) || pick(/Pole Pairs=([0-9.]+)/i), 0);
-    const rpmM = pick(/max_rpm=([0-9.]+)/i);
-    if (rpmM) this._syncMaxRpm(rpmM);
+    const ppM = pick(/pp=([0-9.]+)/i) || pick(/Pole Pairs=([0-9.]+)/i);
+    const rpmM = pick(/max_rpm=([0-9.]+)/i) || pick(/maxrpm=([0-9.]+)/i);
     const limM = pick(/limit=([0-9.]+)/i);
-    if (limM) this._syncCurrentLimit(limM);
+    const vbusM = pick(/vbus=([0-9.]+)/i);
 
     // conf read: Rs ohm, Ls uH
     const rsConf = pick(/Rs=([0-9.]+)/i);
     const lsConf = pick(/Ls=([0-9.]+)/i);
-    if (rsConf) set("wf-rs", rsConf, 4);
-    if (lsConf) set("wf-ls", lsConf, 2);
 
     // ident show:
-    // "Rs=0.4018 ohm, Ls=320.55 uH"
-    // "Ld=320.55 uH, Lq=320.55 uH"
-    // "Flux=0.00095 Wb, Ke=0.90 V/krpm"
     const rsId = pick(/Rs=([0-9.]+)\s*ohm/i);
     const lsId = pick(/Ls=([0-9.]+)\s*uH/i);
     const ld = pick(/Ld=([0-9.]+)\s*uH/i) || pick(/Ld=([0-9.]+)/i);
     const lq = pick(/Lq=([0-9.]+)\s*uH/i) || pick(/Lq=([0-9.]+)/i);
     const flux = pick(/Flux=([0-9.]+)\s*Wb/i) || pick(/Flux=([0-9.]+)/i) || pick(/flux[^\n=]*=([0-9.]+)/i);
 
-    if (rsId) set("wf-rs", rsId, 4);
-    if (lsId) set("wf-ls", lsId, 2);
-    if (ld) set("wf-ld", ld, 2);
-    if (lq) set("wf-lq", lq, 2);
-    if (flux) set("wf-flux", flux, 5);
+    // 同步到内核中 (覆盖全部物理参数的 active 读取池)
+    this.paramMgr.syncFromMcuRam({
+      pp: ppM ? Number(ppM) : null,
+      max_rpm: rpmM ? Number(rpmM) : null,
+      i_rated: limM ? Number(limM) : null,
+      v_rated: vbusM ? Number(vbusM) : null,
+      rs: rsId ? Number(rsId) : (rsConf ? Number(rsConf) : null),
+      ls: lsId ? Number(lsId) : (lsConf ? Number(lsConf) : null),
+      ld: ld ? Number(ld) : null,
+      lq: lq ? Number(lq) : null,
+      flux: flux ? Number(flux) : null,
+    });
 
-    // 自动反算并回填 KV 值：Kv = 60 / (sqrt(3) * 2 * pi * pp * flux)
-    const curFlux = Number(this.root.querySelector("#wf-flux")?.value);
-    const curPp = Number(this.root.querySelector("#wf-pp")?.value);
-    if (Number.isFinite(curFlux) && curFlux > 0.00001 && Number.isFinite(curPp) && curPp >= 1) {
-      const calcKv = 60.0 / (Math.sqrt(3) * 2 * Math.PI * curPp * curFlux);
-      if (Number.isFinite(calcKv) && calcKv > 10 && calcKv < 20000) {
-        set("wf-kv", Math.round(calcKv));
-      }
-    }
+    if (rpmM) this._syncMaxRpm(rpmM);
+    if (limM) this._syncCurrentLimit(limM);
 
-    // 兜底补齐：若测得综合相电感 Ls，但未测双轴凸极电感时，自动用 Ls 填入 Ld/Lq
-    const curLs = this.root.querySelector("#wf-ls")?.value;
-    const curLd = this.root.querySelector("#wf-ld")?.value;
-    const curLq = this.root.querySelector("#wf-lq")?.value;
-    if (curLs && (!curLd || curLd === "")) set("wf-ld", curLs, 2);
-    if (curLs && (!curLq || curLq === "")) set("wf-lq", curLs, 2);
+    // 重新渲染电机表单与状态胶囊
+    this.render();
 
-    // 计算并更新凸极比 (Lq/Ld)
-    this._updateSaliencyRatio();
+    // 触发读取量专用高亮动画 (只点亮左侧读到有效数据的读取胶囊，绝不误闪右侧辨识/手填徽章与输入框)
+    this.root.querySelectorAll(".param-read-pill.has-data").forEach((pill) => {
+      pill.classList.remove("read-bloom");
+      void pill.offsetWidth;
+      pill.classList.add("read-bloom");
+      setTimeout(() => pill.classList.remove("read-bloom"), 1400);
+    });
 
     if (badge) badge.textContent = t("wf.motor.from_device");
     if (!silent) this._toast(t("wf.motor.read_done"), "ok");
   }
 
   /**
-   * 触发一键电机参数辨识：
-   * 1. 自动下发 ident full
-   * 2. 按钮进入 loading 进度状态
-   * 3. 实时/轮询捕获完成回显并自动回填 Rs/Ls/Flux 表单
+   * 触发电机参数辨识任务：
+   * @param {"full"|"rs"|"ldq"|"pp"|"flux"} mode 辨识模式
    */
-  async _runMotorIdent() {
+  async _runMotorIdent(mode = "full") {
     const btn = this.root.querySelector("#btn-action-ident");
     if (!btn) return;
 
-    if (!confirm(t("wf.confirm.ident"))) {
+    const modeConfigs = {
+      full: { cmd: "ident full", name: "全套参数辨识", tip: "电机将从静止到平稳旋转，自动测定阻抗、极对数与磁链。\n【请确保电机未卡死且空载自由旋转】", time: 8500, timeout: 14000 },
+      rs:   { cmd: "ident rs",   name: "静态阻抗测量", tip: "电机转子将保持静止锁死不动，安全测定相电阻与相电感。\n【带载/机械受限场景安全推荐】", time: 3000, timeout: 6000 },
+      ldq:  { cmd: "ident ldq",  name: "凸极特性测量", tip: "电机转子将保持静止，高频注入测定 Ld、Lq 与凸极比。\n【转子保持静止】", time: 4000, timeout: 7000 },
+      pp:   { cmd: "ident pp",   name: "极对数测定", tip: "电机转子将开环低速旋转 4 个电周期测定极对数。\n【请确保电机可以微转】", time: 3000, timeout: 6000 },
+      flux: { cmd: "ident flux", name: "磁链常数测定", tip: "电机转子将平稳加速至 300 RPM 测定反电动势与磁链。\n【请确保电机空载自由旋转】", time: 4000, timeout: 7000 },
+    };
+
+    const cfg = modeConfigs[mode] || modeConfigs.full;
+
+    if (!confirm(`确定执行【${cfg.name}】吗？\n\n${cfg.tip}`)) {
       return;
     }
 
     btn.disabled = true;
     btn.classList.add("loading");
     const origHtml = btn.innerHTML;
-    btn.innerHTML = `<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;"></span><span>${t("ident.busy")}</span>`;
-    const prog = this._startTaskProgress(t("wf.task.ident"), 8500);
+    btn.innerHTML = `<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;"></span><span>${cfg.name}...</span>`;
+    const prog = this._startTaskProgress(cfg.name, cfg.time);
+
+    // 触发具备自辨识属性字段的微光扫描波浪动效
+    const identEls = this.root.querySelectorAll(".ident-field, .is-ident-row");
+    identEls.forEach((el) => el.classList.add("is-identifying"));
 
     try {
+      this.paramMgr.startIdentSession(mode);
       if (this.sendCapture) {
-        // 下发 ident full，单片机测量 Rs/Ls 约 2s，拖动测磁链约 4~5s，整过程约 7~8 秒
-        const res = await this.sendCapture("ident full", 12000);
+        const res = await this.sendCapture(cfg.cmd, cfg.timeout);
         if (res.includes("ident FAIL") || res.includes("err:")) {
           prog.fail(t("wf.ident.fail") || "辨识未通过，请检查接线或母线供电");
+          this.paramMgr.discardIdentSession();
         } else {
-          // 辨识完成后立刻查询 ident show 提取最新精准结果
-          await this._readMotorParams({ silent: true });
-          prog.done(t("wf.ident.done"));
+          // 查询 ident show 解析最新实测值注入 Session
+          const showTxt = await this.sendCapture("ident show", 500);
+          const pickVal = (re) => {
+            const m = showTxt.match(re);
+            return m ? Number(m[1]) : null;
+          };
+          const rs = pickVal(/Rs=([0-9.]+)\s*ohm/i);
+          const ls = pickVal(/Ls=([0-9.]+)\s*uH/i);
+          const ld = pickVal(/Ld=([0-9.]+)\s*uH/i);
+          const lq = pickVal(/Lq=([0-9.]+)\s*uH/i);
+          const pp = pickVal(/Pole\s*Pairs=([0-9.]+)/i);
+          const flux = pickVal(/Flux=([0-9.]+)\s*Wb/i);
+
+          this.paramMgr.feedIdentResult({ rs, ls, ld, lq, pp, flux });
+          prog.done(`${cfg.name}已完成`);
+          this._showBatchAdoptBar();
+          this.render();
+
+          // 辨识完成后，触发对应辨识项的青绿光晕动画 (明确辨识产出)
+          ["wf-rs", "wf-ls", "wf-ld", "wf-lq", "wf-pp", "wf-flux", "wf-kv", "wf-saliency"].forEach((id) => {
+            const row = this.root.querySelector(`#${id}`)?.closest(".form-row");
+            const badge = row?.querySelector(".ident-badge");
+            const field = row?.querySelector(".num-field");
+            if (badge) {
+              badge.classList.remove("ident-bloom");
+              void badge.offsetWidth;
+              badge.classList.add("ident-bloom");
+              setTimeout(() => badge.classList.remove("ident-bloom"), 1500);
+            }
+            if (field) {
+              field.classList.remove("ident-bloom");
+              void field.offsetWidth;
+              field.classList.add("ident-bloom");
+              setTimeout(() => field.classList.remove("ident-bloom"), 1500);
+            }
+          });
         }
       } else {
-        await this._cli("ident full");
+        await this._cli(cfg.cmd);
         setTimeout(async () => {
           await this._readMotorParams({ silent: true });
-          prog.done(t("wf.ident.done2"));
-        }, 8500);
+          prog.done(`${cfg.name}已完成`);
+        }, cfg.time);
       }
     } catch (e) {
-      prog.fail(t("wf.ident.fail"));
+      this.paramMgr.discardIdentSession();
+      prog.fail(t("wf.ident.fail") || "辨识超时或通信中断");
     } finally {
+      identEls.forEach((el) => el.classList.remove("is-identifying"));
       if (this.sendCapture) {
         btn.disabled = false;
         btn.classList.remove("loading");
@@ -1437,7 +1654,7 @@ export class WorkflowWizard {
           btn.disabled = false;
           btn.classList.remove("loading");
           btn.innerHTML = origHtml;
-        }, 8500);
+        }, cfg.time);
       }
     }
   }
@@ -1934,6 +2151,10 @@ export class WorkflowWizard {
           if (!confirm(msg)) return;
         }
         Promise.resolve(this._cli(cmd)).then(() => {
+          if (cmd === "conf write") {
+            this.paramMgr.markPersistedToFlash();
+            this.render();
+          }
           if (toastKey) this._toast(t(toastKey), "ok");
         }).catch(() => {
           if (toastKey) this._toast(t("wf.task.fail"), "err");
@@ -1973,8 +2194,36 @@ export class WorkflowWizard {
         this._toast(t("sys.need_connect"), "err");
         return;
       }
-      this._runMotorIdent();
+      this._runMotorIdent("full");
     });
+
+    // 辨识下拉菜单切换与各项触发
+    const identMenuToggle = this.root.querySelector("#btn-ident-menu-toggle");
+    const identMenu = this.root.querySelector("#ident-dropdown-menu");
+    if (identMenuToggle && identMenu) {
+      identMenuToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        identMenu.hidden = !identMenu.hidden;
+      });
+      identMenu.querySelectorAll(".menu-item").forEach((item) => {
+        item.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const mode = item.getAttribute("data-ident-mode");
+          identMenu.hidden = true;
+          if (!this.isConnected()) {
+            this._toast(t("sys.need_connect"), "err");
+            return;
+          }
+          this._runMotorIdent(mode);
+        });
+      });
+      const closeIdentMenu = (e) => {
+        if (!identMenu.contains(e.target) && e.target !== identMenuToggle) {
+          identMenu.hidden = true;
+        }
+      };
+      document.addEventListener("click", closeIdentMenu);
+    }
     this.root.querySelector("#btn-action-calib")?.addEventListener("click", () => {
       if (!this.isConnected()) {
         this._toast(t("sys.need_connect"), "err");
@@ -1993,45 +2242,112 @@ export class WorkflowWizard {
       this._wireEncoder();
     }
 
-    // 监听 Ld / Lq 输入变化动态更新凸极比
-    ["wf-ld", "wf-lq", "wf-ls"].forEach((id) => {
-      this.root.querySelector(`#${id}`)?.addEventListener("input", () => this._updateSaliencyRatio());
+    // 监听电机表单所有参数输入变化，驱动内核与单向推导
+    const motorInputs = this.root.querySelectorAll("[data-param-key]");
+    motorInputs.forEach((input) => {
+      const key = input.getAttribute("data-param-key");
+      input.addEventListener("input", (e) => {
+        const val = e.target.value;
+        this.paramMgr.setUserInput(key, val);
+
+        // 如果用户编辑的是极对数或 KV，刷新推导出的磁链或 KV
+        const derivedFlux = this.paramMgr.get("flux").candidate.value;
+        const derivedKv = this.paramMgr.get("kv").candidate.value;
+        const fluxInput = this.root.querySelector("#wf-flux");
+        const kvInput = this.root.querySelector("#wf-kv");
+        const salInput = this.root.querySelector("#wf-saliency");
+
+        if (fluxInput && document.activeElement !== fluxInput && derivedFlux !== null) {
+          fluxInput.value = Number(derivedFlux).toFixed(5);
+        }
+        if (kvInput && document.activeElement !== kvInput && derivedKv !== null) {
+          kvInput.value = String(Math.round(derivedKv));
+        }
+        if (salInput) {
+          const salVal = this.paramMgr.get("saliency").candidate.value;
+          salInput.value = salVal !== null ? Number(salVal).toFixed(3) : "";
+        }
+
+        // 同步最大转速与电流软限
+        if (key === "max_rpm" && val) this._syncMaxRpm(Number(val));
+      });
     });
 
-    // 监听 KV 与磁链 Flux 双向联动计算
-    const ppEl = this.root.querySelector("#wf-pp");
-    const kvEl = this.root.querySelector("#wf-kv");
-    const fluxEl = this.root.querySelector("#wf-flux");
-
-    const calcFluxFromKv = () => {
-      const pp = Number(ppEl?.value) || 7;
-      const kv = Number(kvEl?.value);
-      if (Number.isFinite(kv) && kv >= 10 && pp >= 1) {
-        const flux = 60.0 / (Math.sqrt(3) * 2 * Math.PI * pp * kv);
-        if (fluxEl && document.activeElement === kvEl) {
-          fluxEl.value = flux.toFixed(5);
+    // 监听单行“读取数据引用到手填”三角形按钮与读取胶囊
+    this.root.querySelectorAll("[data-import-read-key]").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        if (el.tagName === "BUTTON" && el.disabled) return;
+        e.stopPropagation();
+        const key = el.getAttribute("data-import-read-key");
+        const p = this.paramMgr.get(key);
+        if (p && p.active?.value !== null && p.active?.value !== undefined) {
+          const readVal = p.active.value;
+          this.paramMgr.setUserInput(key, readVal);
+          this.paramMgr.selectSourceForCandidate(key, "manual");
+          this.render();
+          const input = this.root.querySelector(`input[data-param-key="${key}"]`);
+          if (input) {
+            input.focus();
+            input.select();
+            input.classList.add("input-flash-success");
+            setTimeout(() => input.classList.remove("input-flash-success"), 1000);
+          }
+          const isZh = (typeof getLang === "function" ? getLang() : "zh") !== "en";
+          const schemaName = p.schema?.name || key;
+          this._toast(
+            isZh ? `已将【${schemaName}】读取值 (${readVal}) 引用至手填` : `Applied readback ${readVal} to manual`,
+            "ok"
+          );
         }
-      }
-    };
+      });
+    });
 
-    const calcKvFromFlux = () => {
-      const pp = Number(ppEl?.value) || 7;
-      const flux = Number(fluxEl?.value);
-      if (Number.isFinite(flux) && flux > 0.00001 && pp >= 1) {
-        const kv = 60.0 / (Math.sqrt(3) * 2 * Math.PI * pp * flux);
-        if (kvEl && document.activeElement === fluxEl) {
-          kvEl.value = String(Math.round(kv));
+    // 监听点击参数标签徽章或分歧徽章，弹出溯源 Popover 卡片 (固定手填项静默不弹窗)
+    this.root.querySelectorAll(".ident-badge, .diff-badge").forEach((badge) => {
+      if (badge.hasAttribute("data-static")) return; // 固定手填项不注册点击事件
+      badge.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const paramKey = badge.getAttribute("data-param-key");
+        if (paramKey) {
+          this._showProvenancePopover(badge, paramKey);
         }
-      }
-    };
+      });
+    });
 
-    kvEl?.addEventListener("input", calcFluxFromKv);
-    fluxEl?.addEventListener("input", calcKvFromFlux);
-    ppEl?.addEventListener("input", () => {
-      if (document.activeElement === ppEl) {
-        calcFluxFromKv();
+    // 监听点击被锁定的辨识数值框：引导用户在溯源卡中采纳手填
+    this.root.querySelectorAll(".num-field.is-locked").forEach((lockedField) => {
+      lockedField.addEventListener("click", (e) => {
+        const input = lockedField.querySelector("input[data-param-key]");
+        const paramKey = input?.getAttribute("data-param-key");
+        const badge = this.root.querySelector(`.ident-badge[data-param-key="${paramKey}"]`);
+        if (badge && paramKey) {
+          e.stopPropagation();
+          this._showProvenancePopover(badge, paramKey);
+          this._toast(`⚡ 系统辨识实测值已锁定保护，点击卡片中的【采纳】手填后即可解锁修改`, "info");
+        }
+      });
+    });
+
+    // 监听批量采纳横条按钮
+    this.root.querySelector("#btn-batch-apply-safe")?.addEventListener("click", () => {
+      const res = this.paramMgr.applyIdentSession(true);
+      this.render();
+      if (res.skippedKeys.length > 0) {
+        this._toast(`已采纳 ${res.appliedCount} 项安全参数，已跳过冲突项: ${res.skippedKeys.join(", ")}`, "warn");
+      } else {
+        this._toast(`已成功批量采纳 ${res.appliedCount} 项辨识参数！`, "ok");
       }
     });
+
+    this.root.querySelector("#btn-batch-discard")?.addEventListener("click", () => {
+      this.paramMgr.discardIdentSession();
+      const bar = this.root.querySelector("#batch-adopt-bar");
+      if (bar) bar.hidden = true;
+    });
+
+    if (this.paramMgr?.activeSession && Object.keys(this.paramMgr.activeSession.results || {}).length > 0) {
+      this._showBatchAdoptBar();
+    }
 
     // 监听电流软限输入变化，实时联动计算过流跳闸 trip = clamp(limit * 1.25 + 0.1, limit, hard_limit)
     const limitInput = this.root.querySelector("#wf-limit");
@@ -2146,8 +2462,10 @@ export class WorkflowWizard {
         if (!confirm(msg)) return;
       }
       await this._cli("conf write");
+      this.paramMgr.markPersistedToFlash();
       // 固化后更新基准并触发同步动画
       this._markPidClean();
+      this.render();
     });
 
     // 监听调参输入脏状态（切页重绘后以当前表单重建基准，避免误报）
@@ -2360,6 +2678,210 @@ export class WorkflowWizard {
     };
     reader.readAsText(file);
   }
+
+  /** 显示辨识完成批量采纳横条 */
+  _showBatchAdoptBar() {
+    const bar = this.root.querySelector("#batch-adopt-bar");
+    const msg = this.root.querySelector("#batch-adopt-msg");
+    const sess = this.paramMgr.activeSession;
+    if (!bar || !sess || !sess.results) return;
+
+    const count = Object.keys(sess.results).length;
+    if (this.paramMgr.ppConflict) {
+      bar.classList.add("has-conflict");
+      if (msg) msg.textContent = `⚠ 辨识完成 (${count}项)：检测到极对数冲突！采纳将保护跳过该项。`;
+    } else {
+      bar.classList.remove("has-conflict");
+      if (msg) msg.textContent = `✔ 辨识已完成，测得 ${count} 项高阶电机参数。`;
+    }
+    bar.hidden = false;
+  }
+
+  /** 显示 Popover 参数溯源卡 (仅呈现真实来源纯文本展示、采纳切换与三源对比，窗口内不提供输入框) */
+  _showProvenancePopover(targetEl, paramKey) {
+    // 先清理已存在的 Popover
+    document.querySelectorAll(".provenance-popover").forEach((p) => p.remove());
+
+    const p = this.paramMgr.get(paramKey);
+    if (!p || p.schema?.isFixedManual) return; // 固定手填参数严格禁止弹窗
+    const schema = p.schema;
+
+    const popover = document.createElement("div");
+    popover.className = "provenance-popover";
+
+    const isZh = (typeof getLang === "function" ? getLang() : "zh") !== "en";
+    const lblManual = isZh ? "✎ 手填" : "✎ Manual";
+    const lblIdent = isZh ? "⚡ 辨识" : "⚡ Identified";
+    const lblRead = isZh ? "📥 读取" : "📥 Read";
+    const txtInUse = isZh ? "✔ 使用中" : "✔ In use";
+    const btnAdopt = isZh ? "采纳" : "Adopt";
+    const txtUnmeasured = isZh ? "未测定" : "Not yet";
+    const txtUnread = isZh ? "未读取" : "No data";
+
+    const fmt = (v) => (v !== null && v !== undefined ? (schema.decimals !== null ? Number(v).toFixed(schema.decimals) : v) : "—");
+    const curSrc = p.candidate.source; // 当前正在生效的来源
+
+    const hasManual = schema.sources?.includes("manual");
+    const hasIdent = schema.sources?.includes("identified");
+    const hasRead = schema.sources?.includes("active");
+
+    let rowsHtml = "";
+
+    // 1. 手填来源行 (纯文本数值展示，点击采纳后在主界面修改)
+    if (hasManual) {
+      const manualVal = p.sources.manual !== null && p.sources.manual !== undefined ? p.sources.manual : (curSrc === "manual" ? p.candidate.value : null);
+      const isManualInUse = curSrc === "manual";
+      const manualAct = isManualInUse
+        ? `<span class="source-in-use">${txtInUse}</span>`
+        : `<button class="btn-adopt" data-adopt-src="manual">${btnAdopt}</button>`;
+
+      rowsHtml += `
+        <tr class="${isManualInUse ? "is-active-row" : ""}">
+          <td class="source-name">${lblManual}</td>
+          <td class="source-val">
+            <span class="source-val-text">${manualVal !== null ? `${fmt(manualVal)} ${schema.unit || ""}` : `<span style="color:var(--text-faint);">—</span>`}</span>
+          </td>
+          <td class="source-act">${manualAct}</td>
+        </tr>`;
+    }
+
+    // 2. 系统辨识行 (硬件算法实测真值，只读保护)
+    if (hasIdent) {
+      const identVal = p.sources.identified;
+      const isIdentInUse = curSrc === "identified" || curSrc === "calculated";
+      let identAct = "";
+      if (isIdentInUse) {
+        identAct = `<span class="source-in-use">${txtInUse}</span>`;
+      } else if (identVal !== null && identVal !== undefined) {
+        identAct = `<button class="btn-adopt" data-adopt-src="identified">${btnAdopt}</button>`;
+      } else {
+        identAct = `<span style="color:var(--text-faint);font-size:10px;">${txtUnmeasured}</span>`;
+      }
+
+      rowsHtml += `
+        <tr class="${isIdentInUse ? "is-active-row" : ""}">
+          <td class="source-name">${lblIdent}</td>
+          <td class="source-val">
+            <span class="source-val-text">${identVal !== null ? `${fmt(identVal)} ${schema.unit || ""}` : `<span style="color:var(--text-faint);">—</span>`}</span>
+          </td>
+          <td class="source-act">${identAct}</td>
+        </tr>`;
+    }
+
+    popover.innerHTML = `
+      <div class="popover-header">
+        <div class="popover-title">
+          <span>${schema.name}</span>
+        </div>
+        <button class="popover-close">&times;</button>
+      </div>
+      <table class="popover-table">
+        <tbody>${rowsHtml}</tbody>
+      </table>`;
+
+    document.body.appendChild(popover);
+
+    // 计算精确定位 (浮动在 targetEl 右下方或左侧，紧凑 260px 宽度)
+    const rect = targetEl.getBoundingClientRect();
+    let top = rect.bottom + window.scrollY + 6;
+    let left = rect.left + window.scrollX - 10;
+    if (left + 270 > window.innerWidth) {
+      left = window.innerWidth - 280;
+    }
+    popover.style.top = `${top}px`;
+    popover.style.left = `${left}px`;
+
+    // 单项采纳按钮：采纳手填后自动解锁主界面输入框并聚集，采纳辨识或读取后锁定保护
+    popover.querySelectorAll("[data-adopt-src]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const src = btn.getAttribute("data-adopt-src");
+        this.paramMgr.selectSourceForCandidate(paramKey, src);
+        this.render();
+        popover.remove();
+        if (src === "manual") {
+          // 采纳手填后，主界面输入框解锁，自动聚焦便于直接在主界面输入修改
+          const mainInput = this.root.querySelector(`input[data-param-key="${paramKey}"]`);
+          if (mainInput) {
+            mainInput.focus();
+            mainInput.select();
+          }
+          this._toast(isZh ? `已采纳【手填】，右侧输入框已解锁，可直接修改数值` : `Adopted Manual, input unlocked`, "ok");
+        } else if (src === "identified") {
+          this._toast(isZh ? `已采纳【系统辨识】，右侧输入框已锁定保护不可修改` : `Adopted Identified, value locked`, "ok");
+        } else if (src === "active") {
+          this._toast(isZh ? `已采纳【单片机读取】，右侧输入框已锁定保护不可修改` : `Adopted MCU Read, value locked`, "ok");
+        }
+      });
+    });
+
+    popover.querySelector(".popover-close")?.addEventListener("click", () => popover.remove());
+
+    // 点击外部自动关闭 Popover
+    const outsideClick = (evt) => {
+      if (!popover.contains(evt.target) && evt.target !== targetEl) {
+        popover.remove();
+        document.removeEventListener("click", outsideClick);
+      }
+    };
+    setTimeout(() => document.addEventListener("click", outsideClick), 50);
+  }
+
+  /** 弹出极对数两级确认人工裁决模态框 */
+  _showPpConflictModal() {
+    document.querySelectorAll(".pp-modal-overlay").forEach((el) => el.remove());
+
+    const modal = document.createElement("div");
+    modal.className = "pp-modal-overlay";
+
+    const pp = this.paramMgr.get("pp");
+    const manualVal = pp.sources.manual;
+    const identVal = pp.sources.identified;
+
+    modal.innerHTML = `
+      <div class="pp-modal-content">
+        <div class="pp-modal-title">
+          <svg viewBox="0 0 16 16" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 2.2L1.9 13.2h12.2L8 2.2z"/><path d="M8 6.2v3.1M8 11.3h.01"/></svg>
+          <span>极对数存在严重冲突 (安全阻断)</span>
+        </div>
+        <div class="pp-modal-body">
+          系统检测到手册标称极对数与单片机实测辨识值严重不一致！极对数差 1 将导致换相电角度全盘错误并引发过流失控。系统已硬阻断闭环，请由工程师裁决最终采纳值：
+        </div>
+        <div class="pp-modal-options">
+          <div class="pp-option-card selected" data-pp-choice="manual">
+            <div style="font-size:11px;color:var(--text-dim);">采纳手册标称</div>
+            <div class="pp-option-val">${manualVal || "7"}</div>
+          </div>
+          <div class="pp-option-card" data-pp-choice="identified">
+            <div style="font-size:11px;color:var(--text-dim);">采纳实测辨识</div>
+            <div class="pp-option-val">${identVal || "8"}</div>
+          </div>
+        </div>
+        <div class="pp-modal-footer">
+          <button id="btn-cancel-pp-modal" style="padding:6px 14px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-dim);cursor:pointer;">暂不确认</button>
+          <button class="ok" id="btn-confirm-pp-modal" style="padding:6px 16px;border-radius:6px;">确认裁决并解除门禁</button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(modal);
+
+    let currentChoice = "manual";
+    modal.querySelectorAll(".pp-option-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        modal.querySelectorAll(".pp-option-card").forEach((c) => c.classList.remove("selected"));
+        card.classList.add("selected");
+        currentChoice = card.getAttribute("data-pp-choice");
+      });
+    });
+
+    modal.querySelector("#btn-cancel-pp-modal")?.addEventListener("click", () => modal.remove());
+    modal.querySelector("#btn-confirm-pp-modal")?.addEventListener("click", () => {
+      this.paramMgr.confirmPpChoice(currentChoice);
+      modal.remove();
+      this.render();
+      this._toast(`已确认采纳极对数: ${this.paramMgr.get("pp").candidate.value}，闭环门禁已放行`, "ok");
+    });
+  }
 }
 
 export { STEPS as WORKFLOW_STEPS };
+

@@ -305,7 +305,7 @@ console.log("\n[9. 板载温度传感器解析与过温保护 (OVERTEMP) 测试]
   const d = decodeFault(13);
   assert.strictEqual(d.motorName, "OVERTEMP");
   assert.strictEqual(d.ok, false);
-  assert.strictEqual(faultText(13), "OVERTEMP (13)");
+  assert.strictEqual(faultText(13), "13 OVERTEMP (过温)");
 
   // 2. CLI temp 输出正则解析验证
   const mockTempText = "temp=36.9C (raw=1729 R=6432ohm OK) ot=85.0C\r\n";

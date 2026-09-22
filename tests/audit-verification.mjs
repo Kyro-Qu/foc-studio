@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 
 // Node 最小 DOM Stub
 const makeElement = () => {
+  const nodes = new Map();
   const el = {
     className: "",
     textContent: "",
@@ -17,7 +18,10 @@ const makeElement = () => {
     getAttribute: () => null,
     classList: { toggle: () => {}, add: () => {}, remove: () => {} },
     appendChild: () => {},
-    querySelector: () => makeElement(),
+    querySelector: (sel) => {
+      if (!nodes.has(sel)) nodes.set(sel, makeElement());
+      return nodes.get(sel);
+    },
     querySelectorAll: () => [],
     addEventListener: () => {},
     getContext: () => ({
@@ -45,6 +49,7 @@ if (typeof globalThis.document === "undefined") {
     createElement: () => makeElement(),
     querySelector: () => makeElement(),
     querySelectorAll: () => [],
+    getElementById: () => null,
   };
 }
 
@@ -56,6 +61,8 @@ import { Dashboard } from "../js/ui/dashboard.js";
 import { SessionRecorder } from "../js/data/recorder.js";
 import { TriggerEngine, TriggerMode } from "../js/ui/trigger.js";
 import { DEFAULT_CHANNELS, CHANNEL_COUNT } from "../js/channels.js";
+import { t } from "../js/i18n.js";
+import { faultTextUi } from "../js/ui/fault.js";
 
 let passed = 0;
 let failed = 0;
@@ -125,19 +132,21 @@ console.log("\n[2. Dashboard 故障显示与状态解耦 (针对缺陷 3)]");
     iqEst: 0.0
   });
 
-  const faultEl = root.querySelector('[data-strip="fault"]');
-  check("Status update sets fault string correctly", faultEl.textContent === "FAULT M:12 S:0");
+  const faultEl = (dash.strip || root).querySelector('[data-strip="fault"]');
+  const expectedFaultStr = `${t("dash.fault")} ${faultTextUi(1200)}`;
+  const expectedStaleStr = `${t("dash.fault")} —`;
+  check("Status update sets fault string correctly", faultEl.textContent === expectedFaultStr);
 
   // 执行 5 次 refresh()（模拟波形关闭或波形未包含旧通道时的定时刷新）
   for (let i = 0; i < 5; i++) {
     dash.refresh();
   }
-  check("Refresh DOES NOT overwrite active fault with OK", faultEl.textContent === "FAULT M:12 S:0");
+  check("Refresh DOES NOT overwrite active fault with OK", faultEl.textContent === expectedFaultStr);
 
   // 模拟超时 (超过 3.5s 未收到 STATUS)
   dash._lastStatusTime = (typeof performance !== "undefined" && performance.now) ? performance.now() - 4000 : Date.now() - 4000;
   dash.refresh();
-  check("Stale status (timeout) shows dash instead of OK", faultEl.textContent === "FAULT —");
+  check("Stale status (timeout) shows dash instead of OK", faultEl.textContent === expectedStaleStr);
 }
 
 console.log("\n[3. 稀疏通道展开与录制、触发对齐 (针对缺陷 4)]");
